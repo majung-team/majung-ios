@@ -1,0 +1,160 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* MajungApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* MajungApp.swift */; };
+		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* ContentView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000000000000000000003 /* MajungApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungApp.swift; sourceTree = "<group>"; };
+		A10000000000000000000004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A10000000000000000000005 /* Majung.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Majung.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000006 = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000007 /* Majung */,
+				A10000000000000000000008 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000007 /* Majung */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000003 /* MajungApp.swift */,
+				A10000000000000000000004 /* ContentView.swift */,
+			);
+			path = Majung;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000008 /* Products */ = {
+			isa = PBXGroup;
+			children = (A10000000000000000000005 /* Majung.app */,);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000009 /* Majung */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1000000000000000000000C /* Target configurations */;
+			buildPhases = (A1000000000000000000000A /* Sources */,);
+			buildRules = ();
+			dependencies = ();
+			name = Majung;
+			productName = Majung;
+			productReference = A10000000000000000000005 /* Majung.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1000000000000000000000A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* MajungApp.swift in Sources */,
+				A10000000000000000000002 /* ContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXProject section */
+		A1000000000000000000000B /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1000000000000000000000D /* Project configurations */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = ko;
+			knownRegions = (ko, en, Base);
+			mainGroup = A10000000000000000000006;
+			productRefGroup = A10000000000000000000008 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (A10000000000000000000009 /* Majung */,);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		A1000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ENABLE_TESTABILITY = YES;
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A1000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		A10000000000000000000010 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "마중";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.majung.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A10000000000000000000011 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "마중";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.majung.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1000000000000000000000C /* Target configurations */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (A10000000000000000000010 /* Debug */, A10000000000000000000011 /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1000000000000000000000D /* Project configurations */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (A1000000000000000000000E /* Debug */, A1000000000000000000000F /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A1000000000000000000000B /* Project object */;
+}

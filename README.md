@@ -6,4 +6,4 @@
 
 현재는 부트캠프 발표를 준비하며 SwiftUI로 개발 중입니다. 화면 설계와 개발 범위는 [마중 iOS 기획 문서](https://app.notion.com/p/iOS-3-4146da9ae26a81f8b525ece0ed1c1962)에서 확인할 수 있습니다.
 
-[팀 작업 규칙](CONTRIBUTING.md) · [마중 전체 프로젝트](https://github.com/majung-team/majung)
+[개발 규칙](CONTRIBUTING.md) · [마중 전체 프로젝트](https://github.com/majung-team/majung)

@@ -3,5 +3,6 @@
 - 작업 전에 `CONTRIBUTING.md`를 읽는다.
 - 기능 추가와 오류 수정은 이슈를 확인하고 브랜치와 PR로 진행한다.
 - Swift 타입은 UpperCamelCase, 변수와 함수는 lowerCamelCase를 사용한다.
+- PR은 변경 내용과 GitHub Actions 결과를 직접 확인한 뒤 squash merge한다.
 - 앱 동작을 바꾼 경우 시뮬레이터에서 확인하고 실제 확인한 범위를 PR에 적는다.
 - 인증 토큰, 초대 링크 원문, 실제 위치, 개인정보, 서명 파일을 커밋하지 않는다.

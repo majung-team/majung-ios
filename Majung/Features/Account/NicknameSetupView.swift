@@ -38,6 +38,15 @@ struct NicknameSetupView: View {
                     TextField("닉네임 (2~20자)", text: $draft)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .submitLabel(.done)
+                        .onSubmit {
+                            if isValid && !account.busy {
+                                Task { _ = await account.saveNickname(draft) }
+                            }
+                        }
+                        .onChange(of: draft) { _, _ in
+                            if account.error != nil { account.error = nil }
+                        }
                         .padding(12)
                         .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
                         .accessibilityIdentifier("nickname-setup-field")

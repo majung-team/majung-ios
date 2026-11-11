@@ -20,19 +20,27 @@ struct LoginEntryView: View {
             .padding(20)
         }
         .background(Color(.systemGroupedBackground))
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("마중")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: "location.circle.fill")
-                .font(.largeTitle)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-            Text("기다림 없는 만남,\n마중으로 연결해요")
+        VStack(alignment: .leading, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.accentColor)
+                    .frame(width: 48, height: 48)
+                Image(systemName: "location.fill")
+                    .font(.title3.bold())
+                    .foregroundStyle(.white)
+            }
+            .accessibilityHidden(true)
+
+            (Text("기다림 없는 만남,\n") + Text("마중").foregroundStyle(.tint) + Text("으로 연결해요"))
                 .font(.title.bold())
                 .accessibilityAddTraits(.isHeader)
+
             Text("차량의 도착 예정 시간과 만날 약속 장소를 한 화면에서 함께 확인해요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -81,12 +89,18 @@ struct LoginEntryView: View {
 
     private var guestInviteCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("로그인 없이 바로 열기")
-                .font(.caption.bold())
-                .foregroundStyle(.green)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(.green.opacity(0.14), in: Capsule())
+            HStack {
+                Text("로그인 없이 바로 열기")
+                    .font(.caption.bold())
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.green.opacity(0.14), in: Capsule())
+                Spacer()
+                Text("게스트 세션 지원")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.green)
+            }
 
             Text("전달받은 마중 초대 링크가 있나요?")
                 .font(.headline)
@@ -94,12 +108,31 @@ struct LoginEntryView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 
-            TextField("마중 초대 링크", text: $inviteLink, axis: .vertical)
-                .textContentType(.URL)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .padding(12)
-                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            HStack(spacing: 8) {
+                TextField("마중 초대 링크", text: $inviteLink)
+                    .textContentType(.URL)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .submitLabel(.go)
+                    .onSubmit {
+                        if !inviteLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !pickup.busy {
+                            Task { await pickup.openLink(inviteLink) }
+                        }
+                    }
+
+                if !inviteLink.isEmpty {
+                    Button {
+                        inviteLink = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("초대 링크 지우기")
+                }
+            }
+            .padding(12)
+            .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
 
             HStack(spacing: 10) {
                 PasteButton(payloadType: String.self) { values in

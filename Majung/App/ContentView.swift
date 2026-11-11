@@ -37,9 +37,17 @@ struct ContentView: View {
                     case .invitation:
                         invitation
                     case .pickup:
-                        PickupView(tracker: pickupModel.tracker, resetLabel: "처음으로") {
-                            pickupModel.reset()
-                        }
+                        PickupView(
+                            tracker: pickupModel.tracker,
+                            resetLabel: "처음으로",
+                            onReset: {
+                                pickupModel.reset()
+                            },
+                            onLeaveWaiting: {
+                                link = ""
+                                pickupModel.leaveWaiting()
+                            }
+                        )
                     case .entry:
                         EmptyView()
                     }
@@ -183,34 +191,71 @@ struct ContentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let place = pickupModel.placeLabel, !pickupModel.linkUnavailable {
-                    Text("마중에 초대받았어요").font(.title2.bold())
-                    Label(place, systemImage: "mappin.circle.fill").font(.headline)
-                    Text("참여하면 차량 위치와 도착 예정 시간을 확인하고, 준비 상태를 운전자에게 알릴 수 있어요.")
-                        .foregroundStyle(.secondary)
+                    MajungStatusPill(text: "마중 탑승 초대", tint: .accentColor)
+                    Text("마중에 초대받았어요")
+                        .font(.title2.bold())
+                        .accessibilityAddTraits(.isHeader)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("만날 약속 장소")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Label(place, systemImage: "mappin.circle.fill")
+                            .font(.headline)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundStyle(Color.accentColor)
+                            .padding(.top, 1)
+                        Text("참여하기 전에는 개인정보 보호를 위해 차량의 현재 위치나 도착 예정 시간이 표시되지 않아요.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+
                     Button {
                         Task { await pickupModel.join() }
                     } label: {
                         Text(pickupModel.busy ? "연결 중…" : "약속에 참여하기")
-                            .frame(maxWidth: .infinity, minHeight: 36)
+                            .frame(maxWidth: .infinity, minHeight: 38)
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(pickupModel.busy)
                 } else if pickupModel.busy {
                     ProgressView("초대를 확인하고 있어요")
                 } else {
-                    Text(pickupModel.linkUnavailable ? "초대를 사용할 수 없어요" : "초대를 확인하지 못했어요")
-                        .font(.title2.bold())
-                    if !pickupModel.linkUnavailable {
-                        Button("다시 확인") { Task { await pickupModel.preview() } }
-                            .buttonStyle(.borderedProminent)
+                    VStack(alignment: .leading, spacing: 10) {
+                        MajungStatusPill(
+                            text: pickupModel.linkUnavailable ? "사용 불가한 초대" : "확인 지연",
+                            tint: .orange
+                        )
+                        Text(pickupModel.linkUnavailable ? "초대를 사용할 수 없어요" : "초대를 확인하지 못했어요")
+                            .font(.title2.bold())
+                            .accessibilityAddTraits(.isHeader)
+                        if !pickupModel.linkUnavailable {
+                            Button("다시 확인") { Task { await pickupModel.preview() } }
+                                .buttonStyle(.borderedProminent)
+                        }
                     }
                 }
-                if let error = pickupModel.error { Text(error).foregroundStyle(.red) }
+                if let error = pickupModel.error {
+                    MajungStatusBanner(message: error, tint: .red)
+                }
                 if !pickupModel.busy {
-                    Button("다른 초대 열기") {
+                    Button {
                         link = ""
                         pickupModel.reset()
+                    } label: {
+                        Text("다른 초대 열기")
+                            .frame(maxWidth: .infinity, minHeight: 36)
                     }
+                    .buttonStyle(.bordered)
                 }
             }
             .padding(20)

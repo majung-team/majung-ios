@@ -180,11 +180,16 @@ struct PickupMapView: View {
             Button {
                 recenter()
             } label: {
-                Image(systemName: "scope").padding(6)
+                Label("재중심", systemImage: "scope")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
             }
             .accessibilityLabel("차량과 만날 장소 다시 보기")
-            .buttonStyle(.borderedProminent)
-            .padding(12)
+            .buttonStyle(.bordered)
+            .background(.regularMaterial, in: Capsule())
+            .clipShape(Capsule())
+            .padding(10)
         }
         .onAppear(perform: recenter)
         .onChange(of: place) { _, _ in recenter() }
@@ -277,5 +282,103 @@ enum PlaceSearchService {
             latitude: item.placemark.coordinate.latitude,
             longitude: item.placemark.coordinate.longitude
         )
+    }
+}
+
+struct ActivePickupSummaryCard: View {
+    let item: RideRequestItem
+    let tracking: PickupTracker
+    let ctaLabel: String
+    let ctaIdentifier: String
+    let trailingMeta: String?
+    let onOpen: () -> Void
+
+    init(
+        item: RideRequestItem,
+        tracking: PickupTracker,
+        ctaLabel: String,
+        ctaIdentifier: String,
+        trailingMeta: String? = nil,
+        onOpen: @escaping () -> Void
+    ) {
+        self.item = item
+        self.tracking = tracking
+        self.ctaLabel = ctaLabel
+        self.ctaIdentifier = ctaIdentifier
+        self.trailingMeta = trailingMeta
+        self.onOpen = onOpen
+    }
+
+    var body: some View {
+        MajungCard {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let vehicle = tracking.currentVehicle()
+                let place = tracking.snapshot?.place ?? item.place
+                let arrived = tracking.snapshot?.status == .arrived
+                let freshness = arrived ? nil : MajungFormatting.freshnessText(
+                    for: vehicle,
+                    updatedAt: tracking.vehicleUpdatedAt,
+                    now: context.date
+                )
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        MajungStatusPill(text: arrived ? "차량 도착 완료" : "실시간 마중 진행 중", tint: .green)
+                        if let distance = MajungFormatting.distanceText(from: vehicle, to: place), !arrived {
+                            MajungStatusPill(text: distance, tint: .accentColor)
+                        }
+                        Spacer()
+                        if let trailingMeta {
+                            Text(trailingMeta)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Text(arrived ? "마중 차량이 도착했어요" : MajungFormatting.etaText(vehicle))
+                        .font(.title3.bold())
+                        .accessibilityAddTraits(.isHeader)
+
+                    if let freshness {
+                        Text(freshness)
+                            .font(.caption)
+                            .foregroundStyle(.green)
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "mappin.circle.fill")
+                    .foregroundStyle(Color.accentColor)
+                Text(tracking.snapshot?.place?.label ?? item.place.label)
+                    .font(.subheadline.weight(.medium))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+
+            HStack(spacing: 8) {
+                MajungMonogram(name: item.nickname, tint: .accentColor, size: 28)
+                if let vehicleName = tracking.snapshot?.vehicleName, !vehicleName.isEmpty {
+                    Text("\(item.nickname) 운전자 · \(vehicleName)")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("\(item.nickname) 운전자")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Button(action: onOpen) {
+                HStack(spacing: 6) {
+                    Text(ctaLabel)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.bold())
+                }
+                .frame(maxWidth: .infinity, minHeight: 38)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier(ctaIdentifier)
+        }
     }
 }

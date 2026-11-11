@@ -257,6 +257,25 @@ final class MajungCoreTests: XCTestCase {
         XCTAssertEqual(items[2].status, .unknown)
         XCTAssertFalse(items[2].status.isOpen)
         XCTAssertEqual(items[2].status.label, "상태 확인 중")
+
+        let place = PickupPlace(label: "왕십리역 1번 출구", latitude: 37.5612, longitude: 127.0370)
+        let completedItem = RideRequestItem(
+            requestId: UUID(),
+            status: .completed,
+            nickname: "김민수",
+            majungId: "minsu",
+            place: items[0].place,
+            expiresAt: Date(),
+            peopleAhead: nil,
+            currentPickupRemainingSeconds: nil,
+            currentPickupValidForMillis: 0,
+            driverInvitation: false
+        )
+        let terminalSnap = completedItem.terminalPickupSnapshot(lastPlace: place, lastVehicleName: "아이오닉 5")
+        XCTAssertEqual(terminalSnap?.status, .completed)
+        XCTAssertEqual(terminalSnap?.place, place)
+        XCTAssertEqual(terminalSnap?.vehicleName, "아이오닉 5")
+        XCTAssertNil(items[0].terminalPickupSnapshot(lastPlace: place, lastVehicleName: nil))
     }
 
     func testPickupSnapshotStatusAndProposalHelpers() throws {

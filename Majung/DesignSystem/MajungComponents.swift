@@ -35,6 +35,14 @@ enum MajungFormatting {
         return formatter
     }()
 
+    private static let dateTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     static func etaText(_ vehicle: PickupVehicle?) -> String {
         guard let seconds = vehicle?.durationSeconds else {
             return "도착 시간을 확인 중이에요"
@@ -67,6 +75,10 @@ enum MajungFormatting {
 
     static func shortTime(_ date: Date) -> String {
         timeFormatter.string(from: date)
+    }
+
+    static func shortDateTime(_ date: Date) -> String {
+        dateTimeFormatter.string(from: date)
     }
 }
 

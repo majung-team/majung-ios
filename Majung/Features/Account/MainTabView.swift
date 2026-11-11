@@ -5,6 +5,7 @@ struct MainTabView: View {
     @Bindable var account: AccountViewModel
     @Bindable var people: PeopleViewModel
     @Bindable var rideRequests: RideRequestViewModel
+    @Bindable var vehicleLinks: VehicleLinkViewModel
     @Bindable var pickup: PickupViewModel
     @Binding var inviteLink: String
 
@@ -59,7 +60,7 @@ struct MainTabView: View {
             .tag(TabItem.people)
 
             NavigationStack {
-                SettingsTabView(account: account)
+                SettingsTabView(account: account, vehicleLinks: vehicleLinks)
             }
             .tabItem {
                 Label("설정", systemImage: "gearshape.fill")
@@ -86,6 +87,14 @@ struct MainTabView: View {
         .onChange(of: rideRequests.activeRequest?.id) { _, activeId in
             if activeId == nil && rideRequests.tracking.snapshot == nil {
                 showingRideTracking = false
+            }
+        }
+        .onChange(of: vehicleLinks.navigationEventCount) { _, count in
+            if count > 0 { selectedTab = .settings }
+        }
+        .onAppear {
+            if vehicleLinks.hasPendingPairing || vehicleLinks.navigationEventCount > 0 {
+                selectedTab = .settings
             }
         }
     }
@@ -275,9 +284,19 @@ private struct HomeTabView: View {
 
 private struct SettingsTabView: View {
     @Bindable var account: AccountViewModel
+    @Bindable var vehicleLinks: VehicleLinkViewModel
     @State private var nicknameDraft = ""
     @State private var copiedId = false
+    @State private var showingVehicleScanner = false
+    @State private var detachingVehicle: VehicleLink?
     @State private var confirmingLogout = false
+
+    private var detachAlertPresented: Binding<Bool> {
+        Binding(
+            get: { detachingVehicle != nil },
+            set: { if !$0 { detachingVehicle = nil } }
+        )
+    }
 
     private var normalizedCount: Int {
         nicknameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -309,7 +328,84 @@ private struct SettingsTabView: View {
                         .controlSize(.small)
                     }
                 }
+            }
 
+            Section("내 차량") {
+                if let active = vehicleLinks.activePairing {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            MajungStatusPill(text: "승인 대기", tint: .orange)
+                            Spacer()
+                            TimelineView(.periodic(from: .now, by: 1)) { context in
+                                let remaining = max(0, Int(active.expiresAt.timeIntervalSince(context.date)))
+                                Text(String(format: "만료 %d:%02d", remaining / 60, remaining % 60))
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        Text(active.title)
+                            .font(.subheadline.weight(.semibold))
+                        Text(active.detailText)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Button("요청 취소", role: .destructive) {
+                            Task { await vehicleLinks.cancelActivePairing() }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(vehicleLinks.busy)
+                        .accessibilityIdentifier("vehicle-pairing-cancel-button")
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                if vehicleLinks.links.isEmpty && vehicleLinks.loaded && vehicleLinks.activePairing == nil {
+                    Text("연결된 차량이 없어요")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                ForEach(vehicleLinks.links) { link in
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(link.displayName)
+                                .font(.body.weight(.medium))
+                            Text("연결 · \(MajungFormatting.shortDateTime(link.linkedAt))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("해제", role: .destructive) {
+                            detachingVehicle = link
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(vehicleLinks.busy)
+                        .accessibilityIdentifier("vehicle-detach-\(link.vehicleId.uuidString.lowercased())")
+                    }
+                }
+
+                Button {
+                    showingVehicleScanner = true
+                } label: {
+                    Label("QR 또는 링크로 차량 연결", systemImage: "qrcode.viewfinder")
+                }
+                .disabled(vehicleLinks.busy)
+                .accessibilityIdentifier("vehicle-connect-button")
+
+                if let vNotice = vehicleLinks.notice {
+                    Text(vNotice)
+                        .font(.footnote)
+                        .foregroundStyle(.green)
+                }
+                if let vError = vehicleLinks.error {
+                    Text(vError)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            if account.member != nil {
                 Section("내 이름(닉네임) 변경") {
                     TextField("새 닉네임 (2~20자)", text: $nicknameDraft)
                         .textInputAutocapitalization(.never)
@@ -356,6 +452,9 @@ private struct SettingsTabView: View {
             }
         }
         .navigationTitle("설정")
+        .task {
+            await vehicleLinks.load(silent: true)
+        }
         .onAppear {
             if nicknameDraft.isEmpty, let current = account.member?.nickname {
                 nicknameDraft = current
@@ -366,7 +465,25 @@ private struct SettingsTabView: View {
                 nicknameDraft = newValue
             }
         }
-        .confirmationDialog("로그아웃할까요?", isPresented: $confirmingLogout, titleVisibility: .visible) {
+        .sheet(isPresented: $showingVehicleScanner) {
+            VehicleQRScannerSheet(vehicleLinks: vehicleLinks) {}
+        }
+        .alert(
+            "'\(detachingVehicle?.displayName ?? "차량")' 연결을 해제할까요?",
+            isPresented: detachAlertPresented,
+            presenting: detachingVehicle
+        ) { link in
+            Button("연결 해제", role: .destructive) {
+                detachingVehicle = nil
+                Task { await vehicleLinks.detach(link) }
+            }
+            Button("돌아가기", role: .cancel) {
+                detachingVehicle = nil
+            }
+        } message: { _ in
+            Text("연결을 해제하면 해당 차량에서 내 계정으로 마중을 시작할 수 없어요.")
+        }
+        .alert("로그아웃할까요?", isPresented: $confirmingLogout) {
             Button("로그아웃", role: .destructive) {
                 Task { await account.logout() }
             }

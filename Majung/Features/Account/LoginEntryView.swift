@@ -4,11 +4,15 @@ struct LoginEntryView: View {
     @Bindable var account: AccountViewModel
     @Bindable var pickup: PickupViewModel
     @Binding var inviteLink: String
+    var vehiclePendingMessage: String? = nil
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                if let vehiclePendingMessage {
+                    MajungStatusBanner(message: vehiclePendingMessage, tint: .accentColor)
+                }
                 kakaoSection
                 divider
                 guestInviteCard

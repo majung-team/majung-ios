@@ -40,7 +40,19 @@
 		A10000000000000000000094 /* VehicleQRScannerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000084 /* VehicleQRScannerSheet.swift */; };
 		A10000000000000000000095 /* PickupNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000085 /* PickupNotificationService.swift */; };
 		A10000000000000000000096 /* PlaceComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000086 /* PlaceComposerView.swift */; };
+		B10000000000000000000001 /* MajungCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* MajungCoreTests.swift */; };
+		B10000000000000000000002 /* PickupTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* PickupTrackerTests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B1000000000000000000000C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000000000000000000000B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000009;
+			remoteInfo = Majung;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000003 /* MajungApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungApp.swift; sourceTree = "<group>"; };
@@ -77,6 +89,9 @@
 		A10000000000000000000084 /* VehicleQRScannerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleQRScannerSheet.swift; sourceTree = "<group>"; };
 		A10000000000000000000085 /* PickupNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupNotificationService.swift; sourceTree = "<group>"; };
 		A10000000000000000000086 /* PlaceComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceComposerView.swift; sourceTree = "<group>"; };
+		B10000000000000000000003 /* MajungCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungCoreTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000004 /* PickupTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupTrackerTests.swift; sourceTree = "<group>"; };
+		B10000000000000000000005 /* MajungTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MajungTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -84,6 +99,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000007 /* Majung */,
+				B10000000000000000000006 /* MajungTests */,
 				A10000000000000000000008 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -202,8 +218,18 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000005 /* Majung.app */,
+				B10000000000000000000005 /* MajungTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B10000000000000000000006 /* MajungTests */ = {
+			isa = PBXGroup;
+			children = (
+				B10000000000000000000003 /* MajungCoreTests.swift */,
+				B10000000000000000000004 /* PickupTrackerTests.swift */,
+			);
+			path = MajungTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -224,12 +250,33 @@
 			productReference = A10000000000000000000005 /* Majung.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B10000000000000000000007 /* MajungTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10000000000000000000009 /* Build configuration list for PBXNativeTarget "MajungTests" */;
+			buildPhases = (
+				B10000000000000000000008 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B1000000000000000000000D /* PBXTargetDependency */,
+			);
+			name = MajungTests;
+			productName = MajungTests;
+			productReference = B10000000000000000000005 /* MajungTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		A1000000000000000000000B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				TargetAttributes = {
+					B10000000000000000000007 = {
+						TestTargetID = A10000000000000000000009;
+					};
+				};
 			};
 			buildConfigurationList = A1000000000000000000000D /* Build configuration list for PBXProject "Majung" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -246,6 +293,7 @@
 			projectRoot = "";
 			targets = (
 				A10000000000000000000009 /* Majung */,
+				B10000000000000000000007 /* MajungTests */,
 			);
 		};
 /* End PBXProject section */
@@ -291,7 +339,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B10000000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000001 /* MajungCoreTests.swift in Sources */,
+				B10000000000000000000002 /* PickupTrackerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B1000000000000000000000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000009 /* Majung */;
+			targetProxy = B1000000000000000000000C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A1000000000000000000000E /* Debug */ = {
@@ -353,6 +418,44 @@
 			};
 			name = Release;
 		};
+		B1000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K2G6G3ZNZQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.majung.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Majung.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Majung";
+			};
+			name = Debug;
+		};
+		B1000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K2G6G3ZNZQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.majung.ios.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Majung.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Majung";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -370,6 +473,15 @@
 			buildConfigurations = (
 				A1000000000000000000000E /* Debug */,
 				A1000000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B10000000000000000000009 /* Build configuration list for PBXNativeTarget "MajungTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B1000000000000000000000A /* Debug */,
+				B1000000000000000000000B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

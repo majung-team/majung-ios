@@ -25,6 +25,8 @@ final class PickupTracker {
     private(set) var vehicleUpdatedAt: Date?
 
     private(set) var snapshot: PickupSnapshot?
+    private(set) var lastPlace: PickupPlace?
+    private(set) var lastVehicleName: String?
     private(set) var busy = false
     private(set) var connectionProblem = false
     private(set) var messageSent = false
@@ -81,9 +83,18 @@ final class PickupTracker {
     }
 
     func setReady(_ ready: Bool) async {
-        guard let backend, let participant = snapshot?.participant, ready != participant.ready else { return }
-        let targetSequence = participant.readinessSequence + 1
-        _ = await update { try await backend.setReady(ready, targetSequence) }
+        guard let participant = snapshot?.participant, ready != participant.ready else { return }
+        await submitReadiness(ready, sequence: participant.readinessSequence + 1)
+    }
+
+    func resendReady() async {
+        guard let participant = snapshot?.participant, participant.ready else { return }
+        await submitReadiness(true, sequence: participant.readinessSequence + 1)
+    }
+
+    private func submitReadiness(_ ready: Bool, sequence: Int) async {
+        guard let backend else { return }
+        _ = await update { try await backend.setReady(ready, sequence) }
     }
 
     func suggest(_ place: PickupPlace) async -> Bool {
@@ -111,6 +122,8 @@ final class PickupTracker {
     func resetState() {
         revision += 1
         snapshot = nil
+        lastPlace = nil
+        lastVehicleName = nil
         clearVehicle()
         error = nil
         connectionProblem = false
@@ -152,6 +165,12 @@ final class PickupTracker {
             clearVehicle()
         }
         snapshot = current
+        if let place = current.place {
+            lastPlace = place
+        }
+        if let name = current.vehicleName, !name.isEmpty {
+            lastVehicleName = name
+        }
         if current.status.ended {
             clearVehicle()
             backend?.onTerminal()

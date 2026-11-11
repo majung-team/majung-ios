@@ -63,6 +63,7 @@ struct PickupSnapshot: Decodable {
         let text: String
     }
 
+    let pickupId: UUID?
     let status: Status
     let place: PickupPlace?
     let placeVersion: Int

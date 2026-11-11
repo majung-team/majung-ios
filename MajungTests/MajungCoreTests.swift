@@ -374,6 +374,22 @@ final class MajungCoreTests: XCTestCase {
         XCTAssertEqual(states, [false])
         XCTAssertEqual(refreshes, 0)
     }
+
+    // MARK: - OnboardingStore
+
+    func testOnboardingStorePersistsAndResetsCompletionFlag() {
+        let suiteName = "app.majung.tests.onboarding.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        XCTAssertFalse(OnboardingStore.isCompleted(defaults: defaults))
+
+        OnboardingStore.markCompleted(defaults: defaults)
+        XCTAssertTrue(OnboardingStore.isCompleted(defaults: defaults))
+
+        OnboardingStore.reset(defaults: defaults)
+        XCTAssertFalse(OnboardingStore.isCompleted(defaults: defaults))
+    }
 }
 
 private final class SSEStubURLProtocol: URLProtocol {

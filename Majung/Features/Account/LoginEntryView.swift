@@ -27,15 +27,7 @@ struct LoginEntryView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.accentColor)
-                    .frame(width: 48, height: 48)
-                Image(systemName: "location.fill")
-                    .font(.title3.bold())
-                    .foregroundStyle(.white)
-            }
-            .accessibilityHidden(true)
+            MajungBrandBadge(size: 48)
 
             (Text("기다림 없는 만남,\n") + Text("마중").foregroundStyle(.tint) + Text("으로 연결해요"))
                 .font(.title.bold())

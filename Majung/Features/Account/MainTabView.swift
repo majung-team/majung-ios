@@ -287,6 +287,7 @@ private struct SettingsTabView: View {
     @State private var copiedId = false
     @State private var showingVehicleScanner = false
     @State private var detachingVehicle: VehicleLink?
+    @State private var showingOnboardingReplay = false
     @State private var confirmingLogout = false
 
     private var detachAlertPresented: Binding<Bool> {
@@ -496,6 +497,15 @@ private struct SettingsTabView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("마중 안내") {
+                Button {
+                    showingOnboardingReplay = true
+                } label: {
+                    Label("앱 이용 안내 다시 보기", systemImage: "sparkles")
+                }
+                .accessibilityIdentifier("settings-replay-onboarding-button")
+            }
+
             Section("계정") {
                 Button("로그아웃", role: .destructive) {
                     confirmingLogout = true
@@ -521,6 +531,11 @@ private struct SettingsTabView: View {
         }
         .sheet(isPresented: $showingVehicleScanner) {
             VehicleQRScannerSheet(vehicleLinks: vehicleLinks) {}
+        }
+        .fullScreenCover(isPresented: $showingOnboardingReplay) {
+            OnboardingView(isReplay: true) {
+                showingOnboardingReplay = false
+            }
         }
         .alert(
             "'\(detachingVehicle?.displayName ?? "차량")' 연결을 해제할까요?",

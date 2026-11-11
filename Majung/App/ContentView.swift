@@ -2,12 +2,15 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var accountModel: AccountViewModel
     @State private var peopleModel: PeopleViewModel
     @State private var rideRequestModel: RideRequestViewModel
     @State private var vehicleLinkModel: VehicleLinkViewModel
     @State private var pickupModel = PickupViewModel()
     @State private var link = ""
+    @State private var showingSplash = true
+    @State private var onboardingCompleted = OnboardingStore.isCompleted()
 
     init() {
         let account = AccountViewModel()
@@ -31,7 +34,9 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if pickupModel.page != .entry {
+            if showingSplash {
+                SplashView()
+            } else if pickupModel.page != .entry {
                 NavigationStack {
                     switch pickupModel.page {
                     case .invitation:
@@ -65,6 +70,13 @@ struct ContentView: View {
                 NavigationStack {
                     NicknameSetupView(account: accountModel)
                 }
+            } else if !onboardingCompleted {
+                OnboardingView {
+                    OnboardingStore.markCompleted()
+                    withAnimation(reduceMotion ? .none : .easeInOut(duration: 0.28)) {
+                        onboardingCompleted = true
+                    }
+                }
             } else {
                 NavigationStack {
                     LoginEntryView(
@@ -80,12 +92,7 @@ struct ContentView: View {
         }
         .tint(Color(red: 0.10, green: 0.39, blue: 0.85))
         .task {
-            await accountModel.restore()
-            if accountModel.isReady {
-                await rideRequestModel.refresh(silent: true)
-                await vehicleLinkModel.load(silent: true)
-                await vehicleLinkModel.resumeDeferredIfNeeded()
-            }
+            await runLaunchSequence()
         }
         .onChange(of: accountModel.isReady) { wasReady, ready in
             if ready {
@@ -105,13 +112,9 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                guard !showingSplash else { return }
                 Task {
-                    await accountModel.restore()
-                    if accountModel.isReady {
-                        await rideRequestModel.refresh(silent: true)
-                        await vehicleLinkModel.load(silent: true)
-                        await vehicleLinkModel.resumeDeferredIfNeeded()
-                    }
+                    await restoreAccountAndLinkedState()
                 }
             } else {
                 pickupModel.tracker.clearVehicle()
@@ -144,6 +147,56 @@ struct ContentView: View {
         .task(id: pendingVehiclePollingKey) {
             guard accountModel.isReady && scenePhase == .active && vehicleLinkModel.hasPendingPairing else { return }
             await pollPendingVehicleUntilDone()
+        }
+    }
+
+    private var minimumSplashDuration: Duration {
+        #if DEBUG && targetEnvironment(simulator)
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-UITestHoldSplash") {
+            return .seconds(8)
+        }
+        if args.contains("-UITestResetSessions") {
+            return args.contains("-UITestShowOnboarding") ? .milliseconds(900) : .milliseconds(150)
+        }
+        if args.contains("-UITestShowOnboarding") {
+            return .milliseconds(900)
+        }
+        #endif
+        return .milliseconds(1050)
+    }
+
+    private func runLaunchSequence() async {
+        let shouldWaitForRestoreGrace = accountModel.storedSession != nil
+            || ProcessInfo.processInfo.environment["MAJUNG_TEST_PORT"] != nil
+
+        let restoreTask = Task {
+            await restoreAccountAndLinkedState()
+        }
+
+        try? await Task.sleep(for: minimumSplashDuration)
+
+        if shouldWaitForRestoreGrace {
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask { _ = await restoreTask.value }
+                group.addTask { try? await Task.sleep(for: .milliseconds(800)) }
+                _ = await group.next()
+                group.cancelAll()
+            }
+        }
+
+        withAnimation(reduceMotion ? .none : .easeInOut(duration: 0.28)) {
+            showingSplash = false
+        }
+    }
+
+    private func restoreAccountAndLinkedState() async {
+        await accountModel.restore()
+        if accountModel.isReady {
+            async let rides: Void = rideRequestModel.refresh(silent: true)
+            async let vehicles: Void = vehicleLinkModel.load(silent: true)
+            _ = await (rides, vehicles)
+            await vehicleLinkModel.resumeDeferredIfNeeded()
         }
     }
 

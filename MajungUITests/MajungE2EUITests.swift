@@ -5,12 +5,65 @@ final class MajungE2EUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launchApp(port: UInt16) -> XCUIApplication {
+    private func launchApp(port: UInt16, arguments: [String] = ["-UITestResetSessions"]) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-UITestResetSessions"]
+        app.launchArguments = arguments
         app.launchEnvironment["MAJUNG_TEST_PORT"] = String(port)
         app.launch()
         return app
+    }
+
+    private func attachScreenshot(named name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    func test00FirstLaunchSplashAndOnboardingFlowAndPersistence() throws {
+        let server = try LocalE2EServer()
+        defer { server.stop() }
+        server.setAccountMode(.unauthenticated)
+
+        // 1. Verify Splash renders cleanly on cold launch
+        let app = launchApp(port: server.port, arguments: ["-UITestResetSessions", "-UITestShowOnboarding", "-UITestHoldSplash"])
+        XCTAssertTrue(app.descendants(matching: .any)["splash-screen"].waitForExistence(timeout: 6))
+        attachScreenshot(named: "00-splash")
+
+        // 2. Normal first launch auto-transitions from Splash to Onboarding and walks through all 3 slides
+        app.terminate()
+        app.launchArguments = ["-UITestResetSessions", "-UITestShowOnboarding"]
+        app.launch()
+
+        let nextBtn = app.buttons["onboarding-next-button"]
+        XCTAssertTrue(nextBtn.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["실시간 위치 · ETA 공유"].exists)
+        attachScreenshot(named: "01-onboarding-page1")
+
+        nextBtn.tap()
+        XCTAssertTrue(app.staticTexts["장소 조율 · 빠른 소통"].waitForExistence(timeout: 3))
+        usleep(350_000)
+        attachScreenshot(named: "02-onboarding-page2")
+
+        nextBtn.tap()
+        let startBtn = app.buttons["onboarding-start-button"]
+        XCTAssertTrue(startBtn.waitForExistence(timeout: 3))
+        usleep(350_000)
+        attachScreenshot(named: "03-onboarding-page3")
+        startBtn.tap()
+
+        // 3. Completing onboarding lands on login entry
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 5))
+        usleep(350_000)
+        attachScreenshot(named: "04-login-entry")
+
+        // 4. Subsequent cold launch skips onboarding straight to login entry after splash
+        app.terminate()
+        app.launchArguments = []
+        app.launch()
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
+        XCTAssertFalse(app.buttons["onboarding-next-button"].exists)
+        XCTAssertFalse(app.buttons["onboarding-start-button"].exists)
     }
 
     func test01GuestPickupLifecycleWaitingExitReadinessMessageProposalAndCompletion() throws {
@@ -193,6 +246,15 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 5))
         app.alerts.firstMatch.buttons["연결 해제"].tap()
         XCTAssertTrue(app.staticTexts["1대 연결됨"].waitForExistence(timeout: 6))
+
+        // Replay onboarding from settings -> skip back to settings
+        let replayBtn = app.buttons["settings-replay-onboarding-button"]
+        if !replayBtn.isHittable { app.swipeUp() }
+        XCTAssertTrue(replayBtn.waitForExistence(timeout: 5))
+        replayBtn.tap()
+        let skipBtn = app.buttons["onboarding-skip-button"]
+        XCTAssertTrue(skipBtn.waitForExistence(timeout: 4))
+        skipBtn.tap()
 
         // Logout via 2-step alert -> back to login entry
         let logoutBtn = app.buttons["settings-logout-button"]

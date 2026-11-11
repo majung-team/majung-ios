@@ -7,9 +7,17 @@ struct MajungApp: App {
 
     init() {
         #if DEBUG && targetEnvironment(simulator)
-        if ProcessInfo.processInfo.arguments.contains("-UITestResetSessions") {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-UITestResetSessions") {
             AccountSessionStore.clear()
             PickupSessionStore.clear()
+            if args.contains("-UITestShowOnboarding") {
+                OnboardingStore.reset()
+            } else {
+                OnboardingStore.markCompleted()
+            }
+        } else if args.contains("-UITestShowOnboarding") {
+            OnboardingStore.reset()
         }
         #endif
         UNUserNotificationCenter.current().delegate = notificationDelegate

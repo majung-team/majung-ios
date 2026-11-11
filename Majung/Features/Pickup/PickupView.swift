@@ -18,16 +18,18 @@ struct PickupView: View {
                 if let snapshot = model.snapshot {
                     switch snapshot.status {
                     case .active:
-                        active(snapshot)
+                        if let place = snapshot.place { active(snapshot, place: place) }
+                        else { ProgressView("만날 장소를 확인하고 있어요") }
                     case .arrived:
-                        arrival(snapshot)
+                        if let place = snapshot.place { arrival(snapshot, place: place) }
+                        else { Text("마중 차량이 도착했어요").font(.title2.bold()) }
                         messages
-                    case .completed, .cancelled, .expired:
+                    case .completed, .cancelled, .expired, .inviteExpired:
                         finished(snapshot.status)
                     case .inviting, .waiting:
                         card {
                             Text("운전자 확인을 기다리고 있어요").font(.headline)
-                            Text(snapshot.place.label).foregroundStyle(.secondary)
+                            if let place = snapshot.place { Text(place.label).foregroundStyle(.secondary) }
                         }
                     }
                 } else if model.connectionProblem {
@@ -50,7 +52,7 @@ struct PickupView: View {
         }
     }
 
-    private func active(_ snapshot: PickupSnapshot) -> some View {
+    private func active(_ snapshot: PickupSnapshot, place: PickupPlace) -> some View {
         Group {
             card {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
@@ -60,13 +62,13 @@ struct PickupView: View {
                         if let name = snapshot.vehicleName, !name.isEmpty {
                             Label(name, systemImage: "car.fill").foregroundStyle(.secondary)
                         }
-                        PickupMap(place: snapshot.place, vehicle: vehicle)
+                        PickupMap(place: place, vehicle: vehicle)
                     }
                 }
             }
             card {
                 Text("만날 장소").font(.subheadline).foregroundStyle(.secondary)
-                Label(snapshot.place.label, systemImage: "mappin.circle.fill").font(.headline)
+                Label(place.label, systemImage: "mappin.circle.fill").font(.headline)
                 if let proposal = snapshot.placeProposal {
                     Divider()
                     Text(proposal.isPassenger ? "내가 제안한 장소" : "운전자가 제안한 장소")
@@ -106,12 +108,12 @@ struct PickupView: View {
         }
     }
 
-    private func arrival(_ snapshot: PickupSnapshot) -> some View {
+    private func arrival(_ snapshot: PickupSnapshot, place: PickupPlace) -> some View {
         card {
             Label("마중 차량이 도착했어요", systemImage: "checkmark.circle.fill")
                 .font(.title2.bold()).foregroundStyle(.green).accessibilityAddTraits(.isHeader)
             Text("만날 장소").font(.subheadline).foregroundStyle(.secondary)
-            Text(snapshot.place.label).font(.title3.bold())
+            Text(place.label).font(.title3.bold())
             if let name = snapshot.vehicleName, !name.isEmpty {
                 Label(name, systemImage: "car.fill").font(.title3.bold())
             }
@@ -120,7 +122,7 @@ struct PickupView: View {
             if showArrivalMap {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     let vehicle = model.currentVehicle()
-                    PickupMap(place: snapshot.place, vehicle: vehicle)
+                    PickupMap(place: place, vehicle: vehicle)
                     if vehicle?.latitude == nil || vehicle?.longitude == nil {
                         Text("차량 위치를 확인할 수 없어요. 지도에 만날 장소를 표시했어요.")
                             .font(.footnote).foregroundStyle(.secondary)

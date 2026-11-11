@@ -36,13 +36,14 @@ struct PickupSnapshot: Decodable {
     enum Status: String, Decodable {
         case inviting = "INVITING"
         case waiting = "WAITING_APPROVAL"
+        case inviteExpired = "INVITE_EXPIRED"
         case active = "ACTIVE"
         case arrived = "ARRIVED"
         case completed = "COMPLETED"
         case cancelled = "CANCELLED"
         case expired = "EXPIRED"
 
-        var ended: Bool { self == .completed || self == .cancelled || self == .expired }
+        var ended: Bool { self == .completed || self == .cancelled || self == .expired || self == .inviteExpired }
     }
 
     struct Participant: Decodable {
@@ -59,7 +60,7 @@ struct PickupSnapshot: Decodable {
     }
 
     let status: Status
-    let place: PickupPlace
+    let place: PickupPlace?
     let placeVersion: Int
     let participant: Participant?
     let placeProposal: Proposal?

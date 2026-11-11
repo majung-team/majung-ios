@@ -46,6 +46,25 @@ enum MajungFormatting {
         seconds < 60 ? "1분 이내" : "약 \((seconds + 59) / 60)분"
     }
 
+    static func distanceText(from vehicle: PickupVehicle?, to place: PickupPlace) -> String? {
+        guard let vLat = vehicle?.latitude, let vLng = vehicle?.longitude else { return nil }
+        let carLocation = CLLocation(latitude: vLat, longitude: vLng)
+        let placeLocation = CLLocation(latitude: place.latitude, longitude: place.longitude)
+        let meters = carLocation.distance(from: placeLocation)
+        if meters < 1_000 {
+            return "\(max(1, Int(meters.rounded())))m 남음"
+        }
+        return String(format: "%.1fkm 남음", meters / 1_000)
+    }
+
+    static func freshnessText(for vehicle: PickupVehicle?, updatedAt: Date?, now: Date = Date()) -> String? {
+        guard let vehicle else { return nil }
+        let baseAgeSeconds = max(0, (vehicle.ageMillis ?? 0) / 1_000)
+        let localElapsed = updatedAt.map { max(0, Int(now.timeIntervalSince($0))) } ?? 0
+        let totalAge = baseAgeSeconds + localElapsed
+        return totalAge < 5 ? "실시간 갱신 중 · 방금 전" : "실시간 갱신 중 · \(totalAge)초 전"
+    }
+
     static func shortTime(_ date: Date) -> String {
         timeFormatter.string(from: date)
     }
@@ -119,10 +138,24 @@ struct PickupMapView: View {
     let place: PickupPlace
     let vehicle: PickupVehicle?
     @State private var camera: MapCameraPosition = .automatic
+    @State private var routeCoordinates: [CLLocationCoordinate2D] = []
+    @State private var resolvedRouteKey = ""
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             Map(position: $camera) {
+                if let vehicleCoordinate {
+                    if !routeCoordinates.isEmpty && resolvedRouteKey == currentRouteKey {
+                        MapPolyline(coordinates: routeCoordinates)
+                            .stroke(Color.blue, lineWidth: 5)
+                    } else {
+                        MapPolyline(coordinates: [vehicleCoordinate, coordinate])
+                            .stroke(
+                                Color.blue.opacity(0.65),
+                                style: StrokeStyle(lineWidth: 3.5, dash: [6, 5])
+                            )
+                    }
+                }
                 Marker("만날 장소", systemImage: "mappin", coordinate: coordinate)
                     .tint(.green)
                 if let vehicleCoordinate {
@@ -146,6 +179,9 @@ struct PickupMapView: View {
         .onChange(of: vehicleCoordinate != nil) { _, hasVehicle in
             if hasVehicle { recenter() }
         }
+        .task(id: currentRouteKey) {
+            await updateRoute()
+        }
     }
 
     private var coordinate: CLLocationCoordinate2D {
@@ -155,6 +191,42 @@ struct PickupMapView: View {
     private var vehicleCoordinate: CLLocationCoordinate2D? {
         guard let latitude = vehicle?.latitude, let longitude = vehicle?.longitude else { return nil }
         return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    private var currentRouteKey: String {
+        guard let vehicleCoordinate else { return "" }
+        let vLat = Int((vehicleCoordinate.latitude * 2_000).rounded())
+        let vLng = Int((vehicleCoordinate.longitude * 2_000).rounded())
+        let pLat = Int((coordinate.latitude * 2_000).rounded())
+        let pLng = Int((coordinate.longitude * 2_000).rounded())
+        return "\(vLat),\(vLng)->\(pLat),\(pLng)"
+    }
+
+    private func updateRoute() async {
+        let key = currentRouteKey
+        guard !key.isEmpty, let start = vehicleCoordinate else {
+            routeCoordinates = []
+            resolvedRouteKey = ""
+            return
+        }
+        if key == resolvedRouteKey && !routeCoordinates.isEmpty { return }
+
+        let request = MKDirections.Request()
+        request.source = MKMapItem(placemark: MKPlacemark(coordinate: start))
+        request.destination = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+        request.transportType = .automobile
+
+        do {
+            let response = try await MKDirections(request: request).calculate()
+            guard !Task.isCancelled, key == currentRouteKey, let polyline = response.routes.first?.polyline else { return }
+            let count = polyline.pointCount
+            var coords = [CLLocationCoordinate2D](repeating: kCLLocationCoordinate2DInvalid, count: count)
+            polyline.getCoordinates(&coords, range: NSRange(location: 0, length: count))
+            routeCoordinates = coords
+            resolvedRouteKey = key
+        } catch {
+            // Dashed straight-line polyline remains visible when offline or routing is unavailable.
+        }
     }
 
     private func recenter() {

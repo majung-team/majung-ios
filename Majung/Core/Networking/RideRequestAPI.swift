@@ -116,44 +116,6 @@ struct RideRequestAPI {
         var req = client.baseRequest(url: url, method: "GET", cookie: cookie, csrfToken: nil)
         req.timeoutInterval = 30
         req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-
-        do {
-            let (bytes, response) = try await streamSession.bytes(for: req)
-            guard let http = response as? HTTPURLResponse,
-                  (200..<300).contains(http.statusCode),
-                  let contentType = http.value(forHTTPHeaderField: "Content-Type")?.lowercased(),
-                  contentType.contains("text/event-stream") else {
-                await onState(false)
-                return
-            }
-
-            await onState(true)
-            var currentEvent = "message"
-            var dataLines: [String] = []
-
-            for try await line in bytes.lines {
-                if Task.isCancelled { break }
-                if line.isEmpty {
-                    let payload = dataLines.joined(separator: "\n")
-                    if currentEvent == "changed", payload == "refresh" {
-                        await onRefresh()
-                    } else if currentEvent == "access-ended" {
-                        await onRefresh()
-                        break
-                    }
-                    currentEvent = "message"
-                    dataLines.removeAll()
-                } else if line.hasPrefix("event:") {
-                    currentEvent = line.dropFirst(6).trimmingCharacters(in: .whitespaces)
-                } else if line.hasPrefix("data:") {
-                    var value = String(line.dropFirst(5))
-                    if value.hasPrefix(" ") { value.removeFirst() }
-                    dataLines.append(value)
-                }
-            }
-        } catch {
-            // Polling handles transient SSE disconnects.
-        }
-        await onState(false)
+        await MajungEventStream.listen(request: req, session: streamSession, onState: onState, onRefresh: onRefresh)
     }
 }

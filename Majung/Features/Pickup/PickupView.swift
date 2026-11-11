@@ -57,9 +57,25 @@ struct PickupView: View {
     private func active(_ snapshot: PickupSnapshot, place: PickupPlace) -> some View {
         Group {
             MajungCard {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                TimelineView(.periodic(from: .now, by: 1)) { context in
                     let vehicle = tracker.currentVehicle()
+                    let freshness = MajungFormatting.freshnessText(
+                        for: vehicle,
+                        updatedAt: tracker.vehicleUpdatedAt,
+                        now: context.date
+                    )
+                    let distance = MajungFormatting.distanceText(from: vehicle, to: place)
                     VStack(alignment: .leading, spacing: 12) {
+                        if freshness != nil || distance != nil {
+                            HStack(spacing: 8) {
+                                if let freshness {
+                                    MajungStatusPill(text: freshness, tint: .green)
+                                }
+                                if let distance {
+                                    MajungStatusPill(text: distance, tint: .accentColor)
+                                }
+                            }
+                        }
                         Text(MajungFormatting.etaText(vehicle)).font(.title2.bold()).accessibilityAddTraits(.isHeader)
                         if let name = snapshot.vehicleName, !name.isEmpty {
                             Label(name, systemImage: "car.fill").foregroundStyle(.secondary)

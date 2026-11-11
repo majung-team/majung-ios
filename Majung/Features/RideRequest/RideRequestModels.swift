@@ -76,6 +76,26 @@ struct RideRequestItem: Decodable, Identifiable, Equatable {
     let driverInvitation: Bool
 
     var id: UUID { requestId }
+
+    func terminalPickupSnapshot(lastPlace: PickupPlace?, lastVehicleName: String?) -> PickupSnapshot? {
+        let terminalStatus: PickupSnapshot.Status? = switch status {
+        case .completed: .completed
+        case .cancelled: .cancelled
+        case .expired: .expired
+        default: nil
+        }
+        guard let terminalStatus else { return nil }
+        return PickupSnapshot(
+            pickupId: nil,
+            status: terminalStatus,
+            place: lastPlace ?? place,
+            placeVersion: 0,
+            participant: nil,
+            placeProposal: nil,
+            quickMessage: nil,
+            vehicleName: lastVehicleName
+        )
+    }
 }
 
 struct RideRequestListResponse: Decodable {

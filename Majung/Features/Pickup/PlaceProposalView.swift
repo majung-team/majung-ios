@@ -4,6 +4,7 @@ import SwiftUI
 struct PlaceProposalView: View {
     @Environment(\.dismiss) private var dismiss
     let meetingPlace: PickupPlace
+    var activeProposal: PickupSnapshot.Proposal? = nil
     @Bindable var tracker: PickupTracker
 
     var body: some View {
@@ -30,6 +31,13 @@ struct PlaceProposalView: View {
                         .foregroundStyle(.secondary)
                     Label(meetingPlace.label, systemImage: "mappin.circle.fill")
                         .font(.headline)
+                    if let activeProposal, !activeProposal.isPassenger {
+                        Divider()
+                        MajungStatusBanner(
+                            message: "운전자가 새 장소를 제안했어요: \(activeProposal.place.label)",
+                            tint: .accentColor
+                        )
+                    }
                 }
             }
             .navigationTitle("다른 장소 제안")

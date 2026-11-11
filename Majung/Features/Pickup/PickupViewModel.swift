@@ -189,6 +189,13 @@ final class PickupViewModel {
         tracker.resetState()
     }
 
+    func leaveWaiting() {
+        guard let status = tracker.snapshot?.status, status == .inviting || status == .waiting else { return }
+        clearGuestSession()
+        inviteError = nil
+        tracker.resetState()
+    }
+
     private func clearGuestSession() {
         session = nil
         PickupSessionStore.clear()

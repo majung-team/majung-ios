@@ -64,7 +64,7 @@ struct RequestsTabView: View {
 
     private var displayedItems: [RideRequestItem] {
         switch filter {
-        case .waiting: rideModel.waitingRequests
+        case .waiting: rideModel.pendingOrInvitedRequests
         case .queue: rideModel.queuedRequests
         case .history: rideModel.terminalRequests
         }
@@ -85,7 +85,7 @@ struct RequestsTabView: View {
                 }
 
                 Picker("요청 필터", selection: $filter) {
-                    Text("대기·초대 (\(rideModel.waitingRequests.count))").tag(RequestFilter.waiting)
+                    Text("대기·초대 (\(rideModel.pendingOrInvitedRequests.count))").tag(RequestFilter.waiting)
                     Text("내 차례 대기 (\(rideModel.queuedRequests.count))").tag(RequestFilter.queue)
                     Text("지난 내역 (\(rideModel.terminalRequests.count))").tag(RequestFilter.history)
                 }
@@ -131,7 +131,10 @@ struct RequestsTabView: View {
                 Task {
                     switch target.kind {
                     case .acceptInvitation:
-                        await rideModel.answerInvitation(target.item, accept: true)
+                        let nextStatus = await rideModel.answerInvitation(target.item, accept: true)
+                        if nextStatus == .queued {
+                            filter = .queue
+                        }
                     case .rejectInvitation:
                         await rideModel.answerInvitation(target.item, accept: false)
                     case .cancelRequest:
@@ -146,49 +149,14 @@ struct RequestsTabView: View {
     }
 
     private func activeRideCard(_ item: RideRequestItem) -> some View {
-        MajungCard {
-            HStack {
-                MajungStatusPill(text: "실시간 마중 진행 중", tint: .green)
-                Spacer()
-                if let majungId = item.majungId {
-                    Text(majungId)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let vehicle = rideModel.tracking.currentVehicle()
-                let heading = rideModel.tracking.snapshot?.status == .arrived
-                    ? "마중 차량이 도착했어요"
-                    : MajungFormatting.etaText(vehicle)
-                Text(heading)
-                    .font(.title3.bold())
-                    .accessibilityAddTraits(.isHeader)
-            }
-
-            if let vehicleName = rideModel.tracking.snapshot?.vehicleName, !vehicleName.isEmpty {
-                Label("\(item.nickname) 운전자 · \(vehicleName)", systemImage: "car.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                Label("\(item.nickname) 운전자", systemImage: "person.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            Label(rideModel.tracking.snapshot?.place?.label ?? item.place.label, systemImage: "mappin.circle.fill")
-                .font(.subheadline.weight(.medium))
-
-            Button {
-                onOpenTracking()
-            } label: {
-                Text("실시간 픽업 보기")
-                    .frame(maxWidth: .infinity, minHeight: 38)
-            }
-            .buttonStyle(.borderedProminent)
-            .accessibilityIdentifier("requests-open-tracking")
-        }
+        ActivePickupSummaryCard(
+            item: item,
+            tracking: rideModel.tracking,
+            ctaLabel: "실시간 픽업 보기",
+            ctaIdentifier: "requests-open-tracking",
+            trailingMeta: item.majungId,
+            onOpen: onOpenTracking
+        )
     }
 
     private func rideCard(_ item: RideRequestItem) -> some View {
@@ -267,6 +235,7 @@ struct RequestsTabView: View {
                     pendingAction = PendingRideAction(item: item, kind: .cancelRequest)
                 }
                 .buttonStyle(.bordered)
+                .tint(.red)
                 .controlSize(.small)
                 .disabled(rideModel.busy)
                 .accessibilityIdentifier("requests-cancel-button")

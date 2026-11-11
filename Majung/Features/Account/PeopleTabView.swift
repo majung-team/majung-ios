@@ -96,6 +96,10 @@ struct PeopleTabView: View {
                 Button(copiedId ? "복사됨" : "ID 복사") {
                     UIPasteboard.general.string = member.majungId
                     copiedId = true
+                    Task {
+                        try? await Task.sleep(for: .seconds(2))
+                        copiedId = false
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -151,6 +155,12 @@ struct PeopleTabView: View {
             Text("동명이인은 아래 마중 ID로 구분해주세요. 이름과 마중 ID 외의 위치·차량 정보는 공개하지 않아요.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+
+            if !queryDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !canSearch && !people.busy {
+                Text("검색어는 2글자 이상 입력해주세요.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
 
             if people.searchDone {
                 Divider()
@@ -302,6 +312,7 @@ struct PeopleTabView: View {
                         pendingAction = PendingConnectionAction(connection: item, action: .disconnect)
                     }
                     .buttonStyle(.bordered)
+                    .tint(.red)
                     .controlSize(.small)
                     .disabled(people.busy)
                     .accessibilityIdentifier("people-disconnect-\(item.majungId)")
@@ -333,6 +344,7 @@ struct PeopleTabView: View {
                         Task { await people.perform(.accept, on: item) }
                     }
                     .buttonStyle(.borderedProminent)
+                    .tint(.green)
                     .controlSize(.small)
                     .disabled(people.busy)
                     .accessibilityIdentifier("people-accept-\(item.majungId)")

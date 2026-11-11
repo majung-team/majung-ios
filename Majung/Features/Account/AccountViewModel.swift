@@ -33,6 +33,9 @@ final class AccountViewModel {
                 }
                 member = current
                 csrfToken = result.state.csrfToken
+                if current.profileReady {
+                    error = nil
+                }
             } else {
                 clearLocalSession()
             }
@@ -65,6 +68,9 @@ final class AccountViewModel {
                 member = freshMember
             }
             csrfToken = sessionResult.state.csrfToken
+            if member?.profileReady == true {
+                error = nil
+            }
         } catch is CancellationError {
             return
         } catch {

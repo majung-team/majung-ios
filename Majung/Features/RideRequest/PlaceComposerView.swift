@@ -126,17 +126,30 @@ struct PlaceComposerView<Header: View>: View {
                 .font(.headline)
 
             HStack(spacing: 8) {
-                TextField("예: 강남역 2번 출구, 서울역", text: $searchQuery)
-                    .focused($searchFocused)
-                    .submitLabel(.search)
-                    .onSubmit {
-                        searchFocused = false
-                        Task { await performSearch() }
+                HStack(spacing: 6) {
+                    TextField("예: 강남역 2번 출구, 서울역", text: $searchQuery)
+                        .focused($searchFocused)
+                        .submitLabel(.search)
+                        .onSubmit {
+                            searchFocused = false
+                            Task { await performSearch() }
+                        }
+                        .accessibilityIdentifier("\(idPrefix)-place-search-field")
+
+                    if !searchQuery.isEmpty {
+                        Button {
+                            searchQuery = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("장소 검색어 지우기")
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-                    .accessibilityIdentifier("\(idPrefix)-place-search-field")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
 
                 Button(searching ? "검색 중…" : "장소 찾기") {
                     searchFocused = false
@@ -178,6 +191,10 @@ struct PlaceComposerView<Header: View>: View {
 
                     ForEach(Array(pagedResults.enumerated()), id: \.offset) { _, item in
                         let place = PlaceSearchService.place(from: item, fallbackLabel: searchedKeyword)
+                        let isSelected = isSameCoordinate(selectedCoordinate, item.placemark.coordinate) && {
+                            if case .search = selectionSource { return true }
+                            return false
+                        }()
                         Button {
                             chooseSearchResult(item: item, place: place)
                             onSelected()
@@ -192,14 +209,19 @@ struct PlaceComposerView<Header: View>: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                if isSameCoordinate(selectedCoordinate, item.placemark.coordinate),
-                                   case .search = selectionSource {
+                                if isSelected {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundStyle(Color.accentColor)
                                 }
                             }
                             .padding(10)
                             .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
+                            .overlay {
+                                if isSelected {
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.accentColor, lineWidth: 1.5)
+                                }
+                            }
                         }
                         .buttonStyle(.plain)
                     }
@@ -268,7 +290,8 @@ struct PlaceComposerView<Header: View>: View {
 
             selectionSummary
 
-            TextField("예: 1번 출구 택시 승강장 앞 (1~120자)", text: $labelDraft)
+            TextField("예: 1번 출구 택시 승강장 앞 (1~120자)", text: $labelDraft, axis: .vertical)
+                .lineLimit(2...4)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))

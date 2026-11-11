@@ -27,7 +27,10 @@ struct MainTabView: View {
                     inviteLink: $inviteLink,
                     onOpenRequests: { selectedTab = .requests },
                     onOpenPeople: { selectedTab = .people },
-                    onOpenTracking: { showingRideTracking = true }
+                    onOpenTracking: {
+                        rideRequests.beginTrackingSession()
+                        showingRideTracking = true
+                    }
                 )
             }
             .tabItem {
@@ -39,7 +42,10 @@ struct MainTabView: View {
                 RequestsTabView(
                     rideModel: rideRequests,
                     onOpenPeople: { selectedTab = .people },
-                    onOpenTracking: { showingRideTracking = true }
+                    onOpenTracking: {
+                        rideRequests.beginTrackingSession()
+                        showingRideTracking = true
+                    }
                 )
             }
             .tabItem {
@@ -76,17 +82,29 @@ struct MainTabView: View {
             NavigationStack {
                 PickupView(tracker: rideRequests.tracking, resetLabel: "목록으로") {
                     showingRideTracking = false
+                    rideRequests.clearEndedTrackingIfNeeded()
                 }
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("닫기") { showingRideTracking = false }
+                        Button("닫기") {
+                            showingRideTracking = false
+                            rideRequests.clearEndedTrackingIfNeeded()
+                        }
                     }
                 }
             }
         }
         .onChange(of: rideRequests.activeRequest?.id) { _, activeId in
+            if activeId == nil && !showingRideTracking {
+                rideRequests.clearEndedTrackingIfNeeded()
+            }
             if activeId == nil && rideRequests.tracking.snapshot == nil {
                 showingRideTracking = false
+            }
+        }
+        .onChange(of: showingRideTracking) { _, isShowing in
+            if !isShowing {
+                rideRequests.clearEndedTrackingIfNeeded()
             }
         }
         .onChange(of: vehicleLinks.navigationEventCount) { _, count in
@@ -210,81 +228,61 @@ private struct HomeTabView: View {
     }
 
     private func activeRideCard(_ item: RideRequestItem) -> some View {
-        MajungCard {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                let vehicle = rideRequests.tracking.currentVehicle()
-                let place = rideRequests.tracking.snapshot?.place ?? item.place
-                let arrived = rideRequests.tracking.snapshot?.status == .arrived
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        MajungStatusPill(text: "실시간 마중 진행 중", tint: .green)
-                        if let distance = MajungFormatting.distanceText(from: vehicle, to: place), !arrived {
-                            MajungStatusPill(text: distance, tint: .accentColor)
-                        }
-                    }
-                    let heading = arrived
-                        ? "마중 차량이 도착했어요"
-                        : MajungFormatting.etaText(vehicle)
-                    Text(heading)
-                        .font(.title3.bold())
-                        .accessibilityAddTraits(.isHeader)
-                }
-            }
-            Label(rideRequests.tracking.snapshot?.place?.label ?? item.place.label, systemImage: "mappin.circle.fill")
-                .font(.subheadline.weight(.medium))
-            if let vehicleName = rideRequests.tracking.snapshot?.vehicleName, !vehicleName.isEmpty {
-                Label("\(item.nickname) 운전자 · \(vehicleName)", systemImage: "car.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Button {
-                onOpenTracking()
-            } label: {
-                Text("픽업 보기")
-                    .frame(maxWidth: .infinity, minHeight: 38)
-            }
-            .buttonStyle(.borderedProminent)
-            .accessibilityIdentifier("home-open-tracking-button")
-        }
+        ActivePickupSummaryCard(
+            item: item,
+            tracking: rideRequests.tracking,
+            ctaLabel: "픽업 보기",
+            ctaIdentifier: "home-open-tracking-button",
+            onOpen: onOpenTracking
+        )
     }
 
     private var waitingSummaryCard: some View {
-        MajungCard {
-            HStack {
+        let invitedCount = rideRequests.invitedRequests.count
+        let requestCount = max(0, rideRequests.waitingRequests.count - invitedCount)
+        return MajungCard {
+            HStack(spacing: 8) {
                 Text("내 요청·초대 대기 목록")
                     .font(.headline)
                 Spacer()
+                MajungStatusPill(text: "초대 \(invitedCount) · 요청 \(requestCount)", tint: .orange)
                 Button("전체 보기", action: onOpenRequests)
                     .font(.footnote.weight(.semibold))
             }
 
             ForEach(rideRequests.waitingRequests.prefix(2)) { item in
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(item.nickname) · \(item.place.label)")
-                            .font(.subheadline.weight(.medium))
-                            .lineLimit(1)
-                        if item.status == .queued, let ahead = item.peopleAhead {
-                            Text("내 앞 \(ahead)건 대기 중")
-                                .font(.caption)
-                                .foregroundStyle(Color.accentColor)
+                Button(action: onOpenRequests) {
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(item.nickname) · \(item.place.label)")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            if item.status == .queued, let ahead = item.peopleAhead {
+                                Text("내 앞 \(ahead)건 대기 중")
+                                    .font(.caption)
+                                    .foregroundStyle(Color.accentColor)
+                            }
                         }
+                        Spacer()
+                        MajungStatusPill(
+                            text: item.status == .invited ? "받은 초대" : item.status == .queued ? "내 차례 대기" : "수락 대기",
+                            tint: item.status == .pending ? .orange : .accentColor
+                        )
                     }
-                    Spacer()
-                    MajungStatusPill(
-                        text: item.status == .invited ? "받은 초대" : item.status == .queued ? "내 차례 대기" : "수락 대기",
-                        tint: item.status == .pending ? .orange : .accentColor
-                    )
+                    .padding(.vertical, 4)
                 }
-                .padding(.vertical, 4)
+                .buttonStyle(.plain)
             }
         }
     }
 }
 
 private struct SettingsTabView: View {
+    @Environment(\.openURL) private var openURL
     @Bindable var account: AccountViewModel
     @Bindable var vehicleLinks: VehicleLinkViewModel
+    @State private var notifications = PickupNotificationService()
     @State private var nicknameDraft = ""
     @State private var copiedId = false
     @State private var showingVehicleScanner = false
@@ -323,6 +321,10 @@ private struct SettingsTabView: View {
                         Button(copiedId ? "복사됨" : "복사") {
                             UIPasteboard.general.string = member.majungId
                             copiedId = true
+                            Task {
+                                try? await Task.sleep(for: .seconds(2))
+                                copiedId = false
+                            }
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
@@ -330,7 +332,7 @@ private struct SettingsTabView: View {
                 }
             }
 
-            Section("내 차량") {
+            Section {
                 if let active = vehicleLinks.activePairing {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
@@ -338,7 +340,10 @@ private struct SettingsTabView: View {
                             Spacer()
                             TimelineView(.periodic(from: .now, by: 1)) { context in
                                 let remaining = max(0, Int(active.expiresAt.timeIntervalSince(context.date)))
-                                Text(String(format: "만료 %d:%02d", remaining / 60, remaining % 60))
+                                let formatted = remaining >= 3600
+                                    ? String(format: "%d:%02d:%02d", remaining / 3600, (remaining % 3600) / 60, remaining % 60)
+                                    : String(format: "%d:%02d", remaining / 60, remaining % 60)
+                                Text("만료 \(formatted)")
                                     .font(.caption.monospacedDigit())
                                     .foregroundStyle(.orange)
                             }
@@ -348,13 +353,24 @@ private struct SettingsTabView: View {
                         Text(active.detailText)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
-                        Button("요청 취소", role: .destructive) {
-                            Task { await vehicleLinks.cancelActivePairing() }
+                        HStack(spacing: 8) {
+                            Button("상태 확인") {
+                                Task { await vehicleLinks.pollActivePairingOnce() }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .disabled(vehicleLinks.busy)
+                            .accessibilityIdentifier("vehicle-pairing-refresh-button")
+
+                            Button("요청 취소", role: .destructive) {
+                                Task { await vehicleLinks.cancelActivePairing() }
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.red)
+                            .controlSize(.small)
+                            .disabled(vehicleLinks.busy)
+                            .accessibilityIdentifier("vehicle-pairing-cancel-button")
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .disabled(vehicleLinks.busy)
-                        .accessibilityIdentifier("vehicle-pairing-cancel-button")
                     }
                     .padding(.vertical, 4)
                 }
@@ -379,6 +395,7 @@ private struct SettingsTabView: View {
                             detachingVehicle = link
                         }
                         .buttonStyle(.bordered)
+                        .tint(.red)
                         .controlSize(.small)
                         .disabled(vehicleLinks.busy)
                         .accessibilityIdentifier("vehicle-detach-\(link.vehicleId.uuidString.lowercased())")
@@ -402,6 +419,14 @@ private struct SettingsTabView: View {
                     Text(vError)
                         .font(.footnote)
                         .foregroundStyle(.red)
+                }
+            } header: {
+                HStack {
+                    Text("내 차량")
+                    Spacer()
+                    if !vehicleLinks.links.isEmpty {
+                        MajungStatusPill(text: "\(vehicleLinks.links.count)대 연결됨", tint: .green)
+                    }
                 }
             }
 
@@ -437,7 +462,35 @@ private struct SettingsTabView: View {
                 }
             }
 
-            Section("위치 및 개인정보 안내") {
+            Section("알림 및 개인정보 안내") {
+                Toggle(isOn: Binding(
+                    get: { notifications.enabled },
+                    set: { value in Task { await notifications.setEnabled(value) } }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("도착 전·차량 도착 알림")
+                        Text("도착 약 3분 전과 차량 도착 시 알림을 받아요.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityIdentifier("settings-arrival-alert-toggle")
+
+                if notifications.permissionDenied {
+                    HStack {
+                        Text("iOS 설정에서 알림 권한이 꺼져 있어요.")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                        Spacer()
+                        Button("설정 열기") {
+                            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                                openURL(settingsURL)
+                            }
+                        }
+                        .font(.caption.weight(.semibold))
+                    }
+                }
+
                 Text("위치 권한은 만날 장소를 고를 때만 사용하며, 픽업이 종료되면 실시간 위치 공유가 즉시 멈춰요.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -453,6 +506,7 @@ private struct SettingsTabView: View {
         }
         .navigationTitle("설정")
         .task {
+            await notifications.refreshStatus()
             await vehicleLinks.load(silent: true)
         }
         .onAppear {

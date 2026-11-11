@@ -15,6 +15,15 @@
 		A10000000000000000000025 /* PickupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* PickupView.swift */; };
 		A10000000000000000000026 /* PlaceProposalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* PlaceProposalView.swift */; };
 		A10000000000000000000027 /* PickupAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* PickupAPI.swift */; };
+		A10000000000000000000031 /* APIBaseURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000041 /* APIBaseURL.swift */; };
+		A10000000000000000000032 /* AccountAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000042 /* AccountAPI.swift */; };
+		A10000000000000000000033 /* AccountModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000043 /* AccountModels.swift */; };
+		A10000000000000000000034 /* AccountSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000044 /* AccountSessionStore.swift */; };
+		A10000000000000000000035 /* NativeAuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000045 /* NativeAuthSession.swift */; };
+		A10000000000000000000036 /* AccountViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000046 /* AccountViewModel.swift */; };
+		A10000000000000000000037 /* LoginEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000047 /* LoginEntryView.swift */; };
+		A10000000000000000000038 /* NicknameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000048 /* NicknameSetupView.swift */; };
+		A10000000000000000000039 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000049 /* MainTabView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +36,15 @@
 		A10000000000000000000015 /* PickupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupView.swift; sourceTree = "<group>"; };
 		A10000000000000000000016 /* PlaceProposalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceProposalView.swift; sourceTree = "<group>"; };
 		A10000000000000000000017 /* PickupAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupAPI.swift; sourceTree = "<group>"; };
+		A10000000000000000000041 /* APIBaseURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIBaseURL.swift; sourceTree = "<group>"; };
+		A10000000000000000000042 /* AccountAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountAPI.swift; sourceTree = "<group>"; };
+		A10000000000000000000043 /* AccountModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountModels.swift; sourceTree = "<group>"; };
+		A10000000000000000000044 /* AccountSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSessionStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000045 /* NativeAuthSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAuthSession.swift; sourceTree = "<group>"; };
+		A10000000000000000000046 /* AccountViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountViewModel.swift; sourceTree = "<group>"; };
+		A10000000000000000000047 /* LoginEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginEntryView.swift; sourceTree = "<group>"; };
+		A10000000000000000000048 /* NicknameSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NicknameSetupView.swift; sourceTree = "<group>"; };
+		A10000000000000000000049 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -65,14 +83,35 @@
 		};
 		A1000000000000000000001A /* Networking */ = {
 			isa = PBXGroup;
-			children = (A10000000000000000000017 /* PickupAPI.swift */,);
+			children = (
+				A10000000000000000000041 /* APIBaseURL.swift */,
+				A10000000000000000000042 /* AccountAPI.swift */,
+				A10000000000000000000017 /* PickupAPI.swift */,
+			);
 			path = Networking;
 			sourceTree = "<group>";
 		};
 		A1000000000000000000001B /* Features */ = {
 			isa = PBXGroup;
-			children = (A1000000000000000000001C /* Pickup */,);
+			children = (
+				A10000000000000000000050 /* Account */,
+				A1000000000000000000001C /* Pickup */,
+			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000050 /* Account */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000043 /* AccountModels.swift */,
+				A10000000000000000000044 /* AccountSessionStore.swift */,
+				A10000000000000000000045 /* NativeAuthSession.swift */,
+				A10000000000000000000046 /* AccountViewModel.swift */,
+				A10000000000000000000047 /* LoginEntryView.swift */,
+				A10000000000000000000048 /* NicknameSetupView.swift */,
+				A10000000000000000000049 /* MainTabView.swift */,
+			);
+			path = Account;
 			sourceTree = "<group>";
 		};
 		A1000000000000000000001C /* Pickup */ = {
@@ -152,6 +191,15 @@
 				A10000000000000000000025 /* PickupView.swift in Sources */,
 				A10000000000000000000026 /* PlaceProposalView.swift in Sources */,
 				A10000000000000000000027 /* PickupAPI.swift in Sources */,
+				A10000000000000000000031 /* APIBaseURL.swift in Sources */,
+				A10000000000000000000032 /* AccountAPI.swift in Sources */,
+				A10000000000000000000033 /* AccountModels.swift in Sources */,
+				A10000000000000000000034 /* AccountSessionStore.swift in Sources */,
+				A10000000000000000000035 /* NativeAuthSession.swift in Sources */,
+				A10000000000000000000036 /* AccountViewModel.swift in Sources */,
+				A10000000000000000000037 /* LoginEntryView.swift in Sources */,
+				A10000000000000000000038 /* NicknameSetupView.swift in Sources */,
+				A10000000000000000000039 /* MainTabView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

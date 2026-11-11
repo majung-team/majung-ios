@@ -1,0 +1,85 @@
+import SwiftUI
+
+struct NicknameSetupView: View {
+    @Bindable var account: AccountViewModel
+    @State private var draft = ""
+
+    private var normalizedCount: Int {
+        draft.trimmingCharacters(in: .whitespacesAndNewlines)
+            .precomposedStringWithCompatibilityMapping
+            .count
+    }
+
+    private var isValid: Bool {
+        AccountValidation.normalizedNickname(draft) != nil
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("최초 로그인 · 닉네임 설정")
+                        .font(.caption.bold())
+                        .foregroundStyle(.tint)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.tint.opacity(0.12), in: Capsule())
+
+                    Text("어떤 이름으로 만날까요?")
+                        .font(.title.bold())
+                        .accessibilityAddTraits(.isHeader)
+
+                    Text("운전자와 지인에게 표시될 이름이에요. 설정에서 언제든 바꿀 수 있어요.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("닉네임 (2~20자)", text: $draft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .padding(12)
+                        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                        .accessibilityIdentifier("nickname-setup-field")
+
+                    HStack {
+                        Text("문자·숫자·공백·밑줄·점·하이픈 2~20자")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(normalizedCount)/20자")
+                            .font(.footnote)
+                            .foregroundStyle(normalizedCount > 20 ? Color.red : Color.secondary)
+                    }
+
+                    if let error = account.error {
+                        Text(error)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
+                .padding(16)
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+
+                Button {
+                    Task { _ = await account.saveNickname(draft) }
+                } label: {
+                    Text(account.busy ? "저장 중…" : "이 이름으로 시작")
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!isValid || account.busy)
+                .accessibilityIdentifier("nickname-setup-submit")
+
+                Button("다른 계정으로 로그인", role: .destructive) {
+                    Task { await account.logout() }
+                }
+                .disabled(account.busy)
+            }
+            .padding(20)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("이름 설정")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}

@@ -23,16 +23,8 @@ struct PickupAPI {
     private struct PlaceBody: Encodable { let place: PickupPlace }
     private struct MessageBody: Encodable { let message: String }
 
-    private let origin: URL = {
-        #if DEBUG && targetEnvironment(simulator)
-        if let port = ProcessInfo.processInfo.environment["MAJUNG_TEST_PORT"].flatMap(Int.init),
-           (1...65535).contains(port) {
-            return URL(string: "http://localhost:\(port)/api/v1/pickups")!
-        }
-        #endif
-        return URL(string: "https://majung.cloud/api/v1/pickups")!
-    }()
-    private let network = URLSession(configuration: .ephemeral, delegate: PickupRedirectPolicy(), delegateQueue: nil)
+    private let origin = APIBaseURL.root.appendingPathComponent("pickups")
+    private let network = URLSession(configuration: .ephemeral, delegate: NoRedirectDelegate(), delegateQueue: nil)
 
     func preview(_ invite: PickupInvitation) async throws -> String {
         let response: Preview = try await request(invite.id, "invitation-preview", method: "POST",
@@ -94,14 +86,5 @@ struct PickupAPI {
             throw Failure(status: http.statusCode, code: body?.code, message: body?.message)
         }
         return try JSONDecoder().decode(Response.self, from: data)
-    }
-}
-
-private final class PickupRedirectPolicy: NSObject, URLSessionTaskDelegate {
-    func urlSession(
-        _ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
-        newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void
-    ) {
-        completionHandler(nil)
     }
 }

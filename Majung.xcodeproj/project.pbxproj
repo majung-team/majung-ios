@@ -24,6 +24,8 @@
 		A10000000000000000000037 /* LoginEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000047 /* LoginEntryView.swift */; };
 		A10000000000000000000038 /* NicknameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000048 /* NicknameSetupView.swift */; };
 		A10000000000000000000039 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000049 /* MainTabView.swift */; };
+		A1000000000000000000003A /* PeopleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004A /* PeopleViewModel.swift */; };
+		A1000000000000000000003B /* PeopleTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004B /* PeopleTabView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +47,8 @@
 		A10000000000000000000047 /* LoginEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginEntryView.swift; sourceTree = "<group>"; };
 		A10000000000000000000048 /* NicknameSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NicknameSetupView.swift; sourceTree = "<group>"; };
 		A10000000000000000000049 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		A1000000000000000000004A /* PeopleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleViewModel.swift; sourceTree = "<group>"; };
+		A1000000000000000000004B /* PeopleTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleTabView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -110,6 +114,8 @@
 				A10000000000000000000047 /* LoginEntryView.swift */,
 				A10000000000000000000048 /* NicknameSetupView.swift */,
 				A10000000000000000000049 /* MainTabView.swift */,
+				A1000000000000000000004A /* PeopleViewModel.swift */,
+				A1000000000000000000004B /* PeopleTabView.swift */,
 			);
 			path = Account;
 			sourceTree = "<group>";
@@ -200,6 +206,8 @@
 				A10000000000000000000037 /* LoginEntryView.swift in Sources */,
 				A10000000000000000000038 /* NicknameSetupView.swift in Sources */,
 				A10000000000000000000039 /* MainTabView.swift in Sources */,
+				A1000000000000000000003A /* PeopleViewModel.swift in Sources */,
+				A1000000000000000000003B /* PeopleTabView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

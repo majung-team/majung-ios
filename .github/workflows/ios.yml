@@ -41,15 +41,15 @@ jobs:
 
   simulator-build:
     runs-on: macos-26
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Build for iOS Simulator
         run: xcodebuild -project Majung.xcodeproj -scheme Majung -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
-      - name: Run unit tests on iOS Simulator
+      - name: Run unit and E2E UI tests on iOS Simulator
         run: |
           SIM_ID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); devs=[d for r,ds in data["devices"].items() if "iOS" in r for d in ds if d.get("isAvailable") and "iPhone" in d.get("name","")]; devs.sort(key=lambda d: (d.get("state") != "Booted", "Pro" not in d["name"], d["name"])); print(devs[0]["udid"])')"
           echo "Using simulator: $SIM_ID"
-          xcodebuild -project Majung.xcodeproj -scheme Majung -destination "platform=iOS Simulator,id=$SIM_ID" CODE_SIGNING_ALLOWED=NO -only-testing:MajungTests test
+          xcodebuild -project Majung.xcodeproj -scheme Majung -destination "platform=iOS Simulator,id=$SIM_ID" CODE_SIGNING_ALLOWED=NO -only-testing:MajungTests -only-testing:MajungUITests test

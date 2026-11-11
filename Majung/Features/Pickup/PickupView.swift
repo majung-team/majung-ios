@@ -402,6 +402,7 @@ struct PickupView: View {
                         tracker.messageDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                         tracker.messageDraft.utf16.count > 50
                     )
+                    .accessibilityIdentifier("pickup-message-send-button")
             }
             if let recent = snapshot.quickMessage, !recent.text.isEmpty {
                 Label("보낸 메시지 · \(recent.text)", systemImage: "checkmark.circle.fill")

@@ -6,6 +6,12 @@ struct MajungApp: App {
     private let notificationDelegate = MajungNotificationDelegate()
 
     init() {
+        #if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("-UITestResetSessions") {
+            AccountSessionStore.clear()
+            PickupSessionStore.clear()
+        }
+        #endif
         UNUserNotificationCenter.current().delegate = notificationDelegate
     }
 

@@ -38,6 +38,16 @@
                ReferencedContainer = "container:Majung.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "C10000000000000000000007"
+               BuildableName = "MajungUITests.xctest"
+               BlueprintName = "MajungUITests"
+               ReferencedContainer = "container:Majung.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

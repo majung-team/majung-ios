@@ -42,10 +42,19 @@
 		A10000000000000000000096 /* PlaceComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000086 /* PlaceComposerView.swift */; };
 		B10000000000000000000001 /* MajungCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* MajungCoreTests.swift */; };
 		B10000000000000000000002 /* PickupTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* PickupTrackerTests.swift */; };
+		C10000000000000000000001 /* LocalE2EServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000003 /* LocalE2EServer.swift */; };
+		C10000000000000000000002 /* MajungE2EUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000004 /* MajungE2EUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		B1000000000000000000000C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000000000000000000000B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000000000000000000009;
+			remoteInfo = Majung;
+		};
+		C1000000000000000000000C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A1000000000000000000000B /* Project object */;
 			proxyType = 1;
@@ -92,6 +101,9 @@
 		B10000000000000000000003 /* MajungCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungCoreTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000004 /* PickupTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupTrackerTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000005 /* MajungTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MajungTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000003 /* LocalE2EServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalE2EServer.swift; sourceTree = "<group>"; };
+		C10000000000000000000004 /* MajungE2EUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungE2EUITests.swift; sourceTree = "<group>"; };
+		C10000000000000000000005 /* MajungUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MajungUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -100,6 +112,7 @@
 			children = (
 				A10000000000000000000007 /* Majung */,
 				B10000000000000000000006 /* MajungTests */,
+				C10000000000000000000006 /* MajungUITests */,
 				A10000000000000000000008 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -219,6 +232,7 @@
 			children = (
 				A10000000000000000000005 /* Majung.app */,
 				B10000000000000000000005 /* MajungTests.xctest */,
+				C10000000000000000000005 /* MajungUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -230,6 +244,15 @@
 				B10000000000000000000004 /* PickupTrackerTests.swift */,
 			);
 			path = MajungTests;
+			sourceTree = "<group>";
+		};
+		C10000000000000000000006 /* MajungUITests */ = {
+			isa = PBXGroup;
+			children = (
+				C10000000000000000000003 /* LocalE2EServer.swift */,
+				C10000000000000000000004 /* MajungE2EUITests.swift */,
+			);
+			path = MajungUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -266,6 +289,22 @@
 			productReference = B10000000000000000000005 /* MajungTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		C10000000000000000000007 /* MajungUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C10000000000000000000009 /* Build configuration list for PBXNativeTarget "MajungUITests" */;
+			buildPhases = (
+				C10000000000000000000008 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C1000000000000000000000D /* PBXTargetDependency */,
+			);
+			name = MajungUITests;
+			productName = MajungUITests;
+			productReference = C10000000000000000000005 /* MajungUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -274,6 +313,9 @@
 			attributes = {
 				TargetAttributes = {
 					B10000000000000000000007 = {
+						TestTargetID = A10000000000000000000009;
+					};
+					C10000000000000000000007 = {
 						TestTargetID = A10000000000000000000009;
 					};
 				};
@@ -294,6 +336,7 @@
 			targets = (
 				A10000000000000000000009 /* Majung */,
 				B10000000000000000000007 /* MajungTests */,
+				C10000000000000000000007 /* MajungUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -348,6 +391,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C10000000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000001 /* LocalE2EServer.swift in Sources */,
+				C10000000000000000000002 /* MajungE2EUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -355,6 +407,11 @@
 			isa = PBXTargetDependency;
 			target = A10000000000000000000009 /* Majung */;
 			targetProxy = B1000000000000000000000C /* PBXContainerItemProxy */;
+		};
+		C1000000000000000000000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000000000000000000009 /* Majung */;
+			targetProxy = C1000000000000000000000C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -456,6 +513,42 @@
 			};
 			name = Release;
 		};
+		C1000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K2G6G3ZNZQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.majung.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Majung;
+			};
+			name = Debug;
+		};
+		C1000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K2G6G3ZNZQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.majung.ios.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Majung;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -482,6 +575,15 @@
 			buildConfigurations = (
 				B1000000000000000000000A /* Debug */,
 				B1000000000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C10000000000000000000009 /* Build configuration list for PBXNativeTarget "MajungUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C1000000000000000000000A /* Debug */,
+				C1000000000000000000000B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -90,22 +90,42 @@ final class AccountViewModel {
         defer { busy = false }
 
         do {
-            let token = try await ensureCsrfToken(cookie: cookie)
-            do {
-                let updated = try await api.updateNickname(normalized, cookie: cookie, csrfToken: token)
-                member = updated
-                notice = "이름을 저장했어요."
-                return true
-            } catch let failure as AccountAPI.Failure where failure.isCsrfRejected {
-                let refreshed = try await refreshCsrfToken(cookie: cookie)
-                let updated = try await api.updateNickname(normalized, cookie: cookie, csrfToken: refreshed)
-                member = updated
-                notice = "이름을 저장했어요."
-                return true
+            let updated = try await performAuthorizedMutation { cookie, token in
+                try await self.api.updateNickname(normalized, cookie: cookie, csrfToken: token)
             }
+            member = updated
+            notice = "이름을 저장했어요."
+            return true
         } catch {
             handleAccountError(error)
             return false
+        }
+    }
+
+    func performAuthorized<Response>(_ work: (_ cookie: String) async throws -> Response) async throws -> Response {
+        guard let cookie = storedSession?.sessionCookie else {
+            clearLocalSession()
+            throw AccountAPI.Failure(status: 401, code: "LOGIN_REQUIRED", message: "다시 로그인해주세요.")
+        }
+        do {
+            return try await work(cookie)
+        } catch let failure as AccountAPI.Failure where failure.isUnauthorized {
+            clearLocalSession()
+            throw AccountAPI.Failure(status: 401, code: failure.code ?? "LOGIN_REQUIRED", message: "로그인 세션이 만료됐어요. 다시 로그인해주세요.")
+        }
+    }
+
+    func performAuthorizedMutation<Response>(
+        _ work: (_ cookie: String, _ csrfToken: String) async throws -> Response
+    ) async throws -> Response {
+        try await performAuthorized { cookie in
+            let token = try await self.ensureCsrfToken(cookie: cookie)
+            do {
+                return try await work(cookie, token)
+            } catch let failure as AccountAPI.Failure where failure.isCsrfRejected {
+                let refreshed = try await self.refreshCsrfToken(cookie: cookie)
+                return try await work(cookie, refreshed)
+            }
         }
     }
 
@@ -169,7 +189,7 @@ final class AccountViewModel {
         AccountSessionStore.clear()
     }
 
-    private func displayError(_ error: Error) -> String {
+    func displayError(_ error: Error) -> String {
         if let native = error as? NativeAuthError, let msg = native.errorDescription {
             return msg
         }

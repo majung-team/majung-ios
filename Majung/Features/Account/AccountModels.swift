@@ -9,6 +9,31 @@ struct AccountMember: Codable, Equatable {
     let profileReady: Bool
 }
 
+struct AccountSearchResult: Codable, Equatable, Identifiable {
+    let memberId: UUID
+    let majungId: String
+    let nickname: String
+
+    var id: UUID { memberId }
+}
+
+struct AccountConnection: Codable, Equatable, Identifiable {
+    let connectionId: UUID
+    let majungId: String
+    let nickname: String
+    let status: String
+    let direction: String
+
+    var id: UUID { connectionId }
+    var isConnected: Bool { status == "ACCEPTED" }
+    var isIncomingPending: Bool { status == "PENDING" && direction == "INCOMING" }
+    var isOutgoingPending: Bool { status == "PENDING" && direction == "OUTGOING" }
+}
+
+enum ConnectionAction: String {
+    case accept, reject, cancel, disconnect
+}
+
 struct AccountSessionResponse: Decodable, Equatable {
     let loginEnabled: Bool
     let authenticated: Bool
@@ -27,6 +52,15 @@ enum AccountValidation {
         let stripped = input.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalized = stripped.precomposedStringWithCompatibilityMapping
         guard normalized.range(of: nicknamePattern, options: .regularExpression) != nil else {
+            return nil
+        }
+        return normalized
+    }
+
+    static func normalizedSearchQuery(_ input: String) -> String? {
+        let normalized = input.trimmingCharacters(in: .whitespacesAndNewlines)
+            .precomposedStringWithCompatibilityMapping
+        guard (2...32).contains(normalized.count) else {
             return nil
         }
         return normalized

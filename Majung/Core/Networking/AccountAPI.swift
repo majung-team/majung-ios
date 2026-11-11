@@ -25,6 +25,10 @@ struct AccountAPI {
         let nickname: String
     }
 
+    private struct ConnectionTargetBody: Encodable {
+        let memberId: UUID
+    }
+
     private let origin = APIBaseURL.root
     private let network = URLSession(configuration: .ephemeral, delegate: NoRedirectDelegate(), delegateQueue: nil)
 
@@ -68,6 +72,44 @@ struct AccountAPI {
         ).0
     }
 
+    func searchAccounts(query: String, page: Int, cookie: String) async throws -> [AccountSearchResult] {
+        try await requestWithResponse(
+            "accounts/search",
+            queryItems: [
+                URLQueryItem(name: "query", value: query),
+                URLQueryItem(name: "page", value: String(page))
+            ],
+            cookie: cookie
+        ).0
+    }
+
+    func connections(page: Int, cookie: String) async throws -> [AccountConnection] {
+        try await requestWithResponse(
+            "connections",
+            queryItems: [URLQueryItem(name: "page", value: String(page))],
+            cookie: cookie
+        ).0
+    }
+
+    func requestConnection(memberId: UUID, cookie: String, csrfToken: String) async throws -> AccountConnection {
+        try await requestWithResponse(
+            "connections",
+            method: "POST",
+            cookie: cookie,
+            csrfToken: csrfToken,
+            body: ConnectionTargetBody(memberId: memberId)
+        ).0
+    }
+
+    func updateConnection(id: UUID, action: ConnectionAction, cookie: String, csrfToken: String) async throws -> AccountConnection {
+        try await requestWithResponse(
+            "connections/\(id.uuidString.lowercased())/\(action.rawValue)",
+            method: "POST",
+            cookie: cookie,
+            csrfToken: csrfToken
+        ).0
+    }
+
     func logout(cookie: String, csrfToken: String) async throws {
         let url = endpoint("auth/logout")
         var req = baseRequest(url: url, method: "POST", cookie: cookie, csrfToken: csrfToken)
@@ -83,11 +125,12 @@ struct AccountAPI {
     private func requestWithResponse<Response: Decodable>(
         _ path: String,
         method: String = "GET",
+        queryItems: [URLQueryItem]? = nil,
         cookie: String? = nil,
         csrfToken: String? = nil,
         body: (any Encodable)? = nil
     ) async throws -> (Response, HTTPURLResponse) {
-        let url = endpoint(path)
+        let url = endpoint(path, queryItems: queryItems)
         var req = baseRequest(url: url, method: method, cookie: cookie, csrfToken: csrfToken)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
@@ -103,12 +146,17 @@ struct AccountAPI {
         return (try JSONDecoder().decode(Response.self, from: data), http)
     }
 
-    private func endpoint(_ path: String) -> URL {
+    private func endpoint(_ path: String, queryItems: [URLQueryItem]? = nil) -> URL {
         var url = origin
         for component in path.split(separator: "/") {
             url.appendPathComponent(String(component))
         }
-        return url
+        guard let queryItems, !queryItems.isEmpty,
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url
+        }
+        components.queryItems = queryItems
+        return components.url ?? url
     }
 
     private func baseRequest(url: URL, method: String, cookie: String?, csrfToken: String?) -> URLRequest {

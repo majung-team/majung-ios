@@ -3,6 +3,7 @@ import UIKit
 
 struct MainTabView: View {
     @Bindable var account: AccountViewModel
+    @Bindable var people: PeopleViewModel
     @Bindable var pickup: PickupViewModel
     @Binding var inviteLink: String
     @State private var selectedTab: TabItem = .home
@@ -35,7 +36,7 @@ struct MainTabView: View {
             .tag(TabItem.requests)
 
             NavigationStack {
-                PeoplePlaceholderView(member: account.member)
+                PeopleTabView(account: account, people: people)
             }
             .tabItem {
                 Label("사람", systemImage: "person.2.fill")
@@ -118,46 +119,6 @@ private struct HomeTabView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-    }
-}
-
-private struct PeoplePlaceholderView: View {
-    let member: AccountMember?
-    @State private var copied = false
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if let member {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("내 마중 ID (지인 공유용)")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        HStack {
-                            Text(member.majungId)
-                                .font(.headline)
-                            Spacer()
-                            Button(copied ? "복사됨" : "ID 복사") {
-                                UIPasteboard.general.string = member.majungId
-                                copied = true
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                    }
-                    .padding(16)
-                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-                }
-
-                ContentUnavailableView(
-                    "사람 찾기·연결 준비 중",
-                    systemImage: "person.2",
-                    description: Text("다음 단계에서 닉네임·마중 ID 검색과 연결 요청 기능을 연결해요.")
-                )
-            }
-            .padding(16)
-        }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle("사람")
     }
 }
 

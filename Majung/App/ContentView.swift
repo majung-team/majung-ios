@@ -2,9 +2,16 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
-    @State private var accountModel = AccountViewModel()
+    @State private var accountModel: AccountViewModel
+    @State private var peopleModel: PeopleViewModel
     @State private var pickupModel = PickupViewModel()
     @State private var link = ""
+
+    init() {
+        let account = AccountViewModel()
+        _accountModel = State(initialValue: account)
+        _peopleModel = State(initialValue: PeopleViewModel(account: account))
+    }
 
     private var activeSession: PickupSession? { scenePhase == .active ? pickupModel.session : nil }
 
@@ -22,7 +29,7 @@ struct ContentView: View {
                     }
                 }
             } else if accountModel.isReady {
-                MainTabView(account: accountModel, pickup: pickupModel, inviteLink: $link)
+                MainTabView(account: accountModel, people: peopleModel, pickup: pickupModel, inviteLink: $link)
             } else if accountModel.needsNicknameSetup {
                 NavigationStack {
                     NicknameSetupView(account: accountModel)
@@ -36,6 +43,11 @@ struct ContentView: View {
         .tint(Color(red: 0.10, green: 0.39, blue: 0.85))
         .task {
             await accountModel.restore()
+        }
+        .onChange(of: accountModel.isReady) { _, ready in
+            if !ready {
+                peopleModel.reset()
+            }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {

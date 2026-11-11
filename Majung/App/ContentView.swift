@@ -23,6 +23,10 @@ struct ContentView: View {
         .onOpenURL { url in
             Task { await model.openLink(url.absoluteString) }
         }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            guard let url = activity.webpageURL else { return }
+            Task { await model.openLink(url.absoluteString) }
+        }
         .task(id: activeSession) {
             guard activeSession != nil else { return }
             await refreshUntilInactive()
@@ -52,6 +56,12 @@ struct ContentView: View {
                     .autocorrectionDisabled()
                     .padding(12)
                     .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                PasteButton(payloadType: String.self) { values in
+                    guard let value = values.first else { return }
+                    link = value
+                    Task { await model.openLink(value) }
+                }
+                .disabled(model.busy)
                 Button {
                     Task { await model.openLink(link) }
                 } label: {

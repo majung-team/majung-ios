@@ -35,13 +35,34 @@ final class PickupViewModel {
             error = "마중 초대 링크를 확인해주세요."
             return
         }
-        guard session == nil else {
-            if session?.id != invite.id { error = "진행 중인 픽업이 있어요. 픽업이 끝난 뒤 새 초대를 열어주세요." }
-            return
+        if let current = session {
+            if current.id == invite.id {
+                await refresh()
+                return
+            }
+            guard await canOpenAnotherInvitation(current) else { return }
         }
         reset()
         invitation = invite
         await preview()
+    }
+
+    private func canOpenAnotherInvitation(_ current: PickupSession) async -> Bool {
+        busy = true
+        revision += 1
+        defer { busy = false }
+        do {
+            apply(try await api.snapshot(current))
+            if session != nil {
+                error = "진행 중인 픽업이 있어요. 픽업이 끝난 뒤 새 초대를 열어주세요."
+                return false
+            }
+            return true
+        } catch {
+            if handleLostSession(error) { return true }
+            self.error = "진행 중인 픽업을 확인하지 못했어요. 연결을 확인한 뒤 다시 열어주세요."
+            return false
+        }
     }
 
     func preview() async {

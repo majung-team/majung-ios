@@ -20,5 +20,7 @@
     </dict>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>만날 장소를 지도로 고르거나 현재 위치를 선택할 때 사용해요.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>차량 화면의 QR 코드를 스캔해 계정을 연결할 때 사용해요.</string>
 </dict>
 </plist>

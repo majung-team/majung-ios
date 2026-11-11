@@ -34,6 +34,10 @@
 		A10000000000000000000056 /* RideRequestViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000066 /* RideRequestViewModel.swift */; };
 		A10000000000000000000057 /* PlacePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000067 /* PlacePickerSheet.swift */; };
 		A10000000000000000000058 /* RequestsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000068 /* RequestsTabView.swift */; };
+		A10000000000000000000091 /* VehicleLinkAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000081 /* VehicleLinkAPI.swift */; };
+		A10000000000000000000092 /* VehicleLinkModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000082 /* VehicleLinkModels.swift */; };
+		A10000000000000000000093 /* VehicleLinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000083 /* VehicleLinkViewModel.swift */; };
+		A10000000000000000000094 /* VehicleQRScannerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000084 /* VehicleQRScannerSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -65,6 +69,10 @@
 		A10000000000000000000066 /* RideRequestViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideRequestViewModel.swift; sourceTree = "<group>"; };
 		A10000000000000000000067 /* PlacePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacePickerSheet.swift; sourceTree = "<group>"; };
 		A10000000000000000000068 /* RequestsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestsTabView.swift; sourceTree = "<group>"; };
+		A10000000000000000000081 /* VehicleLinkAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleLinkAPI.swift; sourceTree = "<group>"; };
+		A10000000000000000000082 /* VehicleLinkModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleLinkModels.swift; sourceTree = "<group>"; };
+		A10000000000000000000083 /* VehicleLinkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleLinkViewModel.swift; sourceTree = "<group>"; };
+		A10000000000000000000084 /* VehicleQRScannerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleQRScannerSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -117,6 +125,7 @@
 				A10000000000000000000042 /* AccountAPI.swift */,
 				A10000000000000000000017 /* PickupAPI.swift */,
 				A10000000000000000000062 /* RideRequestAPI.swift */,
+				A10000000000000000000081 /* VehicleLinkAPI.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -127,6 +136,7 @@
 				A10000000000000000000050 /* Account */,
 				A1000000000000000000001C /* Pickup */,
 				A10000000000000000000071 /* RideRequest */,
+				A10000000000000000000072 /* VehicleLinks */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -170,6 +180,16 @@
 				A10000000000000000000068 /* RequestsTabView.swift */,
 			);
 			path = RideRequest;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000072 /* VehicleLinks */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000082 /* VehicleLinkModels.swift */,
+				A10000000000000000000083 /* VehicleLinkViewModel.swift */,
+				A10000000000000000000084 /* VehicleQRScannerSheet.swift */,
+			);
+			path = VehicleLinks;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000008 /* Products */ = {
@@ -256,6 +276,10 @@
 				A10000000000000000000056 /* RideRequestViewModel.swift in Sources */,
 				A10000000000000000000057 /* PlacePickerSheet.swift in Sources */,
 				A10000000000000000000058 /* RequestsTabView.swift in Sources */,
+				A10000000000000000000091 /* VehicleLinkAPI.swift in Sources */,
+				A10000000000000000000092 /* VehicleLinkModels.swift in Sources */,
+				A10000000000000000000093 /* VehicleLinkViewModel.swift in Sources */,
+				A10000000000000000000094 /* VehicleQRScannerSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

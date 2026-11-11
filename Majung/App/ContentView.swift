@@ -5,6 +5,7 @@ struct ContentView: View {
     @State private var accountModel: AccountViewModel
     @State private var peopleModel: PeopleViewModel
     @State private var rideRequestModel: RideRequestViewModel
+    @State private var vehicleLinkModel: VehicleLinkViewModel
     @State private var pickupModel = PickupViewModel()
     @State private var link = ""
 
@@ -13,6 +14,7 @@ struct ContentView: View {
         _accountModel = State(initialValue: account)
         _peopleModel = State(initialValue: PeopleViewModel(account: account))
         _rideRequestModel = State(initialValue: RideRequestViewModel(account: account))
+        _vehicleLinkModel = State(initialValue: VehicleLinkViewModel(account: account))
     }
 
     private var activeSession: PickupSession? { scenePhase == .active ? pickupModel.session : nil }
@@ -22,6 +24,9 @@ struct ContentView: View {
     private var accountPollingKey: String { "\(accountModel.isReady)-\(scenePhase == .active)" }
     private var activeRideStreamKey: String {
         "\(rideRequestModel.activeRequest?.id.uuidString ?? "none")-\(scenePhase == .active)"
+    }
+    private var pendingVehiclePollingKey: String {
+        "\(accountModel.isReady)-\(scenePhase == .active)-\(vehicleLinkModel.hasPendingPairing)"
     }
 
     var body: some View {
@@ -44,6 +49,7 @@ struct ContentView: View {
                     account: accountModel,
                     people: peopleModel,
                     rideRequests: rideRequestModel,
+                    vehicleLinks: vehicleLinkModel,
                     pickup: pickupModel,
                     inviteLink: $link
                 )
@@ -53,7 +59,14 @@ struct ContentView: View {
                 }
             } else {
                 NavigationStack {
-                    LoginEntryView(account: accountModel, pickup: pickupModel, inviteLink: $link)
+                    LoginEntryView(
+                        account: accountModel,
+                        pickup: pickupModel,
+                        inviteLink: $link,
+                        vehiclePendingMessage: vehicleLinkModel.deferredTarget != nil
+                            ? "로그인을 마치면 차량 연결을 이어서 진행할게요."
+                            : nil
+                    )
                 }
             }
         }
@@ -62,14 +75,24 @@ struct ContentView: View {
             await accountModel.restore()
             if accountModel.isReady {
                 await rideRequestModel.refresh(silent: true)
+                await vehicleLinkModel.load(silent: true)
+                await vehicleLinkModel.resumeDeferredIfNeeded()
             }
         }
-        .onChange(of: accountModel.isReady) { _, ready in
+        .onChange(of: accountModel.isReady) { wasReady, ready in
             if ready {
-                Task { await rideRequestModel.refresh(silent: true) }
+                Task {
+                    await rideRequestModel.refresh(silent: true)
+                    await vehicleLinkModel.load(silent: true)
+                    await vehicleLinkModel.resumeDeferredIfNeeded()
+                }
             } else {
                 peopleModel.reset()
                 rideRequestModel.reset()
+                vehicleLinkModel.reset()
+                if wasReady {
+                    vehicleLinkModel.clearDeferred()
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -78,6 +101,8 @@ struct ContentView: View {
                     await accountModel.restore()
                     if accountModel.isReady {
                         await rideRequestModel.refresh(silent: true)
+                        await vehicleLinkModel.load(silent: true)
+                        await vehicleLinkModel.resumeDeferredIfNeeded()
                     }
                 }
             } else {
@@ -86,12 +111,11 @@ struct ContentView: View {
             }
         }
         .onOpenURL { url in
-            if url.scheme?.lowercased() == "majung", url.host?.lowercased() == "auth" { return }
-            Task { await pickupModel.openLink(url.absoluteString) }
+            handleIncomingURL(url)
         }
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
             guard let url = activity.webpageURL else { return }
-            Task { await pickupModel.openLink(url.absoluteString) }
+            handleIncomingURL(url)
         }
         .task(id: activeSession) {
             guard activeSession != nil else { return }
@@ -108,6 +132,28 @@ struct ContentView: View {
         .task(id: activeRideStreamKey) {
             guard scenePhase == .active, let requestId = rideRequestModel.activeRequest?.id else { return }
             await rideRequestModel.runEventStream(for: requestId)
+        }
+        .task(id: pendingVehiclePollingKey) {
+            guard accountModel.isReady && scenePhase == .active && vehicleLinkModel.hasPendingPairing else { return }
+            await pollPendingVehicleUntilDone()
+        }
+    }
+
+    private func handleIncomingURL(_ url: URL) {
+        if url.scheme?.lowercased() == "majung", url.host?.lowercased() == "auth" { return }
+        if VehiclePairingTarget(url: url) != nil {
+            Task { await vehicleLinkModel.handleIncoming(url: url) }
+            return
+        }
+        Task { await pickupModel.openLink(url.absoluteString) }
+    }
+
+    private func pollPendingVehicleUntilDone() async {
+        while !Task.isCancelled && accountModel.isReady && scenePhase == .active && vehicleLinkModel.hasPendingPairing {
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            if !Task.isCancelled && accountModel.isReady && scenePhase == .active && vehicleLinkModel.hasPendingPairing {
+                await vehicleLinkModel.pollActivePairingOnce()
+            }
         }
     }
 

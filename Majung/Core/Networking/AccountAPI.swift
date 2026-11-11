@@ -130,6 +130,43 @@ struct AccountAPI {
         csrfToken: String? = nil,
         body: (any Encodable)? = nil
     ) async throws -> (Response, HTTPURLResponse) {
+        let (data, http) = try await performRequest(
+            path,
+            method: method,
+            queryItems: queryItems,
+            cookie: cookie,
+            csrfToken: csrfToken,
+            body: body
+        )
+        return (try MajungCodec.decoder.decode(Response.self, from: data), http)
+    }
+
+    func requestEmpty(
+        _ path: String,
+        method: String = "POST",
+        queryItems: [URLQueryItem]? = nil,
+        cookie: String? = nil,
+        csrfToken: String? = nil,
+        body: (any Encodable)? = nil
+    ) async throws {
+        _ = try await performRequest(
+            path,
+            method: method,
+            queryItems: queryItems,
+            cookie: cookie,
+            csrfToken: csrfToken,
+            body: body
+        )
+    }
+
+    private func performRequest(
+        _ path: String,
+        method: String,
+        queryItems: [URLQueryItem]?,
+        cookie: String?,
+        csrfToken: String?,
+        body: (any Encodable)?
+    ) async throws -> (Data, HTTPURLResponse) {
         let url = endpoint(path, queryItems: queryItems)
         var req = baseRequest(url: url, method: method, cookie: cookie, csrfToken: csrfToken)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -143,7 +180,7 @@ struct AccountAPI {
             let errorBody = try? MajungCodec.decoder.decode(ErrorBody.self, from: data)
             throw Failure(status: http.statusCode, code: errorBody?.code, message: errorBody?.message)
         }
-        return (try MajungCodec.decoder.decode(Response.self, from: data), http)
+        return (data, http)
     }
 
     func endpoint(_ path: String, queryItems: [URLQueryItem]? = nil) -> URL {

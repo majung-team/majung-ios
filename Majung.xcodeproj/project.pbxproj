@@ -38,6 +38,8 @@
 		A10000000000000000000092 /* VehicleLinkModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000082 /* VehicleLinkModels.swift */; };
 		A10000000000000000000093 /* VehicleLinkViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000083 /* VehicleLinkViewModel.swift */; };
 		A10000000000000000000094 /* VehicleQRScannerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000084 /* VehicleQRScannerSheet.swift */; };
+		A10000000000000000000095 /* PickupNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000085 /* PickupNotificationService.swift */; };
+		A10000000000000000000096 /* PlaceComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000086 /* PlaceComposerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +75,8 @@
 		A10000000000000000000082 /* VehicleLinkModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleLinkModels.swift; sourceTree = "<group>"; };
 		A10000000000000000000083 /* VehicleLinkViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleLinkViewModel.swift; sourceTree = "<group>"; };
 		A10000000000000000000084 /* VehicleQRScannerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VehicleQRScannerSheet.swift; sourceTree = "<group>"; };
+		A10000000000000000000085 /* PickupNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupNotificationService.swift; sourceTree = "<group>"; };
+		A10000000000000000000086 /* PlaceComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceComposerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -164,6 +168,7 @@
 				A10000000000000000000013 /* PickupSessionStore.swift */,
 				A10000000000000000000014 /* PickupViewModel.swift */,
 				A10000000000000000000063 /* SharedPickupTracker.swift */,
+				A10000000000000000000085 /* PickupNotificationService.swift */,
 				A10000000000000000000015 /* PickupView.swift */,
 				A10000000000000000000016 /* PlaceProposalView.swift */,
 			);
@@ -176,6 +181,7 @@
 				A10000000000000000000064 /* RideRequestModels.swift */,
 				A10000000000000000000065 /* LocationService.swift */,
 				A10000000000000000000066 /* RideRequestViewModel.swift */,
+				A10000000000000000000086 /* PlaceComposerView.swift */,
 				A10000000000000000000067 /* PlacePickerSheet.swift */,
 				A10000000000000000000068 /* RequestsTabView.swift */,
 			);
@@ -280,6 +286,8 @@
 				A10000000000000000000092 /* VehicleLinkModels.swift in Sources */,
 				A10000000000000000000093 /* VehicleLinkViewModel.swift in Sources */,
 				A10000000000000000000094 /* VehicleQRScannerSheet.swift in Sources */,
+				A10000000000000000000095 /* PickupNotificationService.swift in Sources */,
+				A10000000000000000000096 /* PlaceComposerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -4,7 +4,8 @@ import SwiftUI
 struct PlaceProposalView: View {
     @Environment(\.dismiss) private var dismiss
     let meetingPlace: PickupPlace
-    let model: PickupViewModel
+    @Bindable var tracker: PickupTracker
+
     @State private var query = ""
     @State private var results: [MKMapItem] = []
     @State private var selected: PickupPlace?
@@ -19,13 +20,14 @@ struct PlaceProposalView: View {
             Form {
                 Section("현재 만날 장소") { Text(meetingPlace.label) }
                 Section("새 장소 검색") {
-                    TextField("장소 이름이나 주소", text: $query).submitLabel(.search)
+                    TextField("장소 이름이나 주소", text: $query)
+                        .submitLabel(.search)
                         .onSubmit { Task { await search() } }
                     Button(searching ? "검색 중…" : "검색") { Task { await search() } }
                         .disabled(searching || query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     if let searchNote { Text(searchNote).foregroundStyle(.secondary) }
                     ForEach(Array(results.enumerated()), id: \.offset) { _, result in
-                        let place = makePlace(result)
+                        let place = PlaceSearchService.place(from: result, fallbackLabel: query)
                         Button {
                             selected = place
                         } label: {
@@ -50,11 +52,17 @@ struct PlaceProposalView: View {
                         TextField("장소 이름", text: $pinLabel)
                         Button("지도 중심 선택") {
                             guard let mapCenter else { return }
-                            selected = PickupPlace(label: pinLabel.trimmingCharacters(in: .whitespacesAndNewlines),
-                                                   latitude: mapCenter.latitude, longitude: mapCenter.longitude)
+                            selected = PickupPlace(
+                                label: pinLabel.trimmingCharacters(in: .whitespacesAndNewlines),
+                                latitude: mapCenter.latitude,
+                                longitude: mapCenter.longitude
+                            )
                         }
-                        .disabled(mapCenter == nil || pinLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                  || pinLabel.utf16.count > 120)
+                        .disabled(
+                            mapCenter == nil ||
+                            pinLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                            pinLabel.utf16.count > 120
+                        )
                     }
                 }
                 if let selected {
@@ -62,11 +70,11 @@ struct PlaceProposalView: View {
                         Text(selected.label)
                         Text("운전자가 새 장소를 확정하면 약속 장소가 바뀌어요.")
                             .foregroundStyle(.secondary)
-                        Button(model.busy ? "보내는 중…" : "운전자에게 제안 보내기") {
-                            Task { if await model.suggest(selected) { dismiss() } }
+                        Button(tracker.busy ? "보내는 중…" : "운전자에게 제안 보내기") {
+                            Task { if await tracker.suggest(selected) { dismiss() } }
                         }
-                        .disabled(model.busy)
-                        if let error = model.error { Text(error).foregroundStyle(.red) }
+                        .disabled(tracker.busy)
+                        if let error = tracker.error { Text(error).foregroundStyle(.red) }
                     }
                 }
             }
@@ -82,19 +90,22 @@ struct PlaceProposalView: View {
 
     private var mapPicker: some View {
         let center = CLLocationCoordinate2D(latitude: meetingPlace.latitude, longitude: meetingPlace.longitude)
-        return Map(initialPosition: .region(MKCoordinateRegion(center: center,
-                                                               latitudinalMeters: 700, longitudinalMeters: 700)))
-            .onMapCameraChange(frequency: .onEnd) { mapCenter = $0.region.center }
-            .onAppear { mapCenter = center }
-            .overlay {
-                Image(systemName: "scope")
-                    .font(.title2.bold())
-                    .foregroundStyle(.blue)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-            }
-            .frame(height: 180)
-            .accessibilityLabel("지도 중심을 옮겨 새 만남 장소를 지정하세요")
+        return Map(initialPosition: .region(MKCoordinateRegion(
+            center: center,
+            latitudinalMeters: 700,
+            longitudinalMeters: 700
+        )))
+        .onMapCameraChange(frequency: .onEnd) { mapCenter = $0.region.center }
+        .onAppear { mapCenter = center }
+        .overlay {
+            Image(systemName: "scope")
+                .font(.title2.bold())
+                .foregroundStyle(.blue)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+        .frame(height: 180)
+        .accessibilityLabel("지도 중심을 옮겨 새 만남 장소를 지정하세요")
     }
 
     private func search() async {
@@ -105,22 +116,12 @@ struct PlaceProposalView: View {
         results = []
         searchNote = nil
         defer { searching = false }
-        let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = text
-        request.region = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: meetingPlace.latitude, longitude: meetingPlace.longitude),
-            latitudinalMeters: 12_000, longitudinalMeters: 12_000
-        )
+        let center = CLLocationCoordinate2D(latitude: meetingPlace.latitude, longitude: meetingPlace.longitude)
         do {
-            results = Array(try await MKLocalSearch(request: request).start().mapItems.prefix(10))
+            results = Array(try await PlaceSearchService.search(query: text, near: center).prefix(10))
             if results.isEmpty { searchNote = "검색 결과가 없어요." }
         } catch {
             searchNote = "장소를 찾지 못했어요. 다른 이름이나 주소로 검색해주세요."
         }
-    }
-
-    private func makePlace(_ item: MKMapItem) -> PickupPlace {
-        PickupPlace(label: String((item.name ?? item.placemark.title ?? query).prefix(60)),
-                    latitude: item.placemark.coordinate.latitude, longitude: item.placemark.coordinate.longitude)
     }
 }

@@ -149,4 +149,27 @@ final class PeopleViewModel {
     func existingConnection(for majungId: String) -> AccountConnection? {
         connections.first { $0.majungId == majungId }
     }
+
+    func resolveRideTarget(for connection: AccountConnection) async -> RideTargetPerson? {
+        guard !busy else { return nil }
+        busy = true
+        error = nil
+        notice = nil
+        defer { busy = false }
+
+        do {
+            let candidates = try await account.performAuthorized { cookie in
+                try await self.api.searchAccounts(query: connection.majungId, page: 0, cookie: cookie)
+            }
+            let matches = candidates.filter { $0.majungId == connection.majungId }
+            guard matches.count == 1, let target = matches.first else {
+                error = "이 사람을 확인하지 못했어요. 연결 목록을 새로 확인한 뒤 다시 요청해주세요."
+                return nil
+            }
+            return RideTargetPerson(driverId: target.memberId, nickname: target.nickname, majungId: target.majungId)
+        } catch {
+            self.error = account.displayError(error)
+            return nil
+        }
+    }
 }

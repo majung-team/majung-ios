@@ -4,6 +4,7 @@ import UIKit
 struct PeopleTabView: View {
     @Bindable var account: AccountViewModel
     @Bindable var people: PeopleViewModel
+    var onRequestRide: (RideTargetPerson) -> Void
 
     @State private var queryDraft = ""
     @State private var copiedId = false
@@ -43,10 +44,10 @@ struct PeopleTabView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 if let notice = people.notice {
-                    statusBanner(notice, tint: .green)
+                    MajungStatusBanner(message: notice, tint: .green)
                 }
                 if let error = people.error {
-                    statusBanner(error, tint: .red)
+                    MajungStatusBanner(message: error, tint: .red)
                 }
 
                 if let member = account.member {
@@ -84,7 +85,7 @@ struct PeopleTabView: View {
     }
 
     private func myIdCard(_ member: AccountMember) -> some View {
-        card {
+        MajungCard {
             Text("내 마중 ID (지인 공유용)")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -104,7 +105,7 @@ struct PeopleTabView: View {
     }
 
     private var searchSection: some View {
-        card {
+        MajungCard {
             Label("사람 찾기", systemImage: "magnifyingglass")
                 .font(.headline)
 
@@ -188,9 +189,10 @@ struct PeopleTabView: View {
     }
 
     private func searchResultRow(_ person: AccountSearchResult) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let existing = people.existingConnection(for: person.majungId)
+        return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                monogram(for: person.nickname, tint: .accentColor)
+                MajungMonogram(name: person.nickname, tint: .accentColor)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(person.nickname)
                         .font(.subheadline.weight(.semibold))
@@ -199,18 +201,32 @@ struct PeopleTabView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if let connection = people.existingConnection(for: person.majungId) {
-                    connectionBadge(for: connection)
-                } else {
+                if let existing {
+                    connectionBadge(for: existing)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Spacer()
+                if existing == nil {
                     Button("연결 요청") {
                         searchFocused = false
                         Task { await people.requestConnection(memberId: person.memberId) }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(people.busy)
                     .accessibilityIdentifier("people-request-\(person.majungId)")
                 }
+
+                Button("마중 요청") {
+                    searchFocused = false
+                    onRequestRide(RideTargetPerson(driverId: person.memberId, nickname: person.nickname, majungId: person.majungId))
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(people.busy)
+                .accessibilityIdentifier("people-search-ride-\(person.majungId)")
             }
         }
         .padding(12)
@@ -218,7 +234,7 @@ struct PeopleTabView: View {
     }
 
     private var connectionsSection: some View {
-        card {
+        MajungCard {
             HStack {
                 Label("내 연결 목록", systemImage: "person.2.fill")
                     .font(.headline)
@@ -263,7 +279,10 @@ struct PeopleTabView: View {
     private func connectionRow(_ item: AccountConnection) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                monogram(for: item.nickname, tint: item.isConnected ? .green : item.isIncomingPending ? .accentColor : .orange)
+                MajungMonogram(
+                    name: item.nickname,
+                    tint: item.isConnected ? .green : item.isIncomingPending ? .accentColor : .orange
+                )
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.nickname)
                         .font(.subheadline.weight(.semibold))
@@ -279,14 +298,29 @@ struct PeopleTabView: View {
                 Spacer()
                 if item.isConnected {
                     Button("연결 해제", role: .destructive) {
+                        searchFocused = false
                         pendingAction = PendingConnectionAction(connection: item, action: .disconnect)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(people.busy)
                     .accessibilityIdentifier("people-disconnect-\(item.majungId)")
+
+                    Button("마중 요청") {
+                        searchFocused = false
+                        Task {
+                            if let target = await people.resolveRideTarget(for: item) {
+                                onRequestRide(target)
+                            }
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .disabled(people.busy)
+                    .accessibilityIdentifier("people-ride-\(item.majungId)")
                 } else if item.isIncomingPending {
                     Button("거절") {
+                        searchFocused = false
                         pendingAction = PendingConnectionAction(connection: item, action: .reject)
                     }
                     .buttonStyle(.bordered)
@@ -295,6 +329,7 @@ struct PeopleTabView: View {
                     .accessibilityIdentifier("people-reject-\(item.majungId)")
 
                     Button("연결 수락") {
+                        searchFocused = false
                         Task { await people.perform(.accept, on: item) }
                     }
                     .buttonStyle(.borderedProminent)
@@ -303,6 +338,7 @@ struct PeopleTabView: View {
                     .accessibilityIdentifier("people-accept-\(item.majungId)")
                 } else {
                     Button("요청 취소") {
+                        searchFocused = false
                         pendingAction = PendingConnectionAction(connection: item, action: .cancel)
                     }
                     .buttonStyle(.bordered)
@@ -324,22 +360,7 @@ struct PeopleTabView: View {
         } else {
             ("상대 확인 대기 중", .orange)
         }
-
-        return Text(text)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.14), in: Capsule())
-    }
-
-    private func monogram(for name: String, tint: Color) -> some View {
-        let letter = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1))
-        return Text(letter.isEmpty ? "마" : letter)
-            .font(.subheadline.bold())
-            .foregroundStyle(tint)
-            .frame(width: 36, height: 36)
-            .background(tint.opacity(0.14), in: Circle())
+        return MajungStatusPill(text: text, tint: color)
     }
 
     private func pager(page: Int, hasNext: Bool, onPrevious: @escaping () -> Void, onNext: @escaping () -> Void) -> some View {
@@ -359,21 +380,5 @@ struct PeopleTabView: View {
                 .disabled(!hasNext || people.busy || people.loadingConnections)
         }
         .padding(.top, 4)
-    }
-
-    private func statusBanner(_ message: String, tint: Color) -> some View {
-        Text(message)
-            .font(.footnote.weight(.medium))
-            .foregroundStyle(tint)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10, content: content)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 }

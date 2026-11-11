@@ -1,19 +1,32 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	classes = {};
+	classes = {
+	};
 	objectVersion = 56;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000001 /* MajungApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* MajungApp.swift */; };
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* ContentView.swift */; };
+		A10000000000000000000022 /* PickupModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* PickupModels.swift */; };
+		A10000000000000000000023 /* PickupSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* PickupSessionStore.swift */; };
+		A10000000000000000000024 /* PickupViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000014 /* PickupViewModel.swift */; };
+		A10000000000000000000025 /* PickupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* PickupView.swift */; };
+		A10000000000000000000026 /* PlaceProposalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* PlaceProposalView.swift */; };
+		A10000000000000000000027 /* PickupAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* PickupAPI.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000003 /* MajungApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungApp.swift; sourceTree = "<group>"; };
 		A10000000000000000000004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A10000000000000000000005 /* Majung.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Majung.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000012 /* PickupModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupModels.swift; sourceTree = "<group>"; };
+		A10000000000000000000013 /* PickupSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupSessionStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000014 /* PickupViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupViewModel.swift; sourceTree = "<group>"; };
+		A10000000000000000000015 /* PickupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupView.swift; sourceTree = "<group>"; };
+		A10000000000000000000016 /* PlaceProposalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceProposalView.swift; sourceTree = "<group>"; };
+		A10000000000000000000017 /* PickupAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupAPI.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -28,15 +41,57 @@
 		A10000000000000000000007 /* Majung */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000003 /* MajungApp.swift */,
-				A10000000000000000000004 /* ContentView.swift */,
+				A10000000000000000000018 /* App */,
+				A10000000000000000000019 /* Core */,
+				A1000000000000000000001B /* Features */,
 			);
 			path = Majung;
 			sourceTree = "<group>";
 		};
+		A10000000000000000000018 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000003 /* MajungApp.swift */,
+				A10000000000000000000004 /* ContentView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000019 /* Core */ = {
+			isa = PBXGroup;
+			children = (A1000000000000000000001A /* Networking */,);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000001A /* Networking */ = {
+			isa = PBXGroup;
+			children = (A10000000000000000000017 /* PickupAPI.swift */,);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000001B /* Features */ = {
+			isa = PBXGroup;
+			children = (A1000000000000000000001C /* Pickup */,);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000001C /* Pickup */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000012 /* PickupModels.swift */,
+				A10000000000000000000013 /* PickupSessionStore.swift */,
+				A10000000000000000000014 /* PickupViewModel.swift */,
+				A10000000000000000000015 /* PickupView.swift */,
+				A10000000000000000000016 /* PlaceProposalView.swift */,
+			);
+			path = Pickup;
+			sourceTree = "<group>";
+		};
 		A10000000000000000000008 /* Products */ = {
 			isa = PBXGroup;
-			children = (A10000000000000000000005 /* Majung.app */,);
+			children = (
+				A10000000000000000000005 /* Majung.app */,
+			);
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -45,16 +100,44 @@
 /* Begin PBXNativeTarget section */
 		A10000000000000000000009 /* Majung */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1000000000000000000000C /* Target configurations */;
-			buildPhases = (A1000000000000000000000A /* Sources */,);
-			buildRules = ();
-			dependencies = ();
+			buildConfigurationList = A1000000000000000000000C /* Build configuration list for PBXNativeTarget "Majung" */;
+			buildPhases = (
+				A1000000000000000000000A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = Majung;
 			productName = Majung;
 			productReference = A10000000000000000000005 /* Majung.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1000000000000000000000B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+			};
+			buildConfigurationList = A1000000000000000000000D /* Build configuration list for PBXProject "Majung" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = ko;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				ko,
+				en,
+				Base,
+			);
+			mainGroup = A10000000000000000000006;
+			productRefGroup = A10000000000000000000008 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000000000000000000009 /* Majung */,
+			);
+		};
+/* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A1000000000000000000000A /* Sources */ = {
@@ -63,32 +146,23 @@
 			files = (
 				A10000000000000000000001 /* MajungApp.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
+				A10000000000000000000022 /* PickupModels.swift in Sources */,
+				A10000000000000000000023 /* PickupSessionStore.swift in Sources */,
+				A10000000000000000000024 /* PickupViewModel.swift in Sources */,
+				A10000000000000000000025 /* PickupView.swift in Sources */,
+				A10000000000000000000026 /* PlaceProposalView.swift in Sources */,
+				A10000000000000000000027 /* PickupAPI.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXProject section */
-		A1000000000000000000000B /* Project object */ = {
-			isa = PBXProject;
-			buildConfigurationList = A1000000000000000000000D /* Project configurations */;
-			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = ko;
-			knownRegions = (ko, en, Base);
-			mainGroup = A10000000000000000000006;
-			productRefGroup = A10000000000000000000008 /* Products */;
-			projectDirPath = "";
-			projectRoot = "";
-			targets = (A10000000000000000000009 /* Majung */,);
-		};
-/* End PBXProject section */
-
 /* Begin XCBuildConfiguration section */
 		A1000000000000000000000E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ENABLE_TESTABILITY = YES;
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ENABLE_TESTABILITY = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
@@ -111,8 +185,10 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K2G6G3ZNZQ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Majung/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "마중";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				MARKETING_VERSION = 0.1.0;
@@ -128,7 +204,9 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = K2G6G3ZNZQ;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Majung/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "마중";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				MARKETING_VERSION = 0.1.0;
@@ -142,15 +220,21 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A1000000000000000000000C /* Target configurations */ = {
+		A1000000000000000000000C /* Build configuration list for PBXNativeTarget "Majung" */ = {
 			isa = XCConfigurationList;
-			buildConfigurations = (A10000000000000000000010 /* Debug */, A10000000000000000000011 /* Release */,);
+			buildConfigurations = (
+				A10000000000000000000010 /* Debug */,
+				A10000000000000000000011 /* Release */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1000000000000000000000D /* Project configurations */ = {
+		A1000000000000000000000D /* Build configuration list for PBXProject "Majung" */ = {
 			isa = XCConfigurationList;
-			buildConfigurations = (A1000000000000000000000E /* Debug */, A1000000000000000000000F /* Release */,);
+			buildConfigurations = (
+				A1000000000000000000000E /* Debug */,
+				A1000000000000000000000F /* Release */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};

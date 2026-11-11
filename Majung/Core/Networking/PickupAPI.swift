@@ -76,15 +76,15 @@ struct PickupAPI {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body {
-            request.httpBody = try JSONEncoder().encode(body)
+            request.httpBody = try MajungCodec.encoder.encode(body)
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         let (data, response) = try await network.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
         guard (200..<300).contains(http.statusCode) else {
-            let body = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            let body = try? MajungCodec.decoder.decode(ErrorBody.self, from: data)
             throw Failure(status: http.statusCode, code: body?.code, message: body?.message)
         }
-        return try JSONDecoder().decode(Response.self, from: data)
+        return try MajungCodec.decoder.decode(Response.self, from: data)
     }
 }

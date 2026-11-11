@@ -26,6 +26,14 @@
 		A10000000000000000000039 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000049 /* MainTabView.swift */; };
 		A1000000000000000000003A /* PeopleViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004A /* PeopleViewModel.swift */; };
 		A1000000000000000000003B /* PeopleTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000004B /* PeopleTabView.swift */; };
+		A10000000000000000000051 /* MajungComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000061 /* MajungComponents.swift */; };
+		A10000000000000000000052 /* RideRequestAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000062 /* RideRequestAPI.swift */; };
+		A10000000000000000000053 /* SharedPickupTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000063 /* SharedPickupTracker.swift */; };
+		A10000000000000000000054 /* RideRequestModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000064 /* RideRequestModels.swift */; };
+		A10000000000000000000055 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000065 /* LocationService.swift */; };
+		A10000000000000000000056 /* RideRequestViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000066 /* RideRequestViewModel.swift */; };
+		A10000000000000000000057 /* PlacePickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000067 /* PlacePickerSheet.swift */; };
+		A10000000000000000000058 /* RequestsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000068 /* RequestsTabView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +57,14 @@
 		A10000000000000000000049 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		A1000000000000000000004A /* PeopleViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleViewModel.swift; sourceTree = "<group>"; };
 		A1000000000000000000004B /* PeopleTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleTabView.swift; sourceTree = "<group>"; };
+		A10000000000000000000061 /* MajungComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungComponents.swift; sourceTree = "<group>"; };
+		A10000000000000000000062 /* RideRequestAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideRequestAPI.swift; sourceTree = "<group>"; };
+		A10000000000000000000063 /* SharedPickupTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedPickupTracker.swift; sourceTree = "<group>"; };
+		A10000000000000000000064 /* RideRequestModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideRequestModels.swift; sourceTree = "<group>"; };
+		A10000000000000000000065 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		A10000000000000000000066 /* RideRequestViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RideRequestViewModel.swift; sourceTree = "<group>"; };
+		A10000000000000000000067 /* PlacePickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacePickerSheet.swift; sourceTree = "<group>"; };
+		A10000000000000000000068 /* RequestsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestsTabView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -65,9 +81,18 @@
 			children = (
 				A10000000000000000000018 /* App */,
 				A10000000000000000000019 /* Core */,
+				A10000000000000000000070 /* DesignSystem */,
 				A1000000000000000000001B /* Features */,
 			);
 			path = Majung;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000070 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000061 /* MajungComponents.swift */,
+			);
+			path = DesignSystem;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000018 /* App */ = {
@@ -91,6 +116,7 @@
 				A10000000000000000000041 /* APIBaseURL.swift */,
 				A10000000000000000000042 /* AccountAPI.swift */,
 				A10000000000000000000017 /* PickupAPI.swift */,
+				A10000000000000000000062 /* RideRequestAPI.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -100,6 +126,7 @@
 			children = (
 				A10000000000000000000050 /* Account */,
 				A1000000000000000000001C /* Pickup */,
+				A10000000000000000000071 /* RideRequest */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -126,10 +153,23 @@
 				A10000000000000000000012 /* PickupModels.swift */,
 				A10000000000000000000013 /* PickupSessionStore.swift */,
 				A10000000000000000000014 /* PickupViewModel.swift */,
+				A10000000000000000000063 /* SharedPickupTracker.swift */,
 				A10000000000000000000015 /* PickupView.swift */,
 				A10000000000000000000016 /* PlaceProposalView.swift */,
 			);
 			path = Pickup;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000071 /* RideRequest */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000064 /* RideRequestModels.swift */,
+				A10000000000000000000065 /* LocationService.swift */,
+				A10000000000000000000066 /* RideRequestViewModel.swift */,
+				A10000000000000000000067 /* PlacePickerSheet.swift */,
+				A10000000000000000000068 /* RequestsTabView.swift */,
+			);
+			path = RideRequest;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000008 /* Products */ = {
@@ -208,6 +248,14 @@
 				A10000000000000000000039 /* MainTabView.swift in Sources */,
 				A1000000000000000000003A /* PeopleViewModel.swift in Sources */,
 				A1000000000000000000003B /* PeopleTabView.swift in Sources */,
+				A10000000000000000000051 /* MajungComponents.swift in Sources */,
+				A10000000000000000000052 /* RideRequestAPI.swift in Sources */,
+				A10000000000000000000053 /* SharedPickupTracker.swift in Sources */,
+				A10000000000000000000054 /* RideRequestModels.swift in Sources */,
+				A10000000000000000000055 /* LocationService.swift in Sources */,
+				A10000000000000000000056 /* RideRequestViewModel.swift in Sources */,
+				A10000000000000000000057 /* PlacePickerSheet.swift in Sources */,
+				A10000000000000000000058 /* RequestsTabView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

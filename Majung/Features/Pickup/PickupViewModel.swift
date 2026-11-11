@@ -11,28 +11,78 @@ final class PickupViewModel {
     private let api = PickupAPI()
     private var invitation: PickupInvitation?
     private(set) var session = PickupSessionStore.load()
-    private var revision = 0
-    private var refreshing = false
-    private var vehicleExpiresAt: ContinuousClock.Instant?
+    private var inviteBusy = false
+    private var inviteError: String?
 
-    var page: Page { session != nil || snapshot != nil ? .pickup : invitation == nil ? .entry : .invitation }
+    let tracker = PickupTracker()
+
+    var page: Page { session != nil || tracker.snapshot != nil ? .pickup : invitation == nil ? .entry : .invitation }
     private(set) var placeLabel: String?
-    private(set) var snapshot: PickupSnapshot?
-    private(set) var vehicle: PickupVehicle?
-    private(set) var busy = false
+    var busy: Bool { inviteBusy || tracker.busy }
     private(set) var linkUnavailable = false
-    private(set) var connectionProblem = false
-    private(set) var messageSent = false
-    var messageDraft = "" {
-        didSet { if messageDraft != oldValue { messageSent = false } }
+    var error: String? {
+        get { tracker.error ?? inviteError }
+        set {
+            tracker.error = newValue
+            inviteError = newValue
+        }
     }
-    var error: String?
+
+    init() {
+        let missingSessionError = PickupAPI.Failure(status: 401, code: "SESSION_MISSING", message: "세션이 없어요.")
+        tracker.configure(
+            PickupTracker.Backend(
+                refresh: { [weak self] in
+                    guard let self, let current = self.session else { throw missingSessionError }
+                    let snapshot = try await self.api.snapshot(current)
+                    guard snapshot.status == .active || snapshot.status == .arrived else {
+                        return (snapshot, nil)
+                    }
+                    let vehicle = try? await self.api.vehicle(current)
+                    return (snapshot, vehicle)
+                },
+                setReady: { [weak self] ready, sequence in
+                    guard let self, let current = self.session else { throw missingSessionError }
+                    return try await self.api.readiness(current, ready: ready, sequence: sequence)
+                },
+                propose: { [weak self] place in
+                    guard let self, let current = self.session else { throw missingSessionError }
+                    return try await self.api.propose(current, place: place)
+                },
+                withdraw: { [weak self] in
+                    guard let self, let current = self.session else { throw missingSessionError }
+                    return try await self.api.withdraw(current)
+                },
+                sendMessage: { [weak self] text in
+                    guard let self, let current = self.session else { throw missingSessionError }
+                    return try await self.api.message(current, text: text)
+                },
+                isSessionLost: { error in
+                    guard let failure = error as? PickupAPI.Failure,
+                          [401, 403, 404, 410].contains(failure.status),
+                          failure.code != "FORBIDDEN" || failure.message == "이 픽업에 접근할 수 없습니다." else {
+                        return false
+                    }
+                    return true
+                },
+                onSessionLost: { [weak self] in self?.clearGuestSession() },
+                onTerminal: { [weak self] in
+                    self?.session = nil
+                    PickupSessionStore.clear()
+                },
+                formatError: { error in
+                    (error as? PickupAPI.Failure)?.errorDescription ?? "연결이 원활하지 않아요. 잠시 후 다시 시도해주세요."
+                },
+                lostMessage: "이 픽업에 연결할 수 없어요. 새 초대 링크를 받아주세요."
+            )
+        )
+    }
 
     func openLink(_ text: String) async {
         guard !busy else { return }
         guard let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
               let invite = PickupInvitation(url: url) else {
-            error = "마중 초대 링크를 확인해주세요."
+            inviteError = "마중 초대 링크를 확인해주세요."
             return
         }
         if let current = session {
@@ -48,28 +98,33 @@ final class PickupViewModel {
     }
 
     private func canOpenAnotherInvitation(_ current: PickupSession) async -> Bool {
-        busy = true
-        revision += 1
-        defer { busy = false }
+        inviteBusy = true
+        defer { inviteBusy = false }
         do {
-            apply(try await api.snapshot(current))
+            let currentSnapshot = try await api.snapshot(current)
+            tracker.applyExternal(currentSnapshot, vehicle: nil)
             if session != nil {
-                error = "진행 중인 픽업이 있어요. 픽업이 끝난 뒤 새 초대를 열어주세요."
+                inviteError = "진행 중인 픽업이 있어요. 픽업이 끝난 뒤 새 초대를 열어주세요."
                 return false
             }
             return true
         } catch {
-            if handleLostSession(error) { return true }
-            self.error = "진행 중인 픽업을 확인하지 못했어요. 연결을 확인한 뒤 다시 열어주세요."
+            if let failure = error as? PickupAPI.Failure,
+               [401, 403, 404, 410].contains(failure.status),
+               failure.code != "FORBIDDEN" || failure.message == "이 픽업에 접근할 수 없습니다." {
+                clearGuestSession()
+                return true
+            }
+            inviteError = "진행 중인 픽업을 확인하지 못했어요. 연결을 확인한 뒤 다시 열어주세요."
             return false
         }
     }
 
     func preview() async {
         guard let invite = invitation, !busy else { return }
-        busy = true
-        error = nil
-        defer { busy = false }
+        inviteBusy = true
+        inviteError = nil
+        defer { inviteBusy = false }
         do {
             placeLabel = try await api.preview(invite)
         } catch {
@@ -79,18 +134,17 @@ final class PickupViewModel {
 
     func join() async {
         guard let invite = invitation, placeLabel != nil, !busy else { return }
-        busy = true
-        error = nil
-        defer { busy = false }
+        inviteBusy = true
+        inviteError = nil
+        defer { inviteBusy = false }
         do {
             let joined = try await api.join(invite)
-            // Save as soon as the single-use invitation is consumed.
             session = joined
             invitation = nil
             do {
                 try PickupSessionStore.save(joined)
             } catch {
-                self.error = "연결됐어요. 앱을 닫으면 이 픽업으로 돌아오지 못할 수 있어요."
+                inviteError = "연결됐어요. 앱을 닫으면 이 픽업으로 돌아오지 못할 수 있어요."
             }
         } catch {
             showInviteError(error)
@@ -98,136 +152,33 @@ final class PickupViewModel {
     }
 
     func refresh() async {
-        guard let session, !refreshing, !busy else { return }
-        refreshing = true
-        let revisionAtStart = revision
-        defer { refreshing = false }
-        do {
-            let current = try await api.snapshot(session)
-            guard !Task.isCancelled, self.session == session, revision == revisionAtStart else { return }
-            apply(current)
-            connectionProblem = false
-            guard current.status == .active || current.status == .arrived else { return }
-
-            let started = ContinuousClock.now
-            let position = try? await api.vehicle(session)
-            guard !Task.isCancelled, self.session == session, revision == revisionAtStart else { return }
-            if let position, position.freshness == "FRESH", position.placeVersion == current.placeVersion,
-               position.validForMillis > 0 {
-                vehicle = position
-                vehicleExpiresAt = started.advanced(by: .milliseconds(position.validForMillis))
-            } else {
-                vehicle = nil
-                vehicleExpiresAt = nil
-            }
-        } catch is CancellationError {
-            return
-        } catch {
-            guard !Task.isCancelled, self.session == session, revision == revisionAtStart else { return }
-            if !handleLostSession(error) { connectionProblem = true }
-        }
-    }
-
-    func currentVehicle(at now: ContinuousClock.Instant = .now) -> PickupVehicle? {
-        guard let vehicleExpiresAt, now < vehicleExpiresAt else { return nil }
-        return vehicle
-    }
-
-    func setReady(_ ready: Bool) async {
-        guard let participant = snapshot?.participant, ready != participant.ready else { return }
-        _ = await update { session in
-            try await self.api.readiness(session, ready: ready, sequence: participant.readinessSequence + 1)
-        }
-    }
-
-    func suggest(_ place: PickupPlace) async -> Bool {
-        await update { try await self.api.propose($0, place: place) }
-    }
-
-    func withdrawProposal() async {
-        _ = await update { try await self.api.withdraw($0) }
-    }
-
-    func sendMessage() async {
-        let text = messageDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, text.utf16.count <= 50 else { return }
-        if await update({ try await self.api.message($0, text: text) }) {
-            if messageDraft.trimmingCharacters(in: .whitespacesAndNewlines) == text {
-                messageDraft = ""
-                messageSent = true
-            }
-        }
+        guard session != nil else { return }
+        await tracker.refresh()
     }
 
     func reset() {
         guard session == nil, !busy else { return }
-        clearPage()
-    }
-
-    private func clearPage() {
         invitation = nil
         placeLabel = nil
-        snapshot = nil
-        vehicle = nil
-        vehicleExpiresAt = nil
-        error = nil
+        inviteError = nil
         linkUnavailable = false
-        connectionProblem = false
-        messageDraft = ""
-        messageSent = false
+        tracker.resetState()
     }
 
-    private func update(_ operation: (PickupSession) async throws -> PickupSnapshot) async -> Bool {
-        guard let session, !busy else { return false }
-        revision += 1
-        busy = true
-        error = nil
-        defer { busy = false }
-        do {
-            apply(try await operation(session))
-            connectionProblem = false
-            return true
-        } catch {
-            if !handleLostSession(error) { self.error = displayError(error) }
-            return false
-        }
-    }
-
-    private func apply(_ current: PickupSnapshot) {
-        if snapshot?.placeVersion != current.placeVersion {
-            vehicle = nil
-            vehicleExpiresAt = nil
-        }
-        snapshot = current
-        if current.status.ended {
-            session = nil
-            vehicle = nil
-            vehicleExpiresAt = nil
-            PickupSessionStore.clear()
-        }
-    }
-
-    private func handleLostSession(_ error: Error) -> Bool {
-        guard let failure = error as? PickupAPI.Failure,
-              [401, 403, 404, 410].contains(failure.status),
-              failure.code != "FORBIDDEN" || failure.message == "이 픽업에 접근할 수 없습니다." else { return false }
+    private func clearGuestSession() {
         session = nil
         PickupSessionStore.clear()
-        clearPage()
-        self.error = "이 픽업에 연결할 수 없어요. 새 초대 링크를 받아주세요."
-        return true
+        invitation = nil
+        placeLabel = nil
+        linkUnavailable = false
     }
 
     private func showInviteError(_ error: Error) {
         if let failure = error as? PickupAPI.Failure, [403, 404, 409, 410].contains(failure.status) {
             linkUnavailable = true
-            self.error = "이 초대 링크는 더 이상 사용할 수 없어요. 운전자에게 새 링크를 받아주세요."
+            inviteError = "이 초대 링크는 더 이상 사용할 수 없어요. 운전자에게 새 링크를 받아주세요."
         } else {
-            self.error = displayError(error)
+            inviteError = (error as? PickupAPI.Failure)?.errorDescription ?? "연결이 원활하지 않아요. 잠시 후 다시 시도해주세요."
         }
-    }
-
-    private func displayError(_ error: Error) -> String {
-        (error as? PickupAPI.Failure)?.errorDescription ?? "연결이 원활하지 않아요. 잠시 후 다시 시도해주세요."
     }
 }

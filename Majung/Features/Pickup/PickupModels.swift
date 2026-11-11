@@ -59,11 +59,16 @@ struct PickupSnapshot: Decodable {
         var isPassenger: Bool { proposedBy == "PASSENGER" }
     }
 
+    struct QuickMessage: Decodable {
+        let text: String
+    }
+
     let status: Status
     let place: PickupPlace?
     let placeVersion: Int
     let participant: Participant?
     let placeProposal: Proposal?
+    let quickMessage: QuickMessage?
     let vehicleName: String?
 }
 

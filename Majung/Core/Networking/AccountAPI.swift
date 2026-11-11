@@ -122,7 +122,7 @@ struct AccountAPI {
         }
     }
 
-    private func requestWithResponse<Response: Decodable>(
+    func requestWithResponse<Response: Decodable>(
         _ path: String,
         method: String = "GET",
         queryItems: [URLQueryItem]? = nil,
@@ -134,19 +134,19 @@ struct AccountAPI {
         var req = baseRequest(url: url, method: method, cookie: cookie, csrfToken: csrfToken)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
-            req.httpBody = try JSONEncoder().encode(body)
+            req.httpBody = try MajungCodec.encoder.encode(body)
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
         let (data, response) = try await network.data(for: req)
         guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
         guard (200..<300).contains(http.statusCode) else {
-            let errorBody = try? JSONDecoder().decode(ErrorBody.self, from: data)
+            let errorBody = try? MajungCodec.decoder.decode(ErrorBody.self, from: data)
             throw Failure(status: http.statusCode, code: errorBody?.code, message: errorBody?.message)
         }
-        return (try JSONDecoder().decode(Response.self, from: data), http)
+        return (try MajungCodec.decoder.decode(Response.self, from: data), http)
     }
 
-    private func endpoint(_ path: String, queryItems: [URLQueryItem]? = nil) -> URL {
+    func endpoint(_ path: String, queryItems: [URLQueryItem]? = nil) -> URL {
         var url = origin
         for component in path.split(separator: "/") {
             url.appendPathComponent(String(component))
@@ -159,7 +159,7 @@ struct AccountAPI {
         return components.url ?? url
     }
 
-    private func baseRequest(url: URL, method: String, cookie: String?, csrfToken: String?) -> URLRequest {
+    func baseRequest(url: URL, method: String, cookie: String?, csrfToken: String?) -> URLRequest {
         var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
         req.httpMethod = method
         req.httpShouldHandleCookies = false

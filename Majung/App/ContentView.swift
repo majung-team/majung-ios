@@ -4,6 +4,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var accountModel: AccountViewModel
     @State private var peopleModel: PeopleViewModel
+    @State private var rideRequestModel: RideRequestViewModel
     @State private var pickupModel = PickupViewModel()
     @State private var link = ""
 
@@ -11,9 +12,14 @@ struct ContentView: View {
         let account = AccountViewModel()
         _accountModel = State(initialValue: account)
         _peopleModel = State(initialValue: PeopleViewModel(account: account))
+        _rideRequestModel = State(initialValue: RideRequestViewModel(account: account))
     }
 
     private var activeSession: PickupSession? { scenePhase == .active ? pickupModel.session : nil }
+    private var accountPollingKey: String { "\(accountModel.isReady)-\(scenePhase == .active)" }
+    private var activeRideStreamKey: String {
+        "\(rideRequestModel.activeRequest?.id.uuidString ?? "none")-\(scenePhase == .active)"
+    }
 
     var body: some View {
         Group {
@@ -23,13 +29,21 @@ struct ContentView: View {
                     case .invitation:
                         invitation
                     case .pickup:
-                        PickupView(model: pickupModel)
+                        PickupView(tracker: pickupModel.tracker, resetLabel: "처음으로") {
+                            pickupModel.reset()
+                        }
                     case .entry:
                         EmptyView()
                     }
                 }
             } else if accountModel.isReady {
-                MainTabView(account: accountModel, people: peopleModel, pickup: pickupModel, inviteLink: $link)
+                MainTabView(
+                    account: accountModel,
+                    people: peopleModel,
+                    rideRequests: rideRequestModel,
+                    pickup: pickupModel,
+                    inviteLink: $link
+                )
             } else if accountModel.needsNicknameSetup {
                 NavigationStack {
                     NicknameSetupView(account: accountModel)
@@ -43,15 +57,29 @@ struct ContentView: View {
         .tint(Color(red: 0.10, green: 0.39, blue: 0.85))
         .task {
             await accountModel.restore()
+            if accountModel.isReady {
+                await rideRequestModel.refresh(silent: true)
+            }
         }
         .onChange(of: accountModel.isReady) { _, ready in
-            if !ready {
+            if ready {
+                Task { await rideRequestModel.refresh(silent: true) }
+            } else {
                 peopleModel.reset()
+                rideRequestModel.reset()
             }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                Task { await accountModel.restore() }
+                Task {
+                    await accountModel.restore()
+                    if accountModel.isReady {
+                        await rideRequestModel.refresh(silent: true)
+                    }
+                }
+            } else {
+                pickupModel.tracker.clearVehicle()
+                rideRequestModel.handleSceneInactive()
             }
         }
         .onOpenURL { url in
@@ -66,12 +94,34 @@ struct ContentView: View {
             guard activeSession != nil else { return }
             await refreshUntilInactive()
         }
+        .task(id: accountPollingKey) {
+            guard accountModel.isReady && scenePhase == .active else { return }
+            await pollAccountRequestsUntilInactive()
+        }
+        .task(id: activeRideStreamKey) {
+            guard scenePhase == .active, let requestId = rideRequestModel.activeRequest?.id else { return }
+            await rideRequestModel.runEventStream(for: requestId)
+        }
     }
 
     private func refreshUntilInactive() async {
         while !Task.isCancelled && pickupModel.session != nil {
             if scenePhase == .active { await pickupModel.refresh() }
             do { try await Task.sleep(for: .seconds(3)) } catch { return }
+        }
+    }
+
+    private func pollAccountRequestsUntilInactive() async {
+        while !Task.isCancelled && accountModel.isReady && scenePhase == .active {
+            let interval: Int = if rideRequestModel.activeRequest != nil {
+                rideRequestModel.activeStreamConnected ? 30 : 3
+            } else {
+                10
+            }
+            do { try await Task.sleep(for: .seconds(interval)) } catch { return }
+            if !Task.isCancelled && accountModel.isReady && scenePhase == .active {
+                await rideRequestModel.refresh(silent: true)
+            }
         }
     }
 

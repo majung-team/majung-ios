@@ -4,9 +4,13 @@ import UIKit
 struct MainTabView: View {
     @Bindable var account: AccountViewModel
     @Bindable var people: PeopleViewModel
+    @Bindable var rideRequests: RideRequestViewModel
     @Bindable var pickup: PickupViewModel
     @Binding var inviteLink: String
+
     @State private var selectedTab: TabItem = .home
+    @State private var rideTarget: RideTargetPerson?
+    @State private var showingRideTracking = false
 
     private enum TabItem: Hashable {
         case home, requests, people, settings
@@ -15,7 +19,15 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
-                HomeTabView(account: account, pickup: pickup, inviteLink: $inviteLink)
+                HomeTabView(
+                    account: account,
+                    rideRequests: rideRequests,
+                    pickup: pickup,
+                    inviteLink: $inviteLink,
+                    onOpenRequests: { selectedTab = .requests },
+                    onOpenPeople: { selectedTab = .people },
+                    onOpenTracking: { showingRideTracking = true }
+                )
             }
             .tabItem {
                 Label("홈", systemImage: "house.fill")
@@ -23,20 +35,23 @@ struct MainTabView: View {
             .tag(TabItem.home)
 
             NavigationStack {
-                ContentUnavailableView(
-                    "아직 받은 초대나 요청이 없어요",
-                    systemImage: "clock",
-                    description: Text("마중 요청·대기열 기능 연결 후 진행 중인 요청과 받은 초대를 확인할 수 있어요.")
+                RequestsTabView(
+                    rideModel: rideRequests,
+                    onOpenPeople: { selectedTab = .people },
+                    onOpenTracking: { showingRideTracking = true }
                 )
-                .navigationTitle("내 요청·초대")
             }
             .tabItem {
                 Label("내 요청·초대", systemImage: "clock.fill")
             }
+            .badge(rideRequests.invitedCount)
             .tag(TabItem.requests)
 
             NavigationStack {
-                PeopleTabView(account: account, people: people)
+                PeopleTabView(account: account, people: people) { target in
+                    rideRequests.error = nil
+                    rideTarget = target
+                }
             }
             .tabItem {
                 Label("사람", systemImage: "person.2.fill")
@@ -51,19 +66,68 @@ struct MainTabView: View {
             }
             .tag(TabItem.settings)
         }
+        .sheet(item: $rideTarget) { target in
+            PlacePickerSheet(target: target, rideModel: rideRequests) {
+                selectedTab = .requests
+            }
+        }
+        .sheet(isPresented: $showingRideTracking) {
+            NavigationStack {
+                PickupView(tracker: rideRequests.tracking, resetLabel: "목록으로") {
+                    showingRideTracking = false
+                }
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("닫기") { showingRideTracking = false }
+                    }
+                }
+            }
+        }
+        .onChange(of: rideRequests.activeRequest?.id) { _, activeId in
+            if activeId == nil && rideRequests.tracking.snapshot == nil {
+                showingRideTracking = false
+            }
+        }
     }
 }
 
 private struct HomeTabView: View {
     @Bindable var account: AccountViewModel
+    @Bindable var rideRequests: RideRequestViewModel
     @Bindable var pickup: PickupViewModel
     @Binding var inviteLink: String
+    var onOpenRequests: () -> Void
+    var onOpenPeople: () -> Void
+    var onOpenTracking: () -> Void
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                if rideRequests.invitedCount > 0 {
+                    Button(action: onOpenRequests) {
+                        HStack {
+                            Image(systemName: "bell.badge.fill")
+                                .foregroundStyle(Color.accentColor)
+                            Text("새 마중 초대 \(rideRequests.invitedCount)건을 확인해주세요")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text("받은 초대 보기")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(Color.accentColor)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.bold())
+                                .foregroundStyle(Color.accentColor)
+                        }
+                        .padding(14)
+                        .background(Color.accentColor.opacity(0.10), in: RoundedRectangle(cornerRadius: 14))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home-invited-banner")
+                }
+
                 if let member = account.member {
-                    card {
+                    MajungCard {
                         Text("안녕하세요, \(member.nickname) 님")
                             .font(.title3.bold())
                             .accessibilityAddTraits(.isHeader)
@@ -73,7 +137,26 @@ private struct HomeTabView: View {
                     }
                 }
 
-                card {
+                if let active = rideRequests.activeRequest {
+                    activeRideCard(active)
+                }
+
+                if !rideRequests.waitingRequests.isEmpty {
+                    waitingSummaryCard
+                }
+
+                MajungCard {
+                    Label("운전자에게 마중 요청하기", systemImage: "person.badge.plus")
+                        .font(.headline)
+                    Text("사람 탭에서 닉네임·마중 ID로 지인을 찾고 만날 장소를 지정해 마중을 요청할 수 있어요.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Button("사람 찾아 마중 요청", action: onOpenPeople)
+                        .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("home-open-people-button")
+                }
+
+                MajungCard {
                     Label("초대 링크로 참여하기", systemImage: "link")
                         .font(.headline)
                     Text("전달받은 초대 링크를 붙여넣어 만날 장소와 차량 도착 시간을 확인할 수 있어요.")
@@ -112,13 +195,72 @@ private struct HomeTabView: View {
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle("홈")
+        .refreshable {
+            await rideRequests.refresh()
+        }
     }
 
-    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10, content: content)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+    private func activeRideCard(_ item: RideRequestItem) -> some View {
+        MajungCard {
+            MajungStatusPill(text: "실시간 마중 진행 중", tint: .green)
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                let vehicle = rideRequests.tracking.currentVehicle()
+                let heading = rideRequests.tracking.snapshot?.status == .arrived
+                    ? "마중 차량이 도착했어요"
+                    : MajungFormatting.etaText(vehicle)
+                Text(heading)
+                    .font(.title3.bold())
+                    .accessibilityAddTraits(.isHeader)
+            }
+            Label(rideRequests.tracking.snapshot?.place?.label ?? item.place.label, systemImage: "mappin.circle.fill")
+                .font(.subheadline.weight(.medium))
+            if let vehicleName = rideRequests.tracking.snapshot?.vehicleName, !vehicleName.isEmpty {
+                Label("\(item.nickname) 운전자 · \(vehicleName)", systemImage: "car.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Button {
+                onOpenTracking()
+            } label: {
+                Text("픽업 보기")
+                    .frame(maxWidth: .infinity, minHeight: 38)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("home-open-tracking-button")
+        }
+    }
+
+    private var waitingSummaryCard: some View {
+        MajungCard {
+            HStack {
+                Text("내 요청·초대 대기 목록")
+                    .font(.headline)
+                Spacer()
+                Button("전체 보기", action: onOpenRequests)
+                    .font(.footnote.weight(.semibold))
+            }
+
+            ForEach(rideRequests.waitingRequests.prefix(2)) { item in
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(item.nickname) · \(item.place.label)")
+                            .font(.subheadline.weight(.medium))
+                            .lineLimit(1)
+                        if item.status == .queued, let ahead = item.peopleAhead {
+                            Text("내 앞 \(ahead)건 대기 중")
+                                .font(.caption)
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                    Spacer()
+                    MajungStatusPill(
+                        text: item.status == .invited ? "받은 초대" : item.status == .queued ? "내 차례 대기" : "수락 대기",
+                        tint: item.status == .pending ? .orange : .accentColor
+                    )
+                }
+                .padding(.vertical, 4)
+            }
+        }
     }
 }
 
@@ -219,9 +361,7 @@ private struct SettingsTabView: View {
             Button("로그아웃", role: .destructive) {
                 Task { await account.logout() }
             }
-            Button("취소", role: .cancel) {}
-        } message: {
-            Text("로그아웃하면 카카오 계정으로 다시 로그인해야 요청과 연결을 관리할 수 있어요.")
+            Button("돌아가기", role: .cancel) {}
         }
     }
 }

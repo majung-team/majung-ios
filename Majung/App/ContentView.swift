@@ -16,6 +16,9 @@ struct ContentView: View {
     }
 
     private var activeSession: PickupSession? { scenePhase == .active ? pickupModel.session : nil }
+    private var activeGuestStreamKey: String {
+        "\(activeSession?.id.uuidString ?? "none")-\(scenePhase == .active)"
+    }
     private var accountPollingKey: String { "\(accountModel.isReady)-\(scenePhase == .active)" }
     private var activeRideStreamKey: String {
         "\(rideRequestModel.activeRequest?.id.uuidString ?? "none")-\(scenePhase == .active)"
@@ -94,6 +97,10 @@ struct ContentView: View {
             guard activeSession != nil else { return }
             await refreshUntilInactive()
         }
+        .task(id: activeGuestStreamKey) {
+            guard let session = activeSession else { return }
+            await pickupModel.runEventStream(for: session.id)
+        }
         .task(id: accountPollingKey) {
             guard accountModel.isReady && scenePhase == .active else { return }
             await pollAccountRequestsUntilInactive()
@@ -107,7 +114,8 @@ struct ContentView: View {
     private func refreshUntilInactive() async {
         while !Task.isCancelled && pickupModel.session != nil {
             if scenePhase == .active { await pickupModel.refresh() }
-            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            let interval = pickupModel.streamConnected ? 30 : 3
+            do { try await Task.sleep(for: .seconds(interval)) } catch { return }
         }
     }
 

@@ -202,15 +202,24 @@ private struct HomeTabView: View {
 
     private func activeRideCard(_ item: RideRequestItem) -> some View {
         MajungCard {
-            MajungStatusPill(text: "실시간 마중 진행 중", tint: .green)
             TimelineView(.periodic(from: .now, by: 1)) { _ in
                 let vehicle = rideRequests.tracking.currentVehicle()
-                let heading = rideRequests.tracking.snapshot?.status == .arrived
-                    ? "마중 차량이 도착했어요"
-                    : MajungFormatting.etaText(vehicle)
-                Text(heading)
-                    .font(.title3.bold())
-                    .accessibilityAddTraits(.isHeader)
+                let place = rideRequests.tracking.snapshot?.place ?? item.place
+                let arrived = rideRequests.tracking.snapshot?.status == .arrived
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        MajungStatusPill(text: "실시간 마중 진행 중", tint: .green)
+                        if let distance = MajungFormatting.distanceText(from: vehicle, to: place), !arrived {
+                            MajungStatusPill(text: distance, tint: .accentColor)
+                        }
+                    }
+                    let heading = arrived
+                        ? "마중 차량이 도착했어요"
+                        : MajungFormatting.etaText(vehicle)
+                    Text(heading)
+                        .font(.title3.bold())
+                        .accessibilityAddTraits(.isHeader)
+                }
             }
             Label(rideRequests.tracking.snapshot?.place?.label ?? item.place.label, systemImage: "mappin.circle.fill")
                 .font(.subheadline.weight(.medium))

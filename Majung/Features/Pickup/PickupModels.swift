@@ -78,5 +78,6 @@ struct PickupVehicle: Decodable {
     let longitude: Double?
     let durationSeconds: Int?
     let validForMillis: Int
+    let ageMillis: Int?
     let placeVersion: Int
 }

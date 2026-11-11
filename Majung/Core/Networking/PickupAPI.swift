@@ -65,6 +65,19 @@ struct PickupAPI {
                           body: MessageBody(message: text))
     }
 
+    func streamEvents(
+        session: PickupSession,
+        onState: @escaping @MainActor (Bool) -> Void,
+        onRefresh: @escaping @MainActor () async -> Void
+    ) async {
+        let url = origin.appendingPathComponent(session.id.uuidString.lowercased()).appendingPathComponent("events")
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(session.token)", forHTTPHeaderField: "Authorization")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        await MajungEventStream.listen(request: request, session: network, onState: onState, onRefresh: onRefresh)
+    }
+
     private func request<Response: Decodable>(
         _ id: UUID, _ endpoint: String? = nil, method: String = "GET",
         token: String? = nil, body: (any Encodable)? = nil

@@ -20,6 +20,7 @@ final class PickupViewModel {
     private(set) var placeLabel: String?
     var busy: Bool { inviteBusy || tracker.busy }
     private(set) var linkUnavailable = false
+    private(set) var streamConnected = false
     var error: String? {
         get { tracker.error ?? inviteError }
         set {
@@ -156,12 +157,35 @@ final class PickupViewModel {
         await tracker.refresh()
     }
 
+    func runEventStream(for sessionId: UUID) async {
+        var delaySeconds = 1
+        while !Task.isCancelled && session?.id == sessionId {
+            guard let currentSession = session, currentSession.id == sessionId else { break }
+            await api.streamEvents(
+                session: currentSession,
+                onState: { [weak self] connected in
+                    self?.streamConnected = connected
+                    if connected { delaySeconds = 1 }
+                },
+                onRefresh: { [weak self] in
+                    await self?.refresh()
+                }
+            )
+            streamConnected = false
+            if Task.isCancelled || session?.id != sessionId { break }
+            try? await Task.sleep(for: .seconds(delaySeconds))
+            delaySeconds = min(delaySeconds * 2, 15)
+        }
+        streamConnected = false
+    }
+
     func reset() {
         guard session == nil, !busy else { return }
         invitation = nil
         placeLabel = nil
         inviteError = nil
         linkUnavailable = false
+        streamConnected = false
         tracker.resetState()
     }
 
@@ -171,6 +195,7 @@ final class PickupViewModel {
         invitation = nil
         placeLabel = nil
         linkUnavailable = false
+        streamConnected = false
     }
 
     private func showInviteError(_ error: Error) {

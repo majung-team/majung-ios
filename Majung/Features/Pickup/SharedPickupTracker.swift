@@ -22,6 +22,7 @@ final class PickupTracker {
     private var refreshing = false
     private(set) var vehicle: PickupVehicle?
     private(set) var vehicleExpiresAt: ContinuousClock.Instant?
+    private(set) var vehicleUpdatedAt: Date?
 
     private(set) var snapshot: PickupSnapshot?
     private(set) var busy = false
@@ -71,6 +72,7 @@ final class PickupTracker {
     func clearVehicle() {
         vehicle = nil
         vehicleExpiresAt = nil
+        vehicleUpdatedAt = nil
     }
 
     func currentVehicle(at now: ContinuousClock.Instant = .now) -> PickupVehicle? {
@@ -121,6 +123,7 @@ final class PickupTracker {
            position.validForMillis > 0 {
             vehicle = position
             vehicleExpiresAt = startedAt.advanced(by: .milliseconds(position.validForMillis))
+            vehicleUpdatedAt = Date()
         } else {
             clearVehicle()
         }

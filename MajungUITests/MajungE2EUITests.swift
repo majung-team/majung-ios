@@ -66,6 +66,22 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertFalse(app.buttons["onboarding-start-button"].exists)
     }
 
+    private func submitInviteLink(_ inviteURL: String, in app: XCUIApplication) {
+        let linkField = app.textFields["마중 초대 링크"]
+        XCTAssertTrue(linkField.waitForExistence(timeout: 5))
+        linkField.tap()
+        linkField.typeText(inviteURL)
+        let dismissKeyboard = app.buttons["키보드 닫기"]
+        if dismissKeyboard.waitForExistence(timeout: 1.5) && dismissKeyboard.isHittable {
+            dismissKeyboard.tap()
+        }
+        let openButton = app.buttons["초대 확인하기"]
+        XCTAssertTrue(openButton.waitForExistence(timeout: 3))
+        if !openButton.isHittable { app.swipeUp() }
+        XCTAssertTrue(openButton.isEnabled)
+        openButton.tap()
+    }
+
     func test01GuestPickupLifecycleWaitingExitReadinessMessageProposalAndCompletion() throws {
         let server = try LocalE2EServer()
         defer { server.stop() }
@@ -77,20 +93,14 @@ final class MajungE2EUITests: XCTestCase {
         // 1. Expired/unavailable invite preview shows clear error state & recovery
         server.setInvitePreviewStatus(410)
         let inviteURL = "https://majung.cloud/#join/\(server.pickupId)/\(server.inviteCode)"
-        let linkField = app.textFields["마중 초대 링크"]
-        XCTAssertTrue(linkField.waitForExistence(timeout: 5))
-        linkField.tap()
-        linkField.typeText(inviteURL)
-        app.buttons["초대 확인하기"].tap()
+        submitInviteLink(inviteURL, in: app)
         XCTAssertTrue(app.staticTexts["초대를 사용할 수 없어요"].waitForExistence(timeout: 8))
         app.buttons["다른 초대 열기"].tap()
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 5))
 
         // 2. Valid invite -> join -> WAITING_APPROVAL -> 2-step leaveWaiting -> rejoin
         server.setInvitePreviewStatus(200)
-        linkField.tap()
-        linkField.typeText(inviteURL)
-        app.buttons["초대 확인하기"].tap()
+        submitInviteLink(inviteURL, in: app)
         XCTAssertTrue(app.buttons["약속에 참여하기"].waitForExistence(timeout: 8))
         app.buttons["약속에 참여하기"].tap()
 
@@ -103,9 +113,7 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertEqual(server.requestsMatching(method: "POST", pathPrefix: "/api/v1/pickups/\(server.pickupId)/leave").count, 1)
 
         // Rejoin -> transition over SSE to ACTIVE
-        linkField.tap()
-        linkField.typeText(inviteURL)
-        app.buttons["초대 확인하기"].tap()
+        submitInviteLink(inviteURL, in: app)
         XCTAssertTrue(app.buttons["약속에 참여하기"].waitForExistence(timeout: 8))
         app.buttons["약속에 참여하기"].tap()
         XCTAssertTrue(app.buttons["pickup-waiting-refresh-button"].waitForExistence(timeout: 8))

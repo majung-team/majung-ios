@@ -1,14 +1,40 @@
 import XCTest
 
 final class MajungE2EUITests: XCTestCase {
+    private var activeApp: XCUIApplication?
+    private var activeServer: LocalE2EServer?
+
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
+    override func tearDownWithError() throws {
+        terminateApp(activeApp ?? XCUIApplication())
+        activeApp = nil
+        activeServer?.stop()
+        activeServer = nil
+        try super.tearDownWithError()
+    }
+
+    private func startServer() throws -> LocalE2EServer {
+        let server = try LocalE2EServer()
+        activeServer = server
+        return server
+    }
+
+    private func terminateApp(_ app: XCUIApplication) {
+        if app.state != .notRunning {
+            app.terminate()
+            _ = app.wait(for: .notRunning, timeout: 10)
+        }
+    }
+
     private func launchApp(port: UInt16, arguments: [String] = ["-UITestResetSessions"]) -> XCUIApplication {
         let app = XCUIApplication()
+        terminateApp(app)
         app.launchArguments = arguments
         app.launchEnvironment["MAJUNG_TEST_PORT"] = String(port)
+        activeApp = app
         app.launch()
         return app
     }
@@ -21,8 +47,7 @@ final class MajungE2EUITests: XCTestCase {
     }
 
     func test00FirstLaunchSplashAndOnboardingFlowAndPersistence() throws {
-        let server = try LocalE2EServer()
-        defer { server.stop() }
+        let server = try startServer()
         server.setAccountMode(.unauthenticated)
 
         // 1. Verify Splash renders cleanly on cold launch
@@ -31,7 +56,7 @@ final class MajungE2EUITests: XCTestCase {
         attachScreenshot(named: "00-splash")
 
         // 2. Normal first launch auto-transitions from Splash to Onboarding and walks through all 3 slides
-        app.terminate()
+        terminateApp(app)
         app.launchArguments = ["-UITestResetSessions", "-UITestShowOnboarding"]
         app.launch()
 
@@ -58,7 +83,7 @@ final class MajungE2EUITests: XCTestCase {
         attachScreenshot(named: "04-login-entry")
 
         // 4. Subsequent cold launch skips onboarding straight to login entry after splash
-        app.terminate()
+        terminateApp(app)
         app.launchArguments = []
         app.launch()
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
@@ -83,8 +108,7 @@ final class MajungE2EUITests: XCTestCase {
     }
 
     func test01GuestPickupLifecycleWaitingExitReadinessMessageProposalAndCompletion() throws {
-        let server = try LocalE2EServer()
-        defer { server.stop() }
+        let server = try startServer()
         server.setAccountMode(.unauthenticated)
 
         let app = launchApp(port: server.port)
@@ -166,8 +190,7 @@ final class MajungE2EUITests: XCTestCase {
     }
 
     func test02MemberNicknameRequestsDeduplicationPeopleSearchAndCompletedSummary() throws {
-        let server = try LocalE2EServer()
-        defer { server.stop() }
+        let server = try startServer()
         server.setAccountMode(.needsNickname, nickname: "이")
 
         let app = launchApp(port: server.port)
@@ -248,8 +271,7 @@ final class MajungE2EUITests: XCTestCase {
     }
 
     func test03SettingsVehicleQRPairingPollDetachAndLogout() throws {
-        let server = try LocalE2EServer()
-        defer { server.stop() }
+        let server = try startServer()
         server.setAccountMode(.ready)
 
         let app = launchApp(port: server.port)
@@ -308,8 +330,7 @@ final class MajungE2EUITests: XCTestCase {
     }
 
     func test05VehiclePairingManualRefreshBeforeAndAfterApproval() throws {
-        let server = try LocalE2EServer()
-        defer { server.stop() }
+        let server = try startServer()
         server.setAccountMode(.ready)
 
         let app = launchApp(port: server.port, arguments: ["-UITestResetSessions", "-UITestManualVehiclePairing"])
@@ -342,8 +363,7 @@ final class MajungE2EUITests: XCTestCase {
     }
 
     func test04AccountWithdrawalClearsSessionAndCallsDeleteMe() throws {
-        let server = try LocalE2EServer()
-        defer { server.stop() }
+        let server = try startServer()
         server.setAccountMode(.ready)
 
         let app = launchApp(port: server.port)

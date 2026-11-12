@@ -245,6 +245,7 @@ private struct VehicleCameraQRScanner: UIViewControllerRepresentable {
         private let onValidScan: (String) -> Void
         private let onUnsupportedPayload: () -> Void
         private var lastHandledValidPayload: String?
+        private var lastHandledValidAt: Date = .distantPast
         private var lastUnsupportedAt: Date = .distantPast
 
         init(onValidScan: @escaping (String) -> Void, onUnsupportedPayload: @escaping () -> Void) {
@@ -265,8 +266,12 @@ private struct VehicleCameraQRScanner: UIViewControllerRepresentable {
                     continue
                 }
                 if VehiclePairingTarget(rawText: raw) != nil {
-                    guard raw != lastHandledValidPayload else { return }
+                    let now = Date()
+                    if raw == lastHandledValidPayload && now.timeIntervalSince(lastHandledValidAt) < 2.5 {
+                        return
+                    }
                     lastHandledValidPayload = raw
+                    lastHandledValidAt = now
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     onValidScan(raw)
                     return

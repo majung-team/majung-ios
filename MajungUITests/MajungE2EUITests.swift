@@ -247,7 +247,7 @@ final class MajungE2EUITests: XCTestCase {
         let app = launchApp(port: server.port)
         XCTAssertTrue(app.buttons["home-open-tracking-button"].waitForExistence(timeout: 8))
 
-        app.tabBars.buttons["설정"].tap()
+        app.tabBars.buttons["설정"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["1대 연결됨"].waitForExistence(timeout: 5))
 
         // Automatic polling must finish linking without any refresh-button tap.
@@ -287,6 +287,16 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.alerts["로그아웃할까요?"].waitForExistence(timeout: 5))
         app.alerts["로그아웃할까요?"].buttons["로그아웃"].tap()
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
+
+        // Replay onboarding from logged-out entry -> skip back to login entry
+        let loggedOutReplay = app.buttons["login-replay-onboarding-button"]
+        if !loggedOutReplay.isHittable { app.swipeUp() }
+        XCTAssertTrue(loggedOutReplay.waitForExistence(timeout: 5))
+        loggedOutReplay.tap()
+        let loggedOutSkip = app.buttons["onboarding-skip-button"]
+        XCTAssertTrue(loggedOutSkip.waitForExistence(timeout: 4))
+        loggedOutSkip.tap()
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 5))
     }
 
     func test05VehiclePairingManualRefreshBeforeAndAfterApproval() throws {
@@ -296,7 +306,7 @@ final class MajungE2EUITests: XCTestCase {
 
         let app = launchApp(port: server.port, arguments: ["-UITestResetSessions", "-UITestManualVehiclePairing"])
         XCTAssertTrue(app.buttons["home-open-tracking-button"].waitForExistence(timeout: 8))
-        app.tabBars.buttons["설정"].tap()
+        app.tabBars.buttons["설정"].firstMatch.tap()
         app.buttons["vehicle-connect-button"].tap()
         let field = app.textFields["vehicle-qr-link-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -331,7 +341,7 @@ final class MajungE2EUITests: XCTestCase {
         let app = launchApp(port: server.port)
         XCTAssertTrue(app.buttons["home-open-tracking-button"].waitForExistence(timeout: 8))
 
-        app.tabBars.buttons["설정"].tap()
+        app.tabBars.buttons["설정"].firstMatch.tap()
         let deleteBtn = app.buttons["settings-delete-account-button"]
         if !deleteBtn.isHittable { app.swipeUp() }
         XCTAssertTrue(deleteBtn.waitForExistence(timeout: 5))

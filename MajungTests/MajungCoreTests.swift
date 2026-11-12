@@ -279,6 +279,40 @@ final class MajungCoreTests: XCTestCase {
         XCTAssertNil(items[0].terminalPickupSnapshot(lastPlace: place, lastVehicleName: nil))
     }
 
+    func testVehicleLookupDecodingAndRideTargetPerson() throws {
+        let json = """
+        {
+          "vehicles": [
+            {
+              "vehicleId": "11111111-2222-4333-8444-555555555555",
+              "vehicleCode": "VEH-7K2M9A",
+              "displayName": "초기 차량",
+              "vehicleModel": "아이오닉 5",
+              "licensePlate": "12가 3456",
+              "ownerHint": "송*준 아빠",
+              "directRequestEnabled": true,
+              "linkedDriver": false,
+              "trusted": true,
+              "linkedDriverNickname": null,
+              "linkedDriverMajungId": null
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try MajungCodec.decoder.decode(FavoriteVehicleListResponse.self, from: json)
+        XCTAssertEqual(decoded.vehicles.count, 1)
+        let vehicle = decoded.vehicles[0]
+        XCTAssertEqual(vehicle.summaryTitle, "아이오닉 5 · 12가 3456")
+        XCTAssertTrue(vehicle.trusted)
+        XCTAssertFalse(vehicle.linkedDriver)
+
+        let target = RideTargetPerson(vehicle: vehicle)
+        XCTAssertNil(target.driverId)
+        XCTAssertEqual(target.nickname, "아이오닉 5 · 12가 3456")
+        XCTAssertEqual(target.majungId, "VEH-7K2M9A")
+    }
+
     func testPickupSnapshotStatusAndProposalHelpers() throws {
         XCTAssertFalse(PickupSnapshot.Status.inviting.ended)
         XCTAssertFalse(PickupSnapshot.Status.waiting.ended)

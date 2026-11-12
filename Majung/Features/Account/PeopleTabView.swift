@@ -4,12 +4,15 @@ import UIKit
 struct PeopleTabView: View {
     @Bindable var account: AccountViewModel
     @Bindable var people: PeopleViewModel
+    @Bindable var rideRequests: RideRequestViewModel
     var onRequestRide: (RideTargetPerson) -> Void
 
     @State private var queryDraft = ""
+    @State private var vehicleCodeDraft = ""
     @State private var copiedId = false
     @State private var pendingAction: PendingConnectionAction?
     @FocusState private var searchFocused: Bool
+    @FocusState private var vehicleCodeFocused: Bool
 
     private struct PendingConnectionAction: Identifiable {
         let connection: AccountConnection
@@ -54,18 +57,31 @@ struct PeopleTabView: View {
                     myIdCard(member)
                 }
 
+                directVehicleSection
                 searchSection
                 connectionsSection
             }
             .padding(16)
         }
+        .scrollDismissesKeyboard(.interactively)
         .background(Color(.systemGroupedBackground))
         .navigationTitle("사람")
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("키보드 닫기") {
+                    searchFocused = false
+                    vehicleCodeFocused = false
+                }
+            }
+        }
         .refreshable {
             await people.loadConnections(page: people.connectionPage)
+            await rideRequests.loadFavoriteVehicles(silent: true)
         }
         .task(id: account.member?.memberId) {
             await people.loadConnections(page: 0)
+            await rideRequests.loadFavoriteVehicles(silent: true)
         }
         .alert(
             pendingAction?.title ?? "",
@@ -104,6 +120,144 @@ struct PeopleTabView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .accessibilityIdentifier("people-copy-id-button")
+            }
+        }
+    }
+
+    private var directVehicleSection: some View {
+        MajungCard {
+            Label("차량 코드로 바로 요청", systemImage: "car.fill")
+                .font(.headline)
+
+            Text("운전자가 휴대전화를 연결하지 않았어도 차량에 표시된 코드를 입력하면 차종과 번호를 확인한 뒤 요청을 보낼 수 있어요.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    TextField("차량 코드 (예: VEH-7K2M9A)", text: $vehicleCodeDraft)
+                        .focused($vehicleCodeFocused)
+                        .textInputAutocapitalization(.characters)
+                        .autocorrectionDisabled()
+                        .submitLabel(.search)
+                        .onSubmit {
+                            vehicleCodeFocused = false
+                            Task { _ = await rideRequests.lookupVehicle(code: vehicleCodeDraft) }
+                        }
+                        .accessibilityIdentifier("people-vehicle-code-field")
+
+                    if !vehicleCodeDraft.isEmpty {
+                        Button {
+                            vehicleCodeDraft = ""
+                            rideRequests.clearLookedUpVehicle()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+
+                Button(rideRequests.lookingUpVehicle ? "확인 중…" : "조회") {
+                    vehicleCodeFocused = false
+                    Task { _ = await rideRequests.lookupVehicle(code: vehicleCodeDraft) }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(vehicleCodeDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || rideRequests.lookingUpVehicle || rideRequests.busy)
+                .accessibilityIdentifier("people-vehicle-lookup-button")
+            }
+
+            if let error = rideRequests.error {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            if let vehicle = rideRequests.lookedUpVehicle {
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        MajungStatusPill(
+                            text: vehicle.trusted ? "자주 타는 차량" : "차량 확인",
+                            tint: vehicle.trusted ? .green : .accentColor
+                        )
+                        Spacer()
+                        Text(vehicle.vehicleCode)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(vehicle.summaryTitle)
+                        .font(.headline)
+                    if let hint = vehicle.ownerHint, !hint.isEmpty {
+                        Text("구별 힌트 · \(hint)")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    if vehicle.linkedDriver, let driverName = vehicle.linkedDriverNickname {
+                        Text("연결된 운전자 · \(driverName)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("휴대전화 미연결 차량 · 차량 화면으로 직접 요청이 전달돼요")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 8) {
+                        Button("이 차량 맞음 · 마중 요청") {
+                            vehicleCodeFocused = false
+                            onRequestRide(RideTargetPerson(vehicle: vehicle))
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .accessibilityIdentifier("people-vehicle-confirm-button")
+
+                        Button("취소") {
+                            rideRequests.clearLookedUpVehicle()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+                .padding(12)
+                .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            }
+
+            if !rideRequests.favoriteVehicles.isEmpty {
+                Divider()
+                Text("자주 타는 차량")
+                    .font(.subheadline.weight(.semibold))
+                VStack(spacing: 8) {
+                    ForEach(rideRequests.favoriteVehicles) { vehicle in
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(vehicle.summaryTitle)
+                                    .font(.subheadline.weight(.semibold))
+                                Text([vehicle.ownerHint, vehicle.vehicleCode].compactMap { $0 }.joined(separator: " · "))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("마중 요청") {
+                                vehicleCodeFocused = false
+                                onRequestRide(RideTargetPerson(vehicle: vehicle))
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+
+                            Button("제거", role: .destructive) {
+                                Task { await rideRequests.removeFavoriteVehicle(vehicle.vehicleId) }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                        .padding(10)
+                        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                    }
+                }
             }
         }
     }

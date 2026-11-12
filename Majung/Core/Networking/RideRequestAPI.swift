@@ -2,7 +2,8 @@ import Foundation
 
 struct RideRequestAPI {
     private struct SubmitBody: Encodable {
-        let driverId: UUID
+        let driverId: UUID?
+        let vehicleId: UUID?
         let place: PickupPlace
         let requestId: UUID
     }
@@ -27,14 +28,39 @@ struct RideRequestAPI {
     private let client = AccountAPI()
     private let streamSession = URLSession(configuration: .ephemeral, delegate: NoRedirectDelegate(), delegateQueue: nil)
 
-    func submit(driverId: UUID, place: PickupPlace, requestId: UUID, cookie: String, csrfToken: String) async throws -> RideRequestItem {
+    func submit(driverId: UUID? = nil, vehicleId: UUID? = nil, place: PickupPlace, requestId: UUID, cookie: String, csrfToken: String) async throws -> RideRequestItem {
         try await client.requestWithResponse(
             "ride-requests",
             method: "POST",
             cookie: cookie,
             csrfToken: csrfToken,
-            body: SubmitBody(driverId: driverId, place: place, requestId: requestId)
+            body: SubmitBody(driverId: driverId, vehicleId: vehicleId, place: place, requestId: requestId)
         ).0
+    }
+
+    func lookupVehicle(code: String, cookie: String) async throws -> VehicleLookupItem {
+        var components = URLComponents()
+        components.path = "ride-requests/vehicles/lookup"
+        components.queryItems = [URLQueryItem(name: "code", value: code)]
+        let path = components.string ?? "ride-requests/vehicles/lookup"
+        return try await client.requestWithResponse(path, cookie: cookie).0
+    }
+
+    func favoriteVehicles(cookie: String) async throws -> [VehicleLookupItem] {
+        let response: FavoriteVehicleListResponse = try await client.requestWithResponse(
+            "ride-requests/favorite-vehicles",
+            cookie: cookie
+        ).0
+        return response.vehicles
+    }
+
+    func removeFavoriteVehicle(vehicleId: UUID, cookie: String, csrfToken: String) async throws {
+        try await client.requestEmpty(
+            "ride-requests/favorite-vehicles/\(vehicleId.uuidString.lowercased())",
+            method: "DELETE",
+            cookie: cookie,
+            csrfToken: csrfToken
+        )
     }
 
     func list(cookie: String) async throws -> [RideRequestItem] {

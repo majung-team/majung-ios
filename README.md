@@ -16,7 +16,7 @@
 | 구분 | 링크 | 설명 |
 | --- | --- | --- |
 | Notion 홈 | [마중 iOS (3차 앱 프로젝트)](https://app.notion.com/p/4146da9ae26a81f8b525ece0ed1c1962) | 프로젝트 개요 및 진행 관리 |
-| 화면 설계 | [01 화면 설계와 이용 흐름](https://app.notion.com/p/4146da9ae26a8064b544d805ddc1b578) | 탭 구조 및 핵심 10개 화면 흐름 |
+| 화면 설계 | [01 화면 설계와 이용 흐름](https://app.notion.com/p/4146da9ae26a8064b544d805ddc1b578) | 탭 구조 및 주요 화면 이용 흐름 |
 | 데이터 모델 | [02 데이터 모델과 ERD](https://app.notion.com/p/4146da9ae26a809b928cffed612504f4) | 테이블·화면 기능 매핑 |
 | 체크리스트 | [03 개발 로드맵과 체크리스트](https://app.notion.com/p/4146da9ae26a80d6bb0fe7bab3c929e2) | 단계별 구현·검증 현황 |
 | Figma | [Majung iOS 디자인](https://www.figma.com/design/XfEx8dmI2KqQuFZQAtpm0I/Majung?node-id=170-3) | UI 시안 및 인터랙티브 프로토타입 |
@@ -26,12 +26,12 @@
 
 ## 주요 기능
 
-- **초대 링크 게스트 참여**: 로그인 없이 `#join` 초대 링크로 만날 장소를 먼저 확인하고 참여·대기 이탈(`POST /api/v1/pickups/{id}/leave`) 가능
-- **카카오 로그인 · 계정 관리**: `ASWebAuthenticationSession` 기반 PKCE 로그인, 닉네임·마중 ID 관리, 지인 검색·연결, 회원 탈퇴(`DELETE /api/v1/accounts/me`)
-- **차량 QR 연결**: `DataScannerViewController` 카메라 스캔 및 링크 입력을 통한 차량 페어링 승인·해제
-- **한국 장소·주소 검색**: 백엔드 카카오 로컬 검색 프록시(`/api/v1/places/search`)로 장소명·분류·도로명/지번 주소를 조회하고, 미지원 시 `MKLocalSearch`로 폴백
-- **실시간 픽업 · 소통**: SSE(`pickups/{id}/events`, `ride-requests/events`) 기반 차량 위치·ETA 갱신, 준비 상태 전달, 퀵 메시지 전송, 장소 변경 제안
-- **알림 및 테마**: 라이트·다크 모드 및 앱 실행 중 도착 전·도착 로컬 알림 지원 (`AppDelegate` APNs 디바이스 토큰 등록 훅 포함)
+- **초대 링크 게스트 참여**: 로그인 없이 전달받은 초대 링크로 만날 장소를 먼저 확인한 뒤 바로 참여하거나 대기 중에 나갈 수 있습니다.
+- **카카오 로그인 · 계정 관리**: 인앱 브라우저(`ASWebAuthenticationSession`) 기반 카카오 로그인과 닉네임·마중 ID 설정, 지인 검색·연결, 회원 탈퇴를 지원합니다.
+- **차량 QR 연결**: 카메라 QR 스캔 또는 링크 입력으로 운전자 차량과 손쉽게 연결·해제할 수 있습니다.
+- **장소 · 주소 검색**: 서버의 카카오 로컬 검색으로 상호명과 도로명·지번 주소를 찾아주며, 서버 검색을 쓸 수 없는 환경에서는 Apple 지도(`MKLocalSearch`) 검색으로 자동 전환합니다.
+- **실시간 위치 · 소통**: 실시간 연결(SSE)로 차량 위치와 도착 예정 시간을 받아보고, 탑승 준비 상태·빠른 메시지 전달 및 만날 장소 변경을 제안합니다.
+- **알림 및 화면 테마**: 라이트·다크 모드를 지원하며, 도착 임박·도착 로컬 알림과 APNs 원격 푸시 연동을 제공합니다.
 
 ---
 
@@ -39,12 +39,12 @@
 
 ```text
 Majung/
-├── App/           # 앱 진입점, AppDelegate, 루트 상태 전환(ContentView)
+├── App/           # 앱 진입점, 푸시 등록(AppDelegate), 루트 화면 전환(ContentView)
 ├── Core/          # API 클라이언트(Account, Pickup, RideRequest, VehicleLink) 및 SSE 파서
-├── DesignSystem/  # 브랜드 컬러(#2669DD)·마크 및 공통 카드·검색·지도 컴포넌트
+├── DesignSystem/  # 브랜드 컬러(#2669DD)·심볼 및 공통 카드·검색·지도 컴포넌트
 └── Features/      # Onboarding, Account, VehicleLinks, RideRequest, Pickup 화면·뷰모델
 MajungTests/       # 모델·검증기·SSE·트래커 단위 테스트
-MajungUITests/     # LocalE2EServer 기반 UI E2E 테스트
+MajungUITests/     # 내장 테스트 서버(LocalE2EServer) 기반 UI E2E 테스트
 ```
 
 ---
@@ -52,7 +52,7 @@ MajungUITests/     # LocalE2EServer 기반 UI E2E 테스트
 ## 실행 및 테스트
 
 - **요구 환경**: Xcode 16+, iOS 17.0+, SwiftUI / Swift Observation (`@Observable`)
-- **연동 서버**: 기본 `https://majung.cloud/api/v1` (UI E2E 실행 시 `MAJUNG_TEST_PORT`로 로컬 목 서버 연결)
+- **연동 서버**: 기본 `https://majung.cloud/api/v1` (UI 테스트 실행 시 내장 테스트 서버로 자동 연결)
 
 ```sh
 # 시뮬레이터 빌드 확인
@@ -71,9 +71,9 @@ xcodebuild -project Majung.xcodeproj -scheme Majung \
 
 ## 검증 범위 및 남은 확인 사항
 
-- `MajungTests`(24개) 및 `LocalE2EServer` 기반 `MajungUITests`(6개)로 검증합니다. 차량 연결은 자동 갱신과 수동 상태 확인을 별도로 검사합니다. 최근 실행 결과는 [iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml)에서 확인할 수 있습니다.
-- 실기기(`iPhone`)에서의 카카오 OAuth·차량 QR 스캔·실주행 SSE/카카오 장소 검색 종단간 확인은 기기 연결 후 진행할 예정입니다.
-- Universal Links(`Associated Domains`) 및 백그라운드 APNs 푸시 발송(`aps-environment`)은 유료 Apple Developer 계정 프로비저닝과 서버 APNs 키 설정 적용 시 활성화됩니다.
+- 단위 테스트(`MajungTests`)와 UI 테스트(`MajungUITests`)로 주요 사용자 흐름을 검증하며, 실행 결과는 [iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml)에서 확인할 수 있습니다.
+- iPhone 실기기에서의 카카오 로그인, 카메라 QR 스캔, 실주행 실시간 위치·장소 검색 연동은 실기기 연결 후 검증할 예정입니다.
+- 백그라운드 원격 푸시(APNs)와 유니버설 링크(Associated Domains)는 유료 Apple Developer 계정 프로비저닝 및 서버 APNs 키 설정 적용 시 활성화됩니다.
 
 ---
 

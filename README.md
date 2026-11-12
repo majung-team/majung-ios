@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Majung/Assets.xcassets/AppIcon.appiconset/AppIcon.png" width="76" alt="마중 앱 아이콘" />
+  <img src="docs/media/majung-icon.png" width="76" alt="마중 앱 아이콘" />
   <h1>마중 iOS</h1>
   <p>가족이나 친구가 차로 데리러 올 때, 만날 장소와 실시간 차량 위치·도착 예정 시간·탑승 준비 상태를 함께 확인하는 iOS 앱입니다.</p>
   <p>

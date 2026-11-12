@@ -250,7 +250,7 @@ final class MajungE2EUITests: XCTestCase {
         app.tabBars.buttons["설정"].tap()
         XCTAssertTrue(app.staticTexts["1대 연결됨"].waitForExistence(timeout: 5))
 
-        // Connect vehicle via QR sheet manual URL -> pending -> manual poll transitions to linked
+        // Automatic polling must finish linking without any refresh-button tap.
         app.buttons["vehicle-connect-button"].tap()
         XCTAssertTrue(app.navigationBars["차량 QR 연결"].waitForExistence(timeout: 5))
         let qrField = app.textFields["vehicle-qr-link-field"]
@@ -260,8 +260,8 @@ final class MajungE2EUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["vehicle-pairing-refresh-button"].waitForExistence(timeout: 6))
         server.approvePendingVehicleChallenge()
-        app.buttons["vehicle-pairing-refresh-button"].tap()
         XCTAssertTrue(app.staticTexts["2대 연결됨"].waitForExistence(timeout: 6))
+        XCTAssertFalse(app.buttons["vehicle-pairing-refresh-button"].exists)
 
         // Detach existing vehicle via 2-step alert
         let detachBtn = app.buttons["vehicle-detach-\(server.initialVehicleId)"]
@@ -287,6 +287,40 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.alerts["로그아웃할까요?"].waitForExistence(timeout: 5))
         app.alerts["로그아웃할까요?"].buttons["로그아웃"].tap()
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
+    }
+
+    func test05VehiclePairingManualRefreshBeforeAndAfterApproval() throws {
+        let server = try LocalE2EServer()
+        defer { server.stop() }
+        server.setAccountMode(.ready)
+
+        let app = launchApp(port: server.port, arguments: ["-UITestResetSessions", "-UITestManualVehiclePairing"])
+        XCTAssertTrue(app.buttons["home-open-tracking-button"].waitForExistence(timeout: 8))
+        app.tabBars.buttons["설정"].tap()
+        app.buttons["vehicle-connect-button"].tap()
+        let field = app.textFields["vehicle-qr-link-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("https://majung.cloud/#vehicle/\(server.newChallengeId)/\(server.inviteCode)")
+        app.buttons["vehicle-qr-submit-button"].tap()
+
+        let refresh = app.buttons["vehicle-pairing-refresh-button"]
+        XCTAssertTrue(refresh.waitForExistence(timeout: 6))
+        let statusPath = "/api/v1/vehicle-links/requests/\(server.newChallengeId)"
+        let before = server.requestsMatching(method: "GET", pathPrefix: statusPath).count
+        refresh.tap()
+        let pendingPoll = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            server.requestsMatching(method: "GET", pathPrefix: statusPath).count > before
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [pendingPoll], timeout: 5), .completed)
+        XCTAssertTrue(app.staticTexts["1대 연결됨"].exists)
+        XCTAssertTrue(refresh.exists)
+
+        server.approvePendingVehicleChallenge()
+        refresh.tap()
+        XCTAssertTrue(app.staticTexts["2대 연결됨"].waitForExistence(timeout: 6))
+        XCTAssertFalse(refresh.exists)
+        XCTAssertGreaterThanOrEqual(server.requestsMatching(method: "GET", pathPrefix: statusPath).count, before + 2)
     }
 
     func test04AccountWithdrawalClearsSessionAndCallsDeleteMe() throws {

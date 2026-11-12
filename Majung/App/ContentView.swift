@@ -216,6 +216,13 @@ struct ContentView: View {
     }
 
     private func pollPendingVehicleUntilDone() async {
+        #if DEBUG && targetEnvironment(simulator)
+        // Keep manual-refresh UI tests independent from the automatic polling timer.
+        if APIBaseURL.root.host == "localhost",
+           ProcessInfo.processInfo.arguments.contains("-UITestManualVehiclePairing") {
+            return
+        }
+        #endif
         while !Task.isCancelled && accountModel.isReady && scenePhase == .active && vehicleLinkModel.hasPendingPairing {
             do { try await Task.sleep(for: .seconds(2)) } catch { return }
             if !Task.isCancelled && accountModel.isReady && scenePhase == .active && vehicleLinkModel.hasPendingPairing {

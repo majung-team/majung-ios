@@ -71,7 +71,7 @@ xcodebuild -project Majung.xcodeproj -scheme Majung \
 
 ## 검증 범위 및 남은 확인 사항
 
-- `MajungTests`(24개) 및 `LocalE2EServer` 기반 `MajungUITests`(5개), 시뮬레이터 라이트·다크 모드 화면 검증을 통과했습니다.
+- `MajungTests`(24개) 및 `LocalE2EServer` 기반 `MajungUITests`(6개)로 검증합니다. 차량 연결은 자동 갱신과 수동 상태 확인을 별도로 검사합니다. 최근 실행 결과는 [iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml)에서 확인할 수 있습니다.
 - 실기기(`iPhone`)에서의 카카오 OAuth·차량 QR 스캔·실주행 SSE/카카오 장소 검색 종단간 확인은 기기 연결 후 진행할 예정입니다.
 - Universal Links(`Associated Domains`) 및 백그라운드 APNs 푸시 발송(`aps-environment`)은 유료 Apple Developer 계정 프로비저닝과 서버 APNs 키 설정 적용 시 활성화됩니다.
 

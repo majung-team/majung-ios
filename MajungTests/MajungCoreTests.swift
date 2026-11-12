@@ -505,6 +505,25 @@ final class MajungCoreTests: XCTestCase {
     // MARK: - PickupNotificationService APNs Token Formatting
 
     @MainActor
+    func testVehiclePairingTargetSupportsVehicleAppAccountFragmentURLs() {
+        let id = UUID(uuidString: "11111111-2222-4333-8444-555555555555")!
+        let code = String(repeating: "A", count: 43)
+
+        let enrollTarget = VehiclePairingTarget(rawText: "https://majung.cloud/account#enroll/\(id.uuidString.lowercased())/\(code)")
+        XCTAssertEqual(enrollTarget?.kind, .enroll)
+        XCTAssertEqual(enrollTarget?.id, id)
+        XCTAssertEqual(enrollTarget?.code, code)
+
+        let vehicleTarget = VehiclePairingTarget(rawText: "https://majung.cloud/account/#vehicle/\(id.uuidString.lowercased())/\(code)")
+        XCTAssertEqual(vehicleTarget?.kind, .vehicle)
+        XCTAssertEqual(vehicleTarget?.id, id)
+        XCTAssertEqual(vehicleTarget?.code, code)
+
+        let bareFragment = VehiclePairingTarget(rawText: "#enroll/\(id.uuidString.lowercased())/\(code)")
+        XCTAssertEqual(bareFragment?.kind, .enroll)
+    }
+
+    @MainActor
     func testPickupNotificationServiceApnsTokenFormatting() {
         let validBytes = Data(repeating: 0xAB, count: 32)
         PickupNotificationService.updateApnsDeviceToken(validBytes)

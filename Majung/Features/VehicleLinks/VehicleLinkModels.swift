@@ -16,9 +16,9 @@ struct VehiclePairingTarget: Equatable {
         let host = url.host?.lowercased()
 
         switch (scheme, host) {
-        case ("https", "majung.cloud") where url.path.isEmpty || url.path == "/",
-             ("http", "localhost") where url.path.isEmpty || url.path == "/",
-             ("http", "127.0.0.1") where url.path.isEmpty || url.path == "/":
+        case ("https", "majung.cloud") where Self.isSupportedPairingPath(url.path),
+             ("http", "localhost") where Self.isSupportedPairingPath(url.path),
+             ("http", "127.0.0.1") where Self.isSupportedPairingPath(url.path):
             parts = (url.fragment ?? "").components(separatedBy: "/")
         case ("majung", "vehicle"):
             parts = ["vehicle"] + url.pathComponents.dropFirst()
@@ -42,9 +42,20 @@ struct VehiclePairingTarget: Equatable {
     init?(rawText: String) {
         let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        let normalized = trimmed.hasPrefix("#") ? "https://majung.cloud/\(trimmed)" : trimmed
+        let normalized: String
+        if trimmed.hasPrefix("#") {
+            normalized = "https://majung.cloud/account\(trimmed)"
+        } else if trimmed.hasPrefix("account#") {
+            normalized = "https://majung.cloud/\(trimmed)"
+        } else {
+            normalized = trimmed
+        }
         guard let url = URL(string: normalized) else { return nil }
         self.init(url: url)
+    }
+
+    private static func isSupportedPairingPath(_ path: String) -> Bool {
+        path.isEmpty || path == "/" || path == "/account" || path == "/account/"
     }
 }
 

@@ -1,7 +1,6 @@
 import AVFoundation
 import SwiftUI
 import UIKit
-import VisionKit
 
 struct VehicleQRScannerSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -10,11 +9,16 @@ struct VehicleQRScannerSheet: View {
     @State private var linkDraft = ""
     @State private var validationError: String?
     @State private var cameraPermissionDenied = false
+    @State private var cameraAuthorized = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
 
     let onConnected: () -> Void
 
+    private var hasVideoDevice: Bool {
+        AVCaptureDevice.default(for: .video) != nil
+    }
+
     private var scannerAvailable: Bool {
-        DataScannerViewController.isSupported && DataScannerViewController.isAvailable && !cameraPermissionDenied
+        hasVideoDevice && cameraAuthorized && !cameraPermissionDenied
     }
 
     var body: some View {
@@ -46,13 +50,18 @@ struct VehicleQRScannerSheet: View {
             Text("차량 화면 QR 스캔")
                 .font(.headline)
             if scannerAvailable {
-                VehicleQRDataScanner { scanned in
-                    Task { await submitRawText(scanned) }
-                }
-                .frame(height: 240)
+                VehicleCameraQRScanner(
+                    onValidScan: { scanned in
+                        Task { await submitRawText(scanned) }
+                    },
+                    onUnsupportedPayload: {
+                        validationError = "차량 연결용 QR 코드가 아니에요. 차량 앱의 연결 QR을 비춰주세요."
+                    }
+                )
+                .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .accessibilityIdentifier("vehicle-qr-camera-preview")
-                Text("차량 디스플레이의 연결 QR 코드를 사각형 안에 비춰주세요.")
+                Text("차량 디스플레이의 연결 QR 코드를 카메라에 비추면 자동으로 연결해요.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
@@ -72,10 +81,10 @@ struct VehicleQRScannerSheet: View {
         MajungCard {
             Text("연결 링크 직접 입력")
                 .font(.headline)
-            Text("차량 화면이나 공유 링크(`https://majung.cloud/#vehicle/...`, `majung://vehicle/...`)를 붙여넣으세요.")
+            Text("차량 화면이나 공유 링크(`https://majung.cloud/account#enroll/...`, `#vehicle/...`)를 붙여넣으세요.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            TextField("https://majung.cloud/#vehicle/...", text: $linkDraft)
+            TextField("https://majung.cloud/account#enroll/...", text: $linkDraft)
                 .textFieldStyle(.roundedBorder)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -136,20 +145,27 @@ struct VehicleQRScannerSheet: View {
     }
 
     private func checkCameraAuthorization() async {
-        guard DataScannerViewController.isSupported else { return }
+        guard hasVideoDevice else {
+            cameraAuthorized = false
+            return
+        }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             cameraPermissionDenied = false
+            cameraAuthorized = true
         case .notDetermined:
             let granted = await AVCaptureDevice.requestAccess(for: .video)
             cameraPermissionDenied = !granted
+            cameraAuthorized = granted
         default:
             cameraPermissionDenied = true
+            cameraAuthorized = false
         }
     }
 
     private func submitRawText(_ raw: String) async {
         validationError = nil
+        linkDraft = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let target = VehiclePairingTarget(rawText: raw) else {
             validationError = "유효한 차량 연결 QR 또는 링크가 아니에요."
             return
@@ -162,69 +178,124 @@ struct VehicleQRScannerSheet: View {
     }
 }
 
-private struct VehicleQRDataScanner: UIViewControllerRepresentable {
-    let onScan: (String) -> Void
+private struct VehicleCameraQRScanner: UIViewControllerRepresentable {
+    let onValidScan: (String) -> Void
+    let onUnsupportedPayload: () -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onScan: onScan)
+        Coordinator(onValidScan: onValidScan, onUnsupportedPayload: onUnsupportedPayload)
     }
 
-    func makeUIViewController(context: Context) -> DataScannerViewController {
-        let controller = DataScannerViewController(
-            recognizedDataTypes: [.barcode(symbologies: [.qr])],
-            qualityLevel: .balanced,
-            recognizesMultipleItems: false,
-            isHighFrameRateTrackingEnabled: false,
-            isPinchToZoomEnabled: true,
-            isGuidanceEnabled: true,
-            isHighlightingEnabled: true
-        )
-        controller.delegate = context.coordinator
-        try? controller.startScanning()
+    func makeUIViewController(context: Context) -> CameraScannerController {
+        let controller = CameraScannerController()
+        controller.coordinator = context.coordinator
         return controller
     }
 
-    func updateUIViewController(_ uiViewController: DataScannerViewController, context: Context) {}
-
-    static func dismantleUIViewController(_ uiViewController: DataScannerViewController, coordinator: Coordinator) {
-        uiViewController.stopScanning()
+    func updateUIViewController(_ uiViewController: CameraScannerController, context: Context) {
+        uiViewController.coordinator = context.coordinator
     }
 
-    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
-        private let onScan: (String) -> Void
-        private var lastHandledPayload: String?
+    final class CameraScannerController: UIViewController {
+        var coordinator: Coordinator?
 
-        init(onScan: @escaping (String) -> Void) {
-            self.onScan = onScan
+        private let sessionQueue = DispatchQueue(label: "app.majung.ios.qrscanner.session")
+        private let captureSession = AVCaptureSession()
+        private var previewLayer: AVCaptureVideoPreviewLayer?
+        private var configured = false
+
+        override func viewDidLoad() {
+            super.viewDidLoad()
+            view.backgroundColor = .black
+
+            let preview = AVCaptureVideoPreviewLayer(session: captureSession)
+            preview.videoGravity = .resizeAspectFill
+            preview.frame = view.bounds
+            view.layer.addSublayer(preview)
+            previewLayer = preview
         }
 
-        func dataScanner(
-            _ dataScanner: DataScannerViewController,
-            didAdd addedItems: [RecognizedItem],
-            allItems: [RecognizedItem]
+        override func viewDidLayoutSubviews() {
+            super.viewDidLayoutSubviews()
+            previewLayer?.frame = view.bounds
+        }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            startSessionIfNeeded()
+        }
+
+        override func viewWillDisappear(_ animated: Bool) {
+            super.viewWillDisappear(animated)
+            sessionQueue.async { [captureSession] in
+                if captureSession.isRunning {
+                    captureSession.stopRunning()
+                }
+            }
+        }
+
+        private func startSessionIfNeeded() {
+            guard let coordinator else { return }
+            sessionQueue.async { [weak self, captureSession] in
+                guard let self else { return }
+                if !self.configured {
+                    self.configured = true
+                    captureSession.beginConfiguration()
+                    if let videoDevice = AVCaptureDevice.default(for: .video),
+                       let input = try? AVCaptureDeviceInput(device: videoDevice),
+                       captureSession.canAddInput(input) {
+                        captureSession.addInput(input)
+                    }
+                    let metadataOutput = AVCaptureMetadataOutput()
+                    if captureSession.canAddOutput(metadataOutput) {
+                        captureSession.addOutput(metadataOutput)
+                        metadataOutput.setMetadataObjectsDelegate(coordinator, queue: .main)
+                        if metadataOutput.availableMetadataObjectTypes.contains(.qr) {
+                            metadataOutput.metadataObjectTypes = [.qr]
+                        }
+                    }
+                    captureSession.commitConfiguration()
+                }
+                if !captureSession.isRunning {
+                    captureSession.startRunning()
+                }
+            }
+        }
+    }
+
+    final class Coordinator: NSObject, AVCaptureMetadataOutputObjectsDelegate {
+        private let onValidScan: (String) -> Void
+        private let onUnsupportedPayload: () -> Void
+        private var lastHandledValidPayload: String?
+        private var lastUnsupportedAt: Date = .distantPast
+
+        init(onValidScan: @escaping (String) -> Void, onUnsupportedPayload: @escaping () -> Void) {
+            self.onValidScan = onValidScan
+            self.onUnsupportedPayload = onUnsupportedPayload
+        }
+
+        func metadataOutput(
+            _ output: AVCaptureMetadataOutput,
+            didOutput metadataObjects: [AVMetadataObject],
+            from connection: AVCaptureConnection
         ) {
-            handleItems(addedItems, scanner: dataScanner)
-        }
-
-        func dataScanner(
-            _ dataScanner: DataScannerViewController,
-            didTapOn item: RecognizedItem
-        ) {
-            handleItems([item], scanner: dataScanner)
-        }
-
-        private func handleItems(_ items: [RecognizedItem], scanner: DataScannerViewController) {
-            for item in items {
-                guard case .barcode(let barcode) = item,
-                      let payload = barcode.payloadStringValue,
-                      payload != lastHandledPayload,
-                      VehiclePairingTarget(rawText: payload) != nil else {
+            for object in metadataObjects {
+                guard let readable = object as? AVMetadataMachineReadableCodeObject,
+                      readable.type == .qr,
+                      let raw = readable.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !raw.isEmpty else {
                     continue
                 }
-                lastHandledPayload = payload
-                scanner.stopScanning()
-                onScan(payload)
-                return
+                if VehiclePairingTarget(rawText: raw) != nil {
+                    guard raw != lastHandledValidPayload else { return }
+                    lastHandledValidPayload = raw
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    onValidScan(raw)
+                    return
+                } else if Date().timeIntervalSince(lastUnsupportedAt) > 2.5 {
+                    lastUnsupportedAt = Date()
+                    onUnsupportedPayload()
+                }
             }
         }
     }

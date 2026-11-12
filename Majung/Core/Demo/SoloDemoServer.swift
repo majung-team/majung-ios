@@ -189,7 +189,7 @@ final class SoloDemoServer {
             listener = created
             lock.unlock()
             created.start(queue: queue)
-            _ = ready.wait(timeout: .now() + 2)
+            _ = ready.wait(timeout: .now() + 8)
         } catch {
             // Keep port 0 if listener setup fails; callers will fall back cleanly.
         }

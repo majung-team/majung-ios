@@ -2,12 +2,31 @@ import CoreLocation
 import Foundation
 import Observation
 
+enum LocationAuthorizationAction: Equatable {
+    case requestAuthorizationOnly
+    case requestLocationNow
+    case failDenied
+}
+
 @MainActor
 @Observable
 final class LocationService: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var continuation: CheckedContinuation<CLLocation, Error>?
     private(set) var locating = false
+
+    nonisolated static func authorizationAction(for status: CLAuthorizationStatus) -> LocationAuthorizationAction {
+        switch status {
+        case .denied, .restricted:
+            .failDenied
+        case .notDetermined:
+            .requestAuthorizationOnly
+        case .authorizedWhenInUse, .authorizedAlways:
+            .requestLocationNow
+        @unknown default:
+            .requestLocationNow
+        }
+    }
 
     override init() {
         super.init()
@@ -22,20 +41,22 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         locating = true
         defer { locating = false }
 
-        switch manager.authorizationStatus {
-        case .denied, .restricted:
+        let action = Self.authorizationAction(for: manager.authorizationStatus)
+        if action == .failDenied {
             throw LocationFailure.denied
-        case .notDetermined:
-            manager.requestWhenInUseAuthorization()
-        case .authorizedWhenInUse, .authorizedAlways:
-            break
-        @unknown default:
-            break
         }
 
         let location = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<CLLocation, Error>) in
             self.continuation = cont
-            self.manager.requestLocation()
+            switch action {
+            case .requestAuthorizationOnly:
+                self.manager.requestWhenInUseAuthorization()
+            case .requestLocationNow:
+                self.manager.requestLocation()
+            case .failDenied:
+                cont.resume(throwing: LocationFailure.denied)
+                self.continuation = nil
+            }
         }
 
         guard location.horizontalAccuracy >= 0, location.horizontalAccuracy <= 300 else {
@@ -53,7 +74,9 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        let status = manager.authorizationStatus
         Task { @MainActor in
+            guard status != .notDetermined else { return }
             continuation?.resume(throwing: LocationFailure.unavailable)
             continuation = nil
         }

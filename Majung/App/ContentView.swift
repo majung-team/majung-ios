@@ -49,8 +49,10 @@ struct ContentView: View {
                                 pickupModel.reset()
                             },
                             onLeaveWaiting: {
-                                link = ""
-                                pickupModel.leaveWaiting()
+                                Task {
+                                    await pickupModel.leaveWaiting()
+                                    link = ""
+                                }
                             }
                         )
                     case .entry:
@@ -90,7 +92,7 @@ struct ContentView: View {
                 }
             }
         }
-        .tint(Color(red: 0.10, green: 0.39, blue: 0.85))
+        .tint(MajungBrand.blue)
         .task {
             await runLaunchSequence()
         }
@@ -139,6 +141,10 @@ struct ContentView: View {
         .task(id: accountPollingKey) {
             guard accountModel.isReady && scenePhase == .active else { return }
             await pollAccountRequestsUntilInactive()
+        }
+        .task(id: "\(accountPollingKey)-stream") {
+            guard accountModel.isReady && scenePhase == .active else { return }
+            await rideRequestModel.runListEventStream()
         }
         .task(id: activeRideStreamKey) {
             guard scenePhase == .active, let requestId = rideRequestModel.activeRequest?.id else { return }
@@ -231,7 +237,7 @@ struct ContentView: View {
             let interval: Int = if rideRequestModel.activeRequest != nil {
                 rideRequestModel.activeStreamConnected ? 30 : 3
             } else {
-                10
+                rideRequestModel.listStreamConnected ? 30 : 10
             }
             do { try await Task.sleep(for: .seconds(interval)) } catch { return }
             if !Task.isCancelled && accountModel.isReady && scenePhase == .active {

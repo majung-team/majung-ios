@@ -219,6 +219,30 @@ final class LocalE2EServer {
         pushSSEChanged()
     }
 
+    func pushExtraInvitationSSE() {
+        lock.lock()
+        let extraId = "eeeeeeee-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+        if !rideRequests.contains(where: { $0.id == extraId }) {
+            rideRequests.append(
+                RequestItemModel(
+                    id: extraId,
+                    status: "INVITED",
+                    nickname: "최민준",
+                    majungId: "minjun_choi",
+                    placeLabel: "판교역 1번 출구",
+                    lat: 37.3948,
+                    lng: 127.1112,
+                    peopleAhead: nil,
+                    remainingSeconds: nil,
+                    validForMillis: 0,
+                    driverInvitation: true
+                )
+            )
+        }
+        lock.unlock()
+        pushSSEChanged()
+    }
+
     func approvePendingVehicleChallenge() {
         lock.lock()
         if let pending = pendingChallenge {
@@ -341,6 +365,40 @@ final class LocalE2EServer {
             accountMode = .unauthenticated
             return (200, #"{"ok":true}"#, nil)
 
+        case ("DELETE", "/api/v1/accounts/me"):
+            accountMode = .unauthenticated
+            rideRequests.removeAll()
+            vehicles.removeAll()
+            return (204, "", nil)
+
+        case ("GET", "/api/v1/places/search"):
+            let components = URLComponents(string: "http://localhost/search?\(query)")
+            let page = components?.queryItems?.first(where: { $0.name == "page" })?.value.flatMap(Int.init) ?? 1
+            if page <= 1 {
+                return (200, """
+                {
+                  "enabled": true,
+                  "hasNext": true,
+                  "items": [
+                    {"label": "강남역 2번 출구", "address": "서울 강남구 역삼동 858", "category": "지하철역", "latitude": 37.4979, "longitude": 127.0276},
+                    {"label": "강남역 2호선", "address": "서울 강남구 강남대로 지하 396", "category": "지하철역", "latitude": 37.4981, "longitude": 127.0279},
+                    {"label": "강남역 신분당선", "address": "서울 강남구 강남대로 지하 396", "category": "지하철역", "latitude": 37.4969, "longitude": 127.0281},
+                    {"label": "강남역 1번 출구", "address": "서울 강남구 역삼동 825", "category": "지하철역", "latitude": 37.4977, "longitude": 127.0285},
+                    {"label": "강남역 10번 출구", "address": "서울 서초구 서초동 1317-20", "category": "지하철역", "latitude": 37.4984, "longitude": 127.0268}
+                  ]
+                }
+                """, nil)
+            }
+            return (200, """
+            {
+              "enabled": true,
+              "hasNext": false,
+              "items": [
+                {"label": "강남역 11번 출구", "address": "서울 강남구 역삼동 820", "category": "지하철역", "latitude": 37.4990, "longitude": 127.0272}
+              ]
+            }
+            """, nil)
+
         case ("POST", "/api/v1/pickups/\(pickupId)/invitation-preview"):
             if invitePreviewStatus != 200 {
                 return (invitePreviewStatus, #"{"code":"INVITE_EXPIRED","message":"만료된 초대입니다."}"#, nil)
@@ -384,6 +442,10 @@ final class LocalE2EServer {
                 guestQuickMessage = message
             }
             return (200, guestSnapshotJSON(), nil)
+
+        case ("POST", "/api/v1/pickups/\(pickupId)/leave"):
+            guestPhase = .none
+            return (204, "", nil)
 
         case ("GET", "/api/v1/ride-requests"):
             let encoded = rideRequests.map { item in

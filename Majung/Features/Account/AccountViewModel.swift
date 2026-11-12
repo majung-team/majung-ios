@@ -150,6 +150,25 @@ final class AccountViewModel {
         clearLocalSession()
     }
 
+    func deleteAccount() async -> Bool {
+        guard !busy else { return false }
+        busy = true
+        error = nil
+        notice = nil
+        defer { busy = false }
+
+        do {
+            try await performAuthorizedMutation { cookie, csrfToken in
+                try await self.api.deleteAccount(cookie: cookie, csrfToken: csrfToken)
+            }
+            clearLocalSession()
+            return true
+        } catch {
+            handleAccountError(error)
+            return false
+        }
+    }
+
     private func ensureCsrfToken(cookie: String) async throws -> String {
         if let csrfToken, !csrfToken.isEmpty {
             return csrfToken

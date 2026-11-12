@@ -289,6 +289,7 @@ private struct SettingsTabView: View {
     @State private var detachingVehicle: VehicleLink?
     @State private var showingOnboardingReplay = false
     @State private var confirmingLogout = false
+    @State private var confirmingDeleteAccount = false
 
     private var detachAlertPresented: Binding<Bool> {
         Binding(
@@ -492,7 +493,7 @@ private struct SettingsTabView: View {
                     }
                 }
 
-                Text("위치 권한은 만날 장소를 고를 때만 사용하며, 픽업이 종료되면 실시간 위치 공유가 즉시 멈춰요.")
+                Text("앱 화면이 켜진 동안 도착 전·도착 로컬 알림을 제공하며, APNs 푸시 인증이 적용된 배포 빌드에서는 백그라운드 알림도 지원해요. 위치 권한은 만날 장소를 고를 때만 사용하며, 픽업이 종료되면 실시간 위치 공유가 즉시 멈춰요.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -512,6 +513,12 @@ private struct SettingsTabView: View {
                 }
                 .disabled(account.busy)
                 .accessibilityIdentifier("settings-logout-button")
+
+                Button("회원 탈퇴", role: .destructive) {
+                    confirmingDeleteAccount = true
+                }
+                .disabled(account.busy)
+                .accessibilityIdentifier("settings-delete-account-button")
             }
         }
         .navigationTitle("설정")
@@ -557,6 +564,14 @@ private struct SettingsTabView: View {
                 Task { await account.logout() }
             }
             Button("돌아가기", role: .cancel) {}
+        }
+        .alert("정말 마중에서 탈퇴할까요?", isPresented: $confirmingDeleteAccount) {
+            Button("탈퇴하기", role: .destructive) {
+                Task { _ = await account.deleteAccount() }
+            }
+            Button("돌아가기", role: .cancel) {}
+        } message: {
+            Text("계정 정보, 지인 연결, 등록된 차량 연결 및 이용 기록이 모두 삭제되며 되돌릴 수 없어요.")
         }
     }
 }

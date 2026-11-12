@@ -22,6 +22,7 @@ struct PickupAPI {
     }
     private struct PlaceBody: Encodable { let place: PickupPlace }
     private struct MessageBody: Encodable { let message: String }
+    private struct ArrivalPushBody: Encodable { let endpoint: String }
 
     private let origin = APIBaseURL.root.appendingPathComponent("pickups")
     private let network = URLSession(configuration: .ephemeral, delegate: NoRedirectDelegate(), delegateQueue: nil)
@@ -65,6 +66,20 @@ struct PickupAPI {
                           body: MessageBody(message: text))
     }
 
+    func leaveWaiting(_ session: PickupSession) async throws {
+        try await requestEmpty(session.id, "leave", method: "POST", token: session.token, timeout: 3)
+    }
+
+    func registerArrivalPush(_ session: PickupSession, endpoint: String) async throws {
+        try await requestEmpty(
+            session.id,
+            "arrival-push",
+            method: "PUT",
+            token: session.token,
+            body: ArrivalPushBody(endpoint: endpoint)
+        )
+    }
+
     func streamEvents(
         session: PickupSession,
         onState: @escaping @MainActor (Bool) -> Void,
@@ -99,5 +114,26 @@ struct PickupAPI {
             throw Failure(status: http.statusCode, code: body?.code, message: body?.message)
         }
         return try MajungCodec.decoder.decode(Response.self, from: data)
+    }
+
+    private func requestEmpty(
+        _ id: UUID, _ endpoint: String, method: String = "POST",
+        token: String, body: (any Encodable)? = nil, timeout: TimeInterval = 8
+    ) async throws {
+        let url = origin.appendingPathComponent(id.uuidString.lowercased()).appendingPathComponent(endpoint)
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let body {
+            request.httpBody = try MajungCodec.encoder.encode(body)
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        let (data, response) = try await network.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard (200..<300).contains(http.statusCode) else {
+            let errorBody = try? MajungCodec.decoder.decode(ErrorBody.self, from: data)
+            throw Failure(status: http.statusCode, code: errorBody?.code, message: errorBody?.message)
+        }
     }
 }

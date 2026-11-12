@@ -19,9 +19,12 @@ struct PlaceComposerView<Header: View>: View {
 
     @State private var locationService = LocationService()
     @State private var searchQuery = ""
-    @State private var searchResults: [MKMapItem] = []
+    @State private var searchResults: [PlaceSearchCandidate] = []
     @State private var searchedKeyword = ""
     @State private var searchPage = 0
+    @State private var serverPage = 1
+    @State private var serverHasNext = false
+    @State private var usedFallbackSearch = false
     @State private var searching = false
     @State private var searchDone = false
     @State private var searchNote: String?
@@ -81,7 +84,7 @@ struct PlaceComposerView<Header: View>: View {
         _mapCenter = State(initialValue: initialCenter)
     }
 
-    private var pagedResults: ArraySlice<MKMapItem> {
+    private var pagedResults: ArraySlice<PlaceSearchCandidate> {
         let start = searchPage * pageSize
         guard start < searchResults.count else { return [] }
         let end = min(searchResults.count, start + pageSize)
@@ -90,6 +93,10 @@ struct PlaceComposerView<Header: View>: View {
 
     private var totalPages: Int {
         max(1, (searchResults.count + pageSize - 1) / pageSize)
+    }
+
+    private var canAdvanceNextPage: Bool {
+        (searchPage + 1) < totalPages || (serverHasNext && serverPage < 3)
     }
 
     private var trimmedLabel: String {
@@ -185,26 +192,39 @@ struct PlaceComposerView<Header: View>: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("‘\(searchedKeyword)’ 검색 결과 · 이름과 주소를 확인해주세요.")
+                    Text(usedFallbackSearch
+                         ? "‘\(searchedKeyword)’ 지도 검색 결과 · 이름과 주소를 확인해주세요."
+                         : "‘\(searchedKeyword)’ 카카오 장소·주소 검색 · 정확한 출구·건물을 선택해주세요.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    ForEach(Array(pagedResults.enumerated()), id: \.offset) { _, item in
-                        let place = PlaceSearchService.place(from: item, fallbackLabel: searchedKeyword)
-                        let isSelected = isSameCoordinate(selectedCoordinate, item.placemark.coordinate) && {
+                    ForEach(Array(pagedResults.enumerated()), id: \.element.id) { idx, candidate in
+                        let place = candidate.pickupPlace
+                        let isSelected = isSameCoordinate(selectedCoordinate, candidate.coordinate) && {
                             if case .search = selectionSource { return true }
                             return false
                         }()
                         Button {
-                            chooseSearchResult(item: item, place: place)
+                            chooseSearchResult(candidate: candidate, place: place)
                             onSelected()
                         } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(place.label)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                    Text(item.placemark.title ?? "주소 정보 없음 · 지도에서 위치를 확인해주세요")
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack(spacing: 6) {
+                                        Text(place.label)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(.primary)
+                                        if let category = candidate.category,
+                                           !category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                            Text(category)
+                                                .font(.caption2.weight(.semibold))
+                                                .foregroundStyle(Color.accentColor)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.accentColor.opacity(0.12), in: Capsule())
+                                        }
+                                    }
+                                    Text(candidate.detailText)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -224,23 +244,28 @@ struct PlaceComposerView<Header: View>: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("\(idPrefix)-place-result-\(idx)")
                     }
 
-                    if totalPages > 1 {
+                    if totalPages > 1 || canAdvanceNextPage {
                         HStack {
                             Button("이전 결과") { searchPage = max(0, searchPage - 1) }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
-                                .disabled(searchPage == 0)
+                                .disabled(searchPage == 0 || searching)
+                                .accessibilityIdentifier("\(idPrefix)-place-prev-button")
                             Spacer()
                             Text("\(searchPage + 1) / \(totalPages) 페이지")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             Spacer()
-                            Button("다음 결과") { searchPage = min(totalPages - 1, searchPage + 1) }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                                .disabled(searchPage >= totalPages - 1)
+                            Button(searching ? "불러오는 중…" : "다음 결과") {
+                                Task { await advanceSearchPage() }
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .disabled(!canAdvanceNextPage || searching)
+                            .accessibilityIdentifier("\(idPrefix)-place-next-button")
                         }
                     }
                 }
@@ -363,13 +388,45 @@ struct PlaceComposerView<Header: View>: View {
         localError = nil
         defer { searching = false }
         do {
-            let items = try await PlaceSearchService.search(query: keyword, near: mapCenter)
-            searchResults = items
+            let result = try await PlaceSearchService.search(query: keyword, page: 1, near: mapCenter)
+            searchResults = result.candidates
             searchedKeyword = keyword
             searchPage = 0
+            serverPage = 1
+            serverHasNext = result.hasNext
+            usedFallbackSearch = result.usedFallback
             searchDone = true
         } catch {
             searchNote = "장소 검색을 완료하지 못했어요. 지도에서 위치를 직접 선택해주세요."
+        }
+    }
+
+    private func advanceSearchPage() async {
+        if (searchPage + 1) < totalPages {
+            searchPage += 1
+            return
+        }
+        guard serverHasNext, serverPage < 3, !searchedKeyword.isEmpty, !searching else { return }
+        searching = true
+        searchNote = nil
+        defer { searching = false }
+        let nextServerPage = serverPage + 1
+        do {
+            let result = try await PlaceSearchService.search(query: searchedKeyword, page: nextServerPage, near: mapCenter)
+            serverPage = nextServerPage
+            serverHasNext = result.hasNext
+            let existingKeys = Set(searchResults.map { "\($0.label)-\($0.latitude)-\($0.longitude)" })
+            let appended = result.candidates.filter {
+                !existingKeys.contains("\($0.label)-\($0.latitude)-\($0.longitude)")
+            }
+            if !appended.isEmpty {
+                searchResults.append(contentsOf: appended)
+                if (searchPage + 1) < totalPages {
+                    searchPage += 1
+                }
+            }
+        } catch {
+            searchNote = "추가 검색 결과를 불러오지 못했어요."
         }
     }
 
@@ -396,16 +453,16 @@ struct PlaceComposerView<Header: View>: View {
         }
     }
 
-    private func chooseSearchResult(item: MKMapItem, place: PickupPlace) {
-        selectedCoordinate = item.placemark.coordinate
-        selectionSource = .search(title: place.label, address: item.placemark.title)
+    private func chooseSearchResult(candidate: PlaceSearchCandidate, place: PickupPlace) {
+        selectedCoordinate = candidate.coordinate
+        selectionSource = .search(title: place.label, address: candidate.address)
         accuracyMeters = nil
         locationCapturedAt = nil
         labelDraft = place.label
         localError = nil
         onSelectionChanged()
         mapPosition = .region(MKCoordinateRegion(
-            center: item.placemark.coordinate,
+            center: candidate.coordinate,
             latitudinalMeters: 700,
             longitudinalMeters: 700
         ))

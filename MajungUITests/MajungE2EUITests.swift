@@ -100,6 +100,7 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.alerts["초대 참여 대기를 나갈까요?"].waitForExistence(timeout: 5))
         app.alerts["초대 참여 대기를 나갈까요?"].buttons["나가기"].tap()
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 5))
+        XCTAssertEqual(server.requestsMatching(method: "POST", pathPrefix: "/api/v1/pickups/\(server.pickupId)/leave").count, 1)
 
         // Rejoin -> transition over SSE to ACTIVE
         linkField.tap()
@@ -177,8 +178,12 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.buttons["대기·초대 (2)"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["내 차례 대기 (1)"].exists)
 
-        // Accept invitation -> auto-switches to 내 차례 대기 (2)
-        app.buttons["requests-accept-invitation"].tap()
+        // Account-level SSE pushes new invitation -> 대기·초대 (3) updates automatically
+        server.pushExtraInvitationSSE()
+        XCTAssertTrue(app.buttons["대기·초대 (3)"].waitForExistence(timeout: 6))
+
+        // Accept first invitation -> auto-switches to 내 차례 대기 (2)
+        app.buttons["requests-accept-invitation"].firstMatch.tap()
         XCTAssertTrue(app.alerts["이 초대를 수락할까요?"].waitForExistence(timeout: 5))
         app.alerts["이 초대를 수락할까요?"].buttons["이 장소에서 탈게요"].tap()
         XCTAssertTrue(app.buttons["내 차례 대기 (2)"].waitForExistence(timeout: 5))
@@ -212,6 +217,25 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.buttons["people-search-ride-minsu_car"].waitForExistence(timeout: 5))
         app.buttons["people-search-ride-minsu_car"].tap()
         XCTAssertTrue(app.navigationBars["만날 장소 선택"].waitForExistence(timeout: 5))
+
+        // Kakao Korean place search & server pagination inside PlacePickerSheet
+        let placeSearchField = app.textFields["ride-place-search-field"]
+        XCTAssertTrue(placeSearchField.waitForExistence(timeout: 5))
+        placeSearchField.tap()
+        placeSearchField.typeText("강남역")
+        app.buttons["ride-place-search-button"].tap()
+        XCTAssertTrue(app.staticTexts["강남역 2번 출구"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["서울 강남구 역삼동 858"].exists)
+        XCTAssertTrue(app.staticTexts["지하철역"].exists)
+
+        app.buttons["ride-place-next-button"].tap()
+        XCTAssertTrue(app.staticTexts["강남역 11번 출구"].waitForExistence(timeout: 5))
+        app.buttons["ride-place-prev-button"].tap()
+        XCTAssertTrue(app.buttons["ride-place-result-0"].waitForExistence(timeout: 5))
+        app.buttons["ride-place-result-0"].tap()
+        XCTAssertTrue(app.buttons["ride-submit-button"].isEnabled)
+        attachScreenshot(named: "05-kakao-place-search")
+
         app.buttons["닫기"].tap()
     }
 
@@ -263,5 +287,26 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.alerts["로그아웃할까요?"].waitForExistence(timeout: 5))
         app.alerts["로그아웃할까요?"].buttons["로그아웃"].tap()
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
+    }
+
+    func test04AccountWithdrawalClearsSessionAndCallsDeleteMe() throws {
+        let server = try LocalE2EServer()
+        defer { server.stop() }
+        server.setAccountMode(.ready)
+
+        let app = launchApp(port: server.port)
+        XCTAssertTrue(app.buttons["home-open-tracking-button"].waitForExistence(timeout: 8))
+
+        app.tabBars.buttons["설정"].tap()
+        let deleteBtn = app.buttons["settings-delete-account-button"]
+        if !deleteBtn.isHittable { app.swipeUp() }
+        XCTAssertTrue(deleteBtn.waitForExistence(timeout: 5))
+        attachScreenshot(named: "06-settings-account")
+        deleteBtn.tap()
+
+        XCTAssertTrue(app.alerts["정말 마중에서 탈퇴할까요?"].waitForExistence(timeout: 5))
+        app.alerts["정말 마중에서 탈퇴할까요?"].buttons["탈퇴하기"].tap()
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
+        XCTAssertEqual(server.requestsMatching(method: "DELETE", pathPrefix: "/api/v1/accounts/me").count, 1)
     }
 }

@@ -1,8 +1,10 @@
 import SwiftUI
+import UIKit
 import UserNotifications
 
 @main
 struct MajungApp: App {
+    @UIApplicationDelegateAdaptor(MajungAppDelegate.self) private var appDelegate
     private let notificationDelegate = MajungNotificationDelegate()
 
     init() {
@@ -36,5 +38,17 @@ private final class MajungNotificationDelegate: NSObject, UNUserNotificationCent
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
+    }
+}
+
+final class MajungAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { @MainActor in
+            PickupNotificationService.updateApnsDeviceToken(deviceToken)
+        }
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        // Ignore safely when APNs entitlement is absent on Personal Team / Simulator builds.
     }
 }

@@ -20,6 +20,10 @@ struct RideRequestAPI {
         let message: String
     }
 
+    private struct ArrivalPushBody: Encodable {
+        let endpoint: String
+    }
+
     private let client = AccountAPI()
     private let streamSession = URLSession(configuration: .ephemeral, delegate: NoRedirectDelegate(), delegateQueue: nil)
 
@@ -104,6 +108,28 @@ struct RideRequestAPI {
             csrfToken: csrfToken,
             body: QuickMessageBody(message: text)
         ).0
+    }
+
+    func registerArrivalPush(id: UUID, endpoint: String, cookie: String, csrfToken: String) async throws {
+        try await client.requestEmpty(
+            "ride-requests/\(id.uuidString.lowercased())/arrival-push",
+            method: "PUT",
+            cookie: cookie,
+            csrfToken: csrfToken,
+            body: ArrivalPushBody(endpoint: endpoint)
+        )
+    }
+
+    func streamListEvents(
+        cookie: String,
+        onState: @escaping @MainActor (Bool) -> Void,
+        onRefresh: @escaping @MainActor () async -> Void
+    ) async {
+        let url = client.endpoint("ride-requests/events")
+        var req = client.baseRequest(url: url, method: "GET", cookie: cookie, csrfToken: nil)
+        req.timeoutInterval = 30
+        req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        await MajungEventStream.listen(request: req, session: streamSession, onState: onState, onRefresh: onRefresh)
     }
 
     func streamEvents(

@@ -122,6 +122,10 @@ struct AccountAPI {
         }
     }
 
+    func deleteAccount(cookie: String, csrfToken: String) async throws {
+        try await requestEmpty("accounts/me", method: "DELETE", cookie: cookie, csrfToken: csrfToken)
+    }
+
     func requestWithResponse<Response: Decodable>(
         _ path: String,
         method: String = "GET",

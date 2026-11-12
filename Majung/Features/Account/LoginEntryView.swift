@@ -62,9 +62,25 @@ struct LoginEntryView: View {
                     .foregroundStyle(.secondary)
             }
             if let error = account.error {
-                Text(error)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
+                VStack(alignment: .leading, spacing: 8) {
+                    MajungStatusBanner(message: error, tint: .red)
+                    HStack(spacing: 8) {
+                        Button("다시 시도") {
+                            Task { await account.signInWithKakao() }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .disabled(account.busy || account.restoring || !account.loginEnabled)
+                        .accessibilityIdentifier("kakao-login-retry-button")
+
+                        Button("닫기") {
+                            account.error = nil
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .accessibilityIdentifier("kakao-login-error-dismiss-button")
+                    }
+                }
             }
         }
     }

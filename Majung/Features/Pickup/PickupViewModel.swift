@@ -147,6 +147,9 @@ final class PickupViewModel {
             } catch {
                 inviteError = "연결됐어요. 앱을 닫으면 이 픽업으로 돌아오지 못할 수 있어요."
             }
+            if let endpoint = PickupNotificationService.apnsEndpoint {
+                Task { try? await api.registerArrivalPush(joined, endpoint: endpoint) }
+            }
         } catch {
             showInviteError(error)
         }
@@ -189,8 +192,11 @@ final class PickupViewModel {
         tracker.resetState()
     }
 
-    func leaveWaiting() {
+    func leaveWaiting() async {
         guard let status = tracker.snapshot?.status, status == .inviting || status == .waiting else { return }
+        if let active = session {
+            try? await api.leaveWaiting(active)
+        }
         clearGuestSession()
         inviteError = nil
         tracker.resetState()

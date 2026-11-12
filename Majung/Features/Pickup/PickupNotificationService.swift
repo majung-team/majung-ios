@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 import UserNotifications
 
 @MainActor
@@ -7,6 +8,16 @@ import UserNotifications
 final class PickupNotificationService {
     private enum StorageKey {
         static let enabled = "majung.arrivalAlertEnabled"
+    }
+
+    static private(set) var apnsDeviceTokenHex: String?
+    static var apnsEndpoint: String? {
+        guard let hex = apnsDeviceTokenHex, (64...256).contains(hex.count) else { return nil }
+        return "apns://\(hex)"
+    }
+
+    static func updateApnsDeviceToken(_ deviceToken: Data) {
+        apnsDeviceTokenHex = deviceToken.map { String(format: "%02x", $0) }.joined()
     }
 
     private(set) var enabled: Bool
@@ -49,7 +60,10 @@ final class PickupNotificationService {
             permissionDenied = false
             enabled = true
             UserDefaults.standard.set(true, forKey: StorageKey.enabled)
-            statusNote = "도착 약 3분 전과 차량 도착 시 알림으로 알려드려요."
+            UIApplication.shared.registerForRemoteNotifications()
+            statusNote = Self.apnsEndpoint != nil
+                ? "도착 약 3분 전과 차량 도착 시 푸시 및 로컬 알림으로 알려드려요."
+                : "도착 약 3분 전과 차량 도착 시 앱 실행 중 로컬 알림으로 알려드려요."
         case .notDetermined:
             do {
                 let granted = try await center.requestAuthorization(options: [.alert, .sound])
@@ -57,7 +71,10 @@ final class PickupNotificationService {
                     permissionDenied = false
                     enabled = true
                     UserDefaults.standard.set(true, forKey: StorageKey.enabled)
-                    statusNote = "도착 약 3분 전과 차량 도착 시 알림으로 알려드려요."
+                    UIApplication.shared.registerForRemoteNotifications()
+                    statusNote = Self.apnsEndpoint != nil
+                        ? "도착 약 3분 전과 차량 도착 시 푸시 및 로컬 알림으로 알려드려요."
+                        : "도착 약 3분 전과 차량 도착 시 앱 실행 중 로컬 알림으로 알려드려요."
                 } else {
                     markDenied()
                 }

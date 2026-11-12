@@ -11,6 +11,7 @@ final class RideRequestViewModel {
     private var requestFetchedAt: [UUID: ContinuousClock.Instant] = [:]
     private var trackedRequestId: UUID?
     private(set) var activeStreamConnected = false
+    private(set) var listStreamConnected = false
     let tracking = PickupTracker()
 
     private(set) var busy = false
@@ -126,6 +127,7 @@ final class RideRequestViewModel {
         requestFetchedAt = [:]
         trackedRequestId = nil
         activeStreamConnected = false
+        listStreamConnected = false
         tracking.resetState()
         error = nil
         notice = nil
@@ -148,6 +150,7 @@ final class RideRequestViewModel {
         tracking.clearVehicle()
         requestFetchedAt.removeAll()
         activeStreamConnected = false
+        listStreamConnected = false
     }
 
     func remainingSeconds(for item: RideRequestItem, at now: ContinuousClock.Instant) -> Int? {
@@ -268,6 +271,28 @@ final class RideRequestViewModel {
         activeStreamConnected = false
     }
 
+    func runListEventStream() async {
+        var delaySeconds = 1
+        while !Task.isCancelled && account.isReady {
+            guard let cookie = account.storedSession?.sessionCookie else { break }
+            await api.streamListEvents(
+                cookie: cookie,
+                onState: { [weak self] connected in
+                    self?.listStreamConnected = connected
+                    if connected { delaySeconds = 1 }
+                },
+                onRefresh: { [weak self] in
+                    await self?.refresh(silent: true)
+                }
+            )
+            listStreamConnected = false
+            if Task.isCancelled || !account.isReady { break }
+            try? await Task.sleep(for: .seconds(delaySeconds))
+            delaySeconds = min(delaySeconds * 2, 15)
+        }
+        listStreamConnected = false
+    }
+
     private func reloadAfterMutation() async {
         if let items = try? await account.performAuthorized({ cookie in
             try await self.api.list(cookie: cookie)
@@ -284,8 +309,16 @@ final class RideRequestViewModel {
         requestFetchedAt = timestamps
 
         if let currentActive = activeRequest {
+            let isNewlyActive = trackedRequestId != currentActive.id
             trackedRequestId = currentActive.id
             await tracking.refresh()
+            if isNewlyActive, let endpoint = PickupNotificationService.apnsEndpoint {
+                Task {
+                    try? await account.performAuthorizedMutation { cookie, csrfToken in
+                        try await self.api.registerArrivalPush(id: currentActive.id, endpoint: endpoint, cookie: cookie, csrfToken: csrfToken)
+                    }
+                }
+            }
         } else if let prevId = previousActiveId,
                   let currentSnapshot = tracking.snapshot,
                   !currentSnapshot.status.ended,

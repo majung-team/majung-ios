@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 import XCTest
 @testable import Majung
@@ -389,6 +390,131 @@ final class MajungCoreTests: XCTestCase {
 
         OnboardingStore.reset(defaults: defaults)
         XCTAssertFalse(OnboardingStore.isCompleted(defaults: defaults))
+    }
+
+    // MARK: - LocationService Authorization Action
+
+    func testLocationAuthorizationActionNeverRequestsLocationWhileNotDetermined() {
+        XCTAssertEqual(LocationService.authorizationAction(for: .notDetermined), .requestAuthorizationOnly)
+        XCTAssertEqual(LocationService.authorizationAction(for: .authorizedWhenInUse), .requestLocationNow)
+        XCTAssertEqual(LocationService.authorizationAction(for: .authorizedAlways), .requestLocationNow)
+        XCTAssertEqual(LocationService.authorizationAction(for: .denied), .failDenied)
+        XCTAssertEqual(LocationService.authorizationAction(for: .restricted), .failDenied)
+    }
+
+    // MARK: - PlaceSearchService
+
+    func testPlaceSearchURLConstructionAndClamping() {
+        let base = URL(string: "https://majung.cloud/api/v1")!
+        let center = CLLocationCoordinate2D(latitude: 37.3208, longitude: 126.9482)
+        let built = PlaceSearchService.searchURL(query: "  의왕역 1번출구  ", page: 99, near: center, baseURL: base)
+        XCTAssertNotNil(built)
+        let components = URLComponents(url: built!, resolvingAgainstBaseURL: false)
+        XCTAssertEqual(components?.path, "/api/v1/places/search")
+        let items = Dictionary(uniqueKeysWithValues: (components?.queryItems ?? []).compactMap { item in
+            item.value.map { (item.name, $0) }
+        })
+        XCTAssertEqual(items["query"], "의왕역 1번출구")
+        XCTAssertEqual(items["page"], "3")
+        XCTAssertEqual(items["latitude"], "37.3208")
+        XCTAssertEqual(items["longitude"], "126.9482")
+
+        XCTAssertNil(PlaceSearchService.searchURL(query: "   ", page: 1, baseURL: base))
+    }
+
+    func testPlaceSearchServiceKakaoProxySuccessAndMapKitFallback() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [SSEStubURLProtocol.self]
+        let session = URLSession(configuration: config)
+        defer { session.finishTasksAndInvalidate() }
+
+        let base = URL(string: "https://majung.cloud/api/v1")!
+
+        // 1. Kakao search enabled -> returns rich Korean place candidates
+        SSEStubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            let json = """
+            {
+              "enabled": true,
+              "hasNext": true,
+              "items": [
+                {"label": "강남역 2번 출구", "address": "서울 강남구 역삼동 858", "category": "지하철역", "latitude": 37.4979, "longitude": 127.0276}
+              ]
+            }
+            """
+            return (response, Data(json.utf8))
+        }
+
+        let kakaoPage = try await PlaceSearchService.search(
+            query: "강남역",
+            page: 1,
+            near: nil,
+            baseURL: base,
+            session: session,
+            mapKitFallback: { _, _ in
+                XCTFail("MapKit fallback should not run when Kakao search succeeds")
+                return []
+            }
+        )
+        XCTAssertFalse(kakaoPage.usedFallback)
+        XCTAssertTrue(kakaoPage.hasNext)
+        XCTAssertEqual(kakaoPage.candidates.count, 1)
+        XCTAssertEqual(kakaoPage.candidates[0].source, .kakao)
+        XCTAssertEqual(kakaoPage.candidates[0].label, "강남역 2번 출구")
+        XCTAssertEqual(kakaoPage.candidates[0].category, "지하철역")
+        XCTAssertEqual(kakaoPage.candidates[0].detailText, "서울 강남구 역삼동 858")
+
+        // 2. Kakao disabled or server HTTP 500 -> transparent fallback to MapKit
+        SSEStubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 503,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (response, Data())
+        }
+
+        let fallbackCandidate = PlaceSearchCandidate(
+            id: "mk-1",
+            label: "Apple Maps Place",
+            address: "서울",
+            category: nil,
+            latitude: 37.5,
+            longitude: 127.0,
+            source: .mapKit
+        )
+        let fallbackPage = try await PlaceSearchService.search(
+            query: "강남역",
+            page: 1,
+            near: nil,
+            baseURL: base,
+            session: session,
+            mapKitFallback: { _, _ in [fallbackCandidate] }
+        )
+        XCTAssertTrue(fallbackPage.usedFallback)
+        XCTAssertFalse(fallbackPage.hasNext)
+        XCTAssertEqual(fallbackPage.candidates, [fallbackCandidate])
+    }
+
+    // MARK: - PickupNotificationService APNs Token Formatting
+
+    @MainActor
+    func testPickupNotificationServiceApnsTokenFormatting() {
+        let validBytes = Data(repeating: 0xAB, count: 32)
+        PickupNotificationService.updateApnsDeviceToken(validBytes)
+        XCTAssertEqual(
+            PickupNotificationService.apnsEndpoint,
+            "apns://" + String(repeating: "ab", count: 32)
+        )
+
+        PickupNotificationService.updateApnsDeviceToken(Data([0x01, 0x02]))
+        XCTAssertNil(PickupNotificationService.apnsEndpoint)
     }
 }
 

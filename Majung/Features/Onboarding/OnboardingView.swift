@@ -282,7 +282,7 @@ private struct RoutePreviewTrack: View {
                 Image(systemName: "mappin.circle.fill")
                     .font(.title3)
                     .foregroundStyle(MajungBrand.blue)
-                    .background(Circle().fill(.white).padding(2))
+                    .background(Circle().fill(Color(.secondarySystemGroupedBackground)).padding(2))
                     .position(end)
             }
         }

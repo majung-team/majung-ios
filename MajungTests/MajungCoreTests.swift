@@ -516,6 +516,56 @@ final class MajungCoreTests: XCTestCase {
         PickupNotificationService.updateApnsDeviceToken(Data([0x01, 0x02]))
         XCTAssertNil(PickupNotificationService.apnsEndpoint)
     }
+
+    // MARK: - Solo Demo Mode & Server Switching
+
+    @MainActor
+    func testSoloDemoServerSupportsAccountsLoginPlacesRequestsAndVehicleTick() async throws {
+        let prevMode = DevServerConfig.shared.mode
+        defer {
+            DevServerConfig.shared.mode = prevMode
+            SoloDemoServer.shared.resetState()
+        }
+
+        SoloDemoServer.shared.resetState()
+        DevServerConfig.shared.mode = .demo
+
+        let base = APIBaseURL.root
+        XCTAssertEqual(base.host, "127.0.0.1")
+
+        let accountAPI = AccountAPI()
+        let (accounts, _): ([DevAccountSummary], HTTPURLResponse) = try await accountAPI.requestWithResponse("dev/accounts")
+        XCTAssertGreaterThanOrEqual(accounts.count, 16)
+
+        struct LoginBody: Encodable { let memberId: UUID? }
+        let (me, loginHTTP): (AccountMember, HTTPURLResponse) = try await accountAPI.requestWithResponse(
+            "dev/login",
+            method: "POST",
+            body: LoginBody(memberId: accounts[0].memberId)
+        )
+        XCTAssertEqual(me.majungId, "MJ-DEMO001")
+
+        let cookieHeader = (loginHTTP.allHeaderFields["Set-Cookie"] as? String) ?? ""
+        XCTAssertTrue(cookieHeader.contains("JSESSIONID="))
+        let cookieValue = cookieHeader
+            .components(separatedBy: ";").first?
+            .replacingOccurrences(of: "JSESSIONID=", with: "") ?? ""
+        XCTAssertFalse(cookieValue.isEmpty)
+
+        let rides = try await RideRequestAPI().list(cookie: cookieValue)
+        XCTAssertGreaterThanOrEqual(rides.count, 4)
+
+        let search = try await PlaceSearchService.search(query: "강남", baseURL: base)
+        XCTAssertFalse(search.usedFallback)
+        XCTAssertFalse(search.candidates.isEmpty)
+
+        struct TickBody: Encodable { let action: String }
+        try await accountAPI.requestEmpty("dev/simulate/vehicle-tick", method: "POST", body: TickBody(action: "arrive"))
+        if let active = rides.first(where: { $0.status == .active }) {
+            let snap = try await RideRequestAPI().tracking(id: active.requestId, cookie: cookieValue)
+            XCTAssertEqual(snap.pickup.status, .arrived)
+        }
+    }
 }
 
 private final class SSEStubURLProtocol: URLProtocol {

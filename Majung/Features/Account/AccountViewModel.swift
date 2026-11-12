@@ -16,6 +16,10 @@ final class AccountViewModel {
     var error: String?
     var notice: String?
 
+    #if DEBUG
+    var devAccounts: [DevAccountSummary] = []
+    #endif
+
     var isAuthenticated: Bool { storedSession != nil && member != nil }
     var needsNicknameSetup: Bool { isAuthenticated && member?.profileReady == false }
     var isReady: Bool { isAuthenticated && member?.profileReady == true }
@@ -223,4 +227,152 @@ final class AccountViewModel {
         }
         return "연결이 원활하지 않아요. 잠시 후 다시 시도해주세요."
     }
+
+    #if DEBUG
+    private struct DevLoginRequest: Encodable {
+        let memberId: UUID?
+    }
+
+    private struct DevActionRequest: Encodable {
+        let action: String
+        let pickupId: UUID?
+    }
+
+    func setDevServerMode(_ mode: DevServerMode) async {
+        guard DevServerConfig.shared.mode != mode else { return }
+        DevServerConfig.shared.mode = mode
+        clearLocalSession()
+        error = nil
+        notice = nil
+        devAccounts = []
+        loginEnabled = true
+        if mode != .production {
+            await loadDevAccounts()
+        } else {
+            await restore()
+        }
+    }
+
+    func loadDevAccounts() async {
+        guard DevServerConfig.shared.mode != .production else {
+            devAccounts = []
+            return
+        }
+        do {
+            let (accounts, _): ([DevAccountSummary], HTTPURLResponse) = try await api.requestWithResponse("dev/accounts")
+            devAccounts = accounts
+        } catch {
+            self.error = "테스트 서버(\(APIBaseURL.root.absoluteString))에서 더미 계정을 불러오지 못했어요."
+        }
+    }
+
+    func signInWithDevAccount(memberId: UUID? = nil) async -> Bool {
+        guard !busy else { return false }
+        busy = true
+        error = nil
+        notice = nil
+        defer { busy = false }
+
+        do {
+            let (_, http): (AccountMember, HTTPURLResponse) = try await api.requestWithResponse(
+                "dev/login",
+                method: "POST",
+                body: DevLoginRequest(memberId: memberId)
+            )
+            guard let url = http.url else {
+                self.error = "테스트 로그인 응답 URL을 확인하지 못했어요."
+                return false
+            }
+            var fields: [String: String] = [:]
+            for (rawKey, rawValue) in http.allHeaderFields {
+                if let k = rawKey as? String, let v = rawValue as? String {
+                    fields[k] = v
+                }
+            }
+            guard let cookie = HTTPCookie.cookies(withResponseHeaderFields: fields, for: url)
+                .first(where: { $0.name == "JSESSIONID" && !$0.value.isEmpty })?.value else {
+                self.error = "테스트 세션을 저장하지 못했어요."
+                return false
+            }
+            saveCookie(cookie)
+            let sessionResult = try await api.session(cookie: cookie)
+            loginEnabled = sessionResult.state.loginEnabled
+            member = sessionResult.state.member
+            csrfToken = sessionResult.state.csrfToken
+            notice = "\(member?.nickname ?? "데모 계정")으로 전환했어요."
+            return true
+        } catch {
+            self.error = displayError(error)
+            return false
+        }
+    }
+
+    func fetchDevGuestInviteLink() async -> String? {
+        if DevServerConfig.shared.mode == .demo {
+            _ = SoloDemoServer.shared.ensureStarted()
+            return SoloDemoServer.shared.sampleGuestInviteString
+        }
+        guard DevServerConfig.shared.mode == .local else { return nil }
+        struct GuestInviteRes: Decodable { let link: String }
+        do {
+            let (res, _): (GuestInviteRes, HTTPURLResponse) = try await api.requestWithResponse("dev/simulate/guest-invite", method: "POST")
+            return res.link
+        } catch {
+            self.error = displayError(error)
+            return nil
+        }
+    }
+
+    func resetDevData() async -> Bool {
+        guard DevServerConfig.shared.mode != .production, !busy else { return false }
+        busy = true
+        error = nil
+        notice = nil
+        defer { busy = false }
+
+        let previousId = member?.memberId
+        do {
+            try await api.requestEmpty("dev/reset", method: "POST")
+            if let previousId {
+                busy = false
+                let ok = await signInWithDevAccount(memberId: previousId)
+                if ok { notice = "더미 데이터를 처음 상태로 초기화했어요." }
+                return ok
+            }
+            notice = "더미 데이터를 초기화했어요."
+            return true
+        } catch {
+            self.error = displayError(error)
+            return false
+        }
+    }
+
+    func triggerDevSimulation(path: String, action: String? = nil) async -> Bool {
+        guard DevServerConfig.shared.mode != .production else { return false }
+        error = nil
+        do {
+            if let action {
+                var targetPickupId: UUID? = nil
+                if DevServerConfig.shared.mode == .local, path == "dev/simulate/vehicle-tick" {
+                    struct DevStateRes: Decodable {
+                        struct P: Decodable { let pickupId: UUID; let status: String }
+                        let pickups: [P]
+                    }
+                    if let (state, _): (DevStateRes, HTTPURLResponse) = try? await api.requestWithResponse("dev/state"),
+                       let active = state.pickups.first(where: { $0.status == "ACTIVE" || $0.status == "ARRIVED" }) {
+                        targetPickupId = active.pickupId
+                    }
+                }
+                try await api.requestEmpty(path, method: "POST", body: DevActionRequest(action: action, pickupId: targetPickupId))
+            } else {
+                try await api.requestEmpty(path, method: "POST")
+            }
+            notice = "데모 시뮬레이션을 실행했어요."
+            return true
+        } catch {
+            self.error = displayError(error)
+            return false
+        }
+    }
+    #endif
 }

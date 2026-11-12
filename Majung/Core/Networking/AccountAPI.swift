@@ -29,7 +29,7 @@ struct AccountAPI {
         let memberId: UUID
     }
 
-    private let origin = APIBaseURL.root
+    private var origin: URL { APIBaseURL.root }
     private let network = URLSession(configuration: .ephemeral, delegate: NoRedirectDelegate(), delegateQueue: nil)
 
     func iosLoginURL(challenge: String) -> URL {

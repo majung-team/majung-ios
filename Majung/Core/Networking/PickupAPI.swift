@@ -24,7 +24,7 @@ struct PickupAPI {
     private struct MessageBody: Encodable { let message: String }
     private struct ArrivalPushBody: Encodable { let endpoint: String }
 
-    private let origin = APIBaseURL.root.appendingPathComponent("pickups")
+    private var origin: URL { APIBaseURL.root.appendingPathComponent("pickups") }
     private let network = URLSession(configuration: .ephemeral, delegate: NoRedirectDelegate(), delegateQueue: nil)
 
     func preview(_ invite: PickupInvitation) async throws -> String {

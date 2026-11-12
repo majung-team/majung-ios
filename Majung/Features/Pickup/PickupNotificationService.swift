@@ -141,4 +141,28 @@ final class PickupNotificationService {
         let request = UNNotificationRequest(identifier: "majung.\(id)", content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
+
+    #if DEBUG
+    func sendDebugSampleNotification() async -> String {
+        let center = UNUserNotificationCenter.current()
+        var settings = await center.notificationSettings()
+        if settings.authorizationStatus == .notDetermined {
+            _ = try? await center.requestAuthorization(options: [.alert, .sound])
+            settings = await center.notificationSettings()
+        }
+        guard settings.authorizationStatus == .authorized
+            || settings.authorizationStatus == .provisional
+            || settings.authorizationStatus == .ephemeral else {
+            return "기기 설정에서 마중 알림 권한을 허용한 뒤 다시 눌러주세요."
+        }
+        let content = UNMutableNotificationContent()
+        content.title = "마중 차량이 도착했어요"
+        content.body = "최수빈 카니발이 '광교중앙역 1번 출구'에 정차했어요. (테스트 알림)"
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let req = UNNotificationRequest(identifier: "majung.debug.sample.\(UUID().uuidString)", content: content, trigger: trigger)
+        try? await center.add(req)
+        return "1초 뒤 테스트 알림 배너가 표시됩니다."
+    }
+    #endif
 }

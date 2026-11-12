@@ -101,6 +101,28 @@ struct VehicleQRScannerSheet: View {
                 .accessibilityIdentifier("vehicle-qr-submit-button")
             }
 
+            #if DEBUG
+            if ProcessInfo.processInfo.environment["MAJUNG_TEST_PORT"] == nil,
+               DevServerConfig.shared.mode != .production {
+                Button("테스트용 차량 QR 링크 채우기") {
+                    Task {
+                        validationError = nil
+                        if DevServerConfig.shared.mode == .demo {
+                            linkDraft = SoloDemoServer.shared.sampleVehicleQRString
+                        } else if let (data, _) = try? await URLSession.shared.data(
+                            from: APIBaseURL.root.appendingPathComponent("dev").appendingPathComponent("state")
+                        ),
+                                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                                  let qr = json["vehicleQr"] as? [String: Any],
+                                  let link = qr["link"] as? String {
+                            linkDraft = link
+                        }
+                    }
+                }
+                .font(.footnote.weight(.semibold))
+            }
+            #endif
+
             if let validationError {
                 Text(validationError)
                     .font(.footnote)

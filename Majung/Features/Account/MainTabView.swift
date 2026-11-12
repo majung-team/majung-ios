@@ -336,9 +336,6 @@ private struct SettingsTabView: View {
     @State private var showingOnboardingReplay = false
     @State private var confirmingLogout = false
     @State private var confirmingDeleteAccount = false
-    #if DEBUG
-    @State private var devSimStatus: String?
-    #endif
 
     private var detachAlertPresented: Binding<Bool> {
         Binding(
@@ -556,12 +553,6 @@ private struct SettingsTabView: View {
                 .accessibilityIdentifier("settings-replay-onboarding-button")
             }
 
-            #if DEBUG
-            if ProcessInfo.processInfo.environment["MAJUNG_TEST_PORT"] == nil {
-                devTestingSection
-            }
-            #endif
-
             Section("계정") {
                 Button("로그아웃", role: .destructive) {
                     confirmingLogout = true
@@ -580,13 +571,6 @@ private struct SettingsTabView: View {
         .task {
             await notifications.refreshStatus()
             await vehicleLinks.load(silent: true)
-            #if DEBUG
-            if ProcessInfo.processInfo.environment["MAJUNG_TEST_PORT"] == nil,
-               DevServerConfig.shared.mode != .production,
-               account.devAccounts.isEmpty {
-                await account.loadDevAccounts()
-            }
-            #endif
         }
         .onAppear {
             if nicknameDraft.isEmpty, let current = account.member?.nickname {
@@ -636,133 +620,4 @@ private struct SettingsTabView: View {
             Text("계정 정보, 지인 연결, 등록된 차량 연결 및 이용 기록이 모두 삭제되며 되돌릴 수 없어요.")
         }
     }
-
-    #if DEBUG
-    @ViewBuilder
-    private var devTestingSection: some View {
-        @Bindable var config = DevServerConfig.shared
-        Section("테스트 서버 · 혼자 테스트 (DEBUG)") {
-            Picker("연결 대상", selection: Binding(
-                get: { config.mode },
-                set: { next in
-                    Task {
-                        devSimStatus = nil
-                        await account.setDevServerMode(next)
-                        people.reset()
-                        rideRequests.reset()
-                    }
-                }
-            )) {
-                ForEach(DevServerMode.allCases) { mode in
-                    Text(mode.shortLabel).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-
-            if config.mode == .local {
-                HStack(spacing: 8) {
-                    TextField("http://127.0.0.1:8080", text: $config.localOrigin)
-                        .textFieldStyle(.roundedBorder)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                    Button("연결") {
-                        Task { await account.loadDevAccounts() }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-            }
-
-            if config.mode != .production {
-                Menu {
-                    ForEach(account.devAccounts) { person in
-                        Button {
-                            Task {
-                                if await account.signInWithDevAccount(memberId: person.memberId) {
-                                    async let p: Void = people.loadConnections(page: 0, silent: true)
-                                    async let r: Void = rideRequests.refresh(silent: true)
-                                    async let v: Void = vehicleLinks.load(silent: true)
-                                    _ = await (p, r, v)
-                                    devSimStatus = "\(person.nickname) 계정으로 전환했어요."
-                                }
-                            }
-                        } label: {
-                            Text("\(person.nickname) (\(person.majungId))\(person.driver ? " · 운전자" : "")")
-                        }
-                    }
-                } label: {
-                    Label("더미 계정 전환 (\(account.devAccounts.count)명)", systemImage: "person.2.badge.gearshape")
-                }
-
-                Button("차량 이동 시뮬레이션 (-60초)") {
-                    Task {
-                        if await account.triggerDevSimulation(path: "dev/simulate/vehicle-tick", action: "approach") {
-                            await rideRequests.refresh(silent: true)
-                            devSimStatus = "차량 위치와 ETA를 한 단계 전진시켰어요."
-                        }
-                    }
-                }
-
-                Button("차량 도착 처리 (ARRIVED)") {
-                    Task {
-                        if await account.triggerDevSimulation(path: "dev/simulate/vehicle-tick", action: "arrive") {
-                            await rideRequests.refresh(silent: true)
-                            devSimStatus = "차량을 도착(ARRIVED) 상태로 변경했어요."
-                        }
-                    }
-                }
-
-                Button("픽업 완료 처리 (COMPLETED)") {
-                    Task {
-                        if await account.triggerDevSimulation(path: "dev/simulate/vehicle-tick", action: "complete") {
-                            await rideRequests.refresh(silent: true)
-                            devSimStatus = "픽업을 완료(COMPLETED) 처리했어요."
-                        }
-                    }
-                }
-
-                Button(config.mode == .demo ? "새 운전자 초대 받기" : "내 계정에 테스트 시나리오 주입") {
-                    Task {
-                        let endpoint = config.mode == .demo ? "dev/simulate/driver-invite" : "dev/inject"
-                        if await account.triggerDevSimulation(path: endpoint) {
-                            await rideRequests.refresh(silent: true)
-                            devSimStatus = "새 테스트 시나리오를 반영했어요."
-                        }
-                    }
-                }
-
-                Button("테스트 알림 배너 띄우기 (1초 뒤)") {
-                    Task {
-                        devSimStatus = await notifications.sendDebugSampleNotification()
-                    }
-                }
-
-                Button("더미 데이터 초기화", role: .destructive) {
-                    Task {
-                        if await account.resetDevData() {
-                            async let p: Void = people.loadConnections(page: 0, silent: true)
-                            async let r: Void = rideRequests.refresh(silent: true)
-                            async let v: Void = vehicleLinks.load(silent: true)
-                            _ = await (p, r, v)
-                            devSimStatus = "모든 더미 데이터를 초기 상태로 되돌렸어요."
-                        }
-                    }
-                }
-            } else {
-                Button("테스트 알림 배너 띄우기 (1초 뒤)") {
-                    Task {
-                        devSimStatus = await notifications.sendDebugSampleNotification()
-                    }
-                }
-            }
-
-            if let devSimStatus {
-                Text(devSimStatus)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-    #endif
 }

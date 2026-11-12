@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 #if DEBUG
 enum DevServerMode: String, CaseIterable, Identifiable {
@@ -31,36 +32,45 @@ enum DevServerMode: String, CaseIterable, Identifiable {
 final class DevServerConfig {
     static let shared = DevServerConfig()
 
-    private let modeKey = "majung.debug.serverMode"
-    private let localOriginKey = "majung.debug.localOrigin"
+    private struct Storage: Sendable {
+        var mode: DevServerMode = .production
+        var localOrigin: String = "http://127.0.0.1:8080"
+    }
+
+    private static let storage = OSAllocatedUnfairLock(initialState: Storage())
+
+    nonisolated static var currentMode: DevServerMode {
+        storage.withLock { $0.mode }
+    }
+
+    nonisolated static var currentLocalOrigin: String {
+        storage.withLock { $0.localOrigin }
+    }
 
     var mode: DevServerMode {
         didSet {
-            UserDefaults.standard.set(mode.rawValue, forKey: modeKey)
+            let next = mode
+            Self.storage.withLock { $0.mode = next }
         }
     }
 
     var localOrigin: String {
         didSet {
-            UserDefaults.standard.set(localOrigin, forKey: localOriginKey)
+            let next = localOrigin
+            Self.storage.withLock { $0.localOrigin = next }
         }
     }
 
     private init() {
-        let rawMode = UserDefaults.standard.string(forKey: modeKey)
-        self.mode = rawMode.flatMap(DevServerMode.init(rawValue:)) ?? .production
-        let savedOrigin = UserDefaults.standard.string(forKey: localOriginKey)
-        self.localOrigin = savedOrigin?.isEmpty == false ? savedOrigin! : "http://127.0.0.1:8080"
+        UserDefaults.standard.removeObject(forKey: "majung.debug.serverMode")
+        UserDefaults.standard.removeObject(forKey: "majung.debug.localOrigin")
+        self.mode = .production
+        self.localOrigin = "http://127.0.0.1:8080"
     }
 }
 #endif
 
 enum APIBaseURL {
-    #if DEBUG
-    private static let modeKey = "majung.debug.serverMode"
-    private static let localOriginKey = "majung.debug.localOrigin"
-    #endif
-
     static var root: URL {
         #if DEBUG && targetEnvironment(simulator)
         if let port = ProcessInfo.processInfo.environment["MAJUNG_TEST_PORT"].flatMap(Int.init),
@@ -69,8 +79,7 @@ enum APIBaseURL {
         }
         #endif
         #if DEBUG
-        let mode = UserDefaults.standard.string(forKey: modeKey).flatMap(DevServerMode.init(rawValue:)) ?? .production
-        switch mode {
+        switch DevServerConfig.currentMode {
         case .production:
             break
         case .demo:
@@ -79,7 +88,7 @@ enum APIBaseURL {
                 return url
             }
         case .local:
-            let raw = (UserDefaults.standard.string(forKey: localOriginKey) ?? "http://127.0.0.1:8080")
+            let raw = DevServerConfig.currentLocalOrigin
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             if var parsed = URL(string: raw.isEmpty ? "http://127.0.0.1:8080" : raw),
                let scheme = parsed.scheme?.lowercased(),

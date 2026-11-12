@@ -44,27 +44,7 @@ Majung/
 ├── DesignSystem/  # 브랜드 컬러(#2669DD)·심볼 및 공통 카드·검색·지도 컴포넌트
 └── Features/      # Onboarding, Account, VehicleLinks, RideRequest, Pickup 화면·뷰모델
 MajungTests/       # 모델·검증기·SSE·트래커 단위 테스트
-MajungUITests/     # 내장 테스트 서버(LocalE2EServer) 기반 UI E2E 테스트
-```
-
----
-
-## 실행 및 테스트
-
-- **요구 환경**: Xcode 16+, iOS 17.0+, SwiftUI / Swift Observation (`@Observable`)
-- **연동 서버**: 기본 `https://majung.cloud/api/v1` (UI 테스트 실행 시 내장 테스트 서버로 자동 연결)
-
-```sh
-# 시뮬레이터 빌드 확인
-xcodebuild -project Majung.xcodeproj -scheme Majung \
-  -destination 'generic/platform=iOS Simulator' \
-  CODE_SIGNING_ALLOWED=NO build
-
-# 단위 테스트 + UI E2E 테스트 실행 (<SIMULATOR_UDID> 지정)
-xcodebuild -project Majung.xcodeproj -scheme Majung \
-  -destination "platform=iOS Simulator,id=<SIMULATOR_UDID>" \
-  CODE_SIGNING_ALLOWED=NO \
-  -only-testing:MajungTests -only-testing:MajungUITests test
+MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
 ```
 
 ---

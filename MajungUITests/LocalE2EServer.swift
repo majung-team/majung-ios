@@ -82,6 +82,7 @@ final class LocalE2EServer {
     let initialVehicleId = "77777777-6666-4555-8444-333333333333"
     let newChallengeId = "66666666-5555-4444-8333-222222222222"
     let newVehicleId = "55555555-4444-4333-8222-111111111111"
+    private let pairingExpiresAt = ISO8601DateFormatter().string(from: Date().addingTimeInterval(600))
 
     init() throws {
         let created = try NWListener(using: .tcp, on: .any)
@@ -524,15 +525,14 @@ final class LocalE2EServer {
         case ("POST", "/api/v1/vehicle-links/requests"):
             pendingChallenge = (newChallengeId, "쏘렌토 하이브리드", "AWAITING_VEHICLE_CONFIRMATION")
             return (200, """
-            {"challengeId":"\(newChallengeId)","vehicleId":null,"vehicleName":"쏘렌토 하이브리드","status":"AWAITING_VEHICLE_CONFIRMATION","expiresAt":"2026-11-11T10:15:00Z"}
+            {"challengeId":"\(newChallengeId)","vehicleId":null,"vehicleName":"쏘렌토 하이브리드","status":"AWAITING_VEHICLE_CONFIRMATION","expiresAt":"\(pairingExpiresAt)"}
             """, nil)
 
         case ("GET", "/api/v1/vehicle-links/requests/\(newChallengeId)"):
             let status = pendingChallenge?.status ?? "AWAITING_VEHICLE_CONFIRMATION"
             let vid = status == "LINKED" ? "\"\(newVehicleId)\"" : "null"
-            if status == "LINKED" { pendingChallenge = nil }
             return (200, """
-            {"challengeId":"\(newChallengeId)","vehicleId":\(vid),"vehicleName":"쏘렌토 하이브리드","status":"\(status)","expiresAt":"2026-11-11T10:15:00Z"}
+            {"challengeId":"\(newChallengeId)","vehicleId":\(vid),"vehicleName":"쏘렌토 하이브리드","status":"\(status)","expiresAt":"\(pairingExpiresAt)"}
             """, nil)
 
         default:

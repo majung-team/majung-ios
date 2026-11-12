@@ -55,7 +55,7 @@ struct MainTabView: View {
             .tag(TabItem.requests)
 
             NavigationStack {
-                PeopleTabView(account: account, people: people, rideRequests: rideRequests) { target in
+                PeopleTabView(account: account, people: people) { target in
                     rideRequests.error = nil
                     rideTarget = target
                 }

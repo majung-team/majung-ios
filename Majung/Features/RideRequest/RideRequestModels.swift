@@ -74,68 +74,8 @@ struct RideRequestItem: Decodable, Identifiable, Equatable {
     let currentPickupRemainingSeconds: Int?
     let currentPickupValidForMillis: Int
     let driverInvitation: Bool
-    let vehicleId: UUID?
-    let vehicleCode: String?
-    let vehicleModel: String?
-    let licensePlate: String?
-    let ownerHint: String?
-    let trustStatus: String?
-
-    init(
-        requestId: UUID,
-        status: Status,
-        nickname: String,
-        majungId: String?,
-        place: PickupPlace,
-        expiresAt: Date,
-        peopleAhead: Int?,
-        currentPickupRemainingSeconds: Int?,
-        currentPickupValidForMillis: Int,
-        driverInvitation: Bool,
-        vehicleId: UUID? = nil,
-        vehicleCode: String? = nil,
-        vehicleModel: String? = nil,
-        licensePlate: String? = nil,
-        ownerHint: String? = nil,
-        trustStatus: String? = nil
-    ) {
-        self.requestId = requestId
-        self.status = status
-        self.nickname = nickname
-        self.majungId = majungId
-        self.place = place
-        self.expiresAt = expiresAt
-        self.peopleAhead = peopleAhead
-        self.currentPickupRemainingSeconds = currentPickupRemainingSeconds
-        self.currentPickupValidForMillis = currentPickupValidForMillis
-        self.driverInvitation = driverInvitation
-        self.vehicleId = vehicleId
-        self.vehicleCode = vehicleCode
-        self.vehicleModel = vehicleModel
-        self.licensePlate = licensePlate
-        self.ownerHint = ownerHint
-        self.trustStatus = trustStatus
-    }
 
     var id: UUID { requestId }
-
-    var vehicleDisplaySummary: String? {
-        let model = vehicleModel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let plate = licensePlate?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let hint = ownerHint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        var parts: [String] = []
-        if !model.isEmpty && !plate.isEmpty {
-            parts.append("\(model) · \(plate)")
-        } else if !model.isEmpty {
-            parts.append(model)
-        } else if !plate.isEmpty {
-            parts.append(plate)
-        }
-        if !hint.isEmpty {
-            parts.append(hint)
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
 
     func terminalPickupSnapshot(lastPlace: PickupPlace?, lastVehicleName: String?) -> PickupSnapshot? {
         let terminalStatus: PickupSnapshot.Status? = switch status {
@@ -167,60 +107,10 @@ struct RideTrackingResponse: Decodable {
     let vehicle: PickupVehicle?
 }
 
-struct VehicleLookupItem: Decodable, Identifiable, Equatable {
-    let vehicleId: UUID
-    let vehicleCode: String
-    let displayName: String?
-    let vehicleModel: String?
-    let licensePlate: String?
-    let ownerHint: String?
-    let directRequestEnabled: Bool
-    let linkedDriver: Bool
-    let trusted: Bool
-    let linkedDriverNickname: String?
-    let linkedDriverMajungId: String?
-
-    var id: UUID { vehicleId }
-
-    var summaryTitle: String {
-        let model = vehicleModel?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let plate = licensePlate?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !model.isEmpty && !plate.isEmpty { return "\(model) · \(plate)" }
-        if !model.isEmpty { return model }
-        if !plate.isEmpty { return plate }
-        let name = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return name.isEmpty ? vehicleCode : name
-    }
-}
-
-struct FavoriteVehicleListResponse: Decodable {
-    let vehicles: [VehicleLookupItem]
-}
-
 struct RideTargetPerson: Identifiable, Equatable {
-    let driverId: UUID?
+    let driverId: UUID
     let nickname: String
     let majungId: String
-    let vehicle: VehicleLookupItem?
 
-    var id: String {
-        if let vehicle {
-            return "vehicle-\(vehicle.vehicleId.uuidString)"
-        }
-        return "driver-\(driverId?.uuidString ?? majungId)"
-    }
-
-    init(driverId: UUID, nickname: String, majungId: String) {
-        self.driverId = driverId
-        self.nickname = nickname
-        self.majungId = majungId
-        self.vehicle = nil
-    }
-
-    init(vehicle: VehicleLookupItem) {
-        self.driverId = nil
-        self.nickname = vehicle.summaryTitle
-        self.majungId = vehicle.vehicleCode
-        self.vehicle = vehicle
-    }
+    var id: UUID { driverId }
 }

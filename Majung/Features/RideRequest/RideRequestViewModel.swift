@@ -8,9 +8,6 @@ final class RideRequestViewModel {
     private let api = RideRequestAPI()
 
     private(set) var requests: [RideRequestItem] = []
-    private(set) var favoriteVehicles: [VehicleLookupItem] = []
-    private(set) var lookedUpVehicle: VehicleLookupItem?
-    private(set) var lookingUpVehicle = false
     private var requestFetchedAt: [UUID: ContinuousClock.Instant] = [:]
     private var trackedRequestId: UUID?
     private(set) var activeStreamConnected = false
@@ -127,8 +124,6 @@ final class RideRequestViewModel {
 
     func reset() {
         requests = []
-        favoriteVehicles = []
-        lookedUpVehicle = nil
         requestFetchedAt = [:]
         trackedRequestId = nil
         activeStreamConnected = false
@@ -169,19 +164,6 @@ final class RideRequestViewModel {
         return seconds
     }
 
-    func loadFavoriteVehicles(silent: Bool = false) async {
-        guard account.isReady else { return }
-        do {
-            favoriteVehicles = try await account.performAuthorized { cookie in
-                try await self.api.favoriteVehicles(cookie: cookie)
-            }
-        } catch {
-            if !silent {
-                self.error = account.displayError(error)
-            }
-        }
-    }
-
     func refresh(silent: Bool = false) async {
         guard account.isReady, !loading, !busy else { return }
         loading = true
@@ -195,11 +177,6 @@ final class RideRequestViewModel {
             let items = try await account.performAuthorized { cookie in
                 try await self.api.list(cookie: cookie)
             }
-            if let favorites = try? await account.performAuthorized({ cookie in
-                try await self.api.favoriteVehicles(cookie: cookie)
-            }) {
-                favoriteVehicles = favorites
-            }
             await applyLoadedRequests(items, fetchedAt: fetchedAt)
         } catch {
             requestFetchedAt.removeAll()
@@ -210,53 +187,7 @@ final class RideRequestViewModel {
         }
     }
 
-    func lookupVehicle(code rawCode: String) async -> VehicleLookupItem? {
-        let trimmed = rawCode.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            error = "차량 코드를 입력해주세요. (예: VEH-7K2M9A)"
-            return nil
-        }
-        lookingUpVehicle = true
-        error = nil
-        notice = nil
-        defer { lookingUpVehicle = false }
-
-        do {
-            let found = try await account.performAuthorized { cookie in
-                try await self.api.lookupVehicle(code: trimmed, cookie: cookie)
-            }
-            lookedUpVehicle = found
-            return found
-        } catch {
-            lookedUpVehicle = nil
-            self.error = account.displayError(error)
-            return nil
-        }
-    }
-
-    func clearLookedUpVehicle() {
-        lookedUpVehicle = nil
-    }
-
-    func removeFavoriteVehicle(_ vehicleId: UUID) async {
-        guard !busy else { return }
-        busy = true
-        error = nil
-        notice = nil
-        defer { busy = false }
-
-        do {
-            try await account.performAuthorizedMutation { cookie, csrfToken in
-                try await self.api.removeFavoriteVehicle(vehicleId: vehicleId, cookie: cookie, csrfToken: csrfToken)
-            }
-            favoriteVehicles.removeAll { $0.vehicleId == vehicleId }
-            notice = "자주 타는 차량에서 뺐어요."
-        } catch {
-            self.error = account.displayError(error)
-        }
-    }
-
-    func submitRequest(driverId: UUID? = nil, vehicleId: UUID? = nil, place: PickupPlace, requestId: UUID) async -> Bool {
+    func submitRequest(driverId: UUID, place: PickupPlace, requestId: UUID) async -> Bool {
         guard !busy else { return false }
         busy = true
         error = nil
@@ -265,13 +196,10 @@ final class RideRequestViewModel {
 
         do {
             _ = try await account.performAuthorizedMutation { cookie, csrfToken in
-                try await self.api.submit(driverId: driverId, vehicleId: vehicleId, place: place, requestId: requestId, cookie: cookie, csrfToken: csrfToken)
+                try await self.api.submit(driverId: driverId, place: place, requestId: requestId, cookie: cookie, csrfToken: csrfToken)
             }
-            lookedUpVehicle = nil
             await reloadAfterMutation()
-            notice = vehicleId != nil
-                ? "차량에 마중 요청을 보냈어요. 차량 화면에서 수락하면 대기에 들어가요."
-                : "운전자에게 마중을 요청했어요. 수락하면 픽업 대기에 들어가요."
+            notice = "운전자에게 마중을 요청했어요. 수락하면 픽업 대기에 들어가요."
             return true
         } catch {
             self.error = account.displayError(error)

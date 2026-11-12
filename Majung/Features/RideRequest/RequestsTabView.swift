@@ -180,11 +180,6 @@ struct RequestsTabView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(headingText(for: item))
                         .font(.subheadline.weight(.semibold))
-                    if let summary = item.vehicleDisplaySummary {
-                        Text(summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                     if let majungId = item.majungId {
                         Text(majungId)
                             .font(.caption.monospaced())

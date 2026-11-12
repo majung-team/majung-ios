@@ -112,6 +112,9 @@ struct MainTabView: View {
                 rideRequests.clearEndedTrackingIfNeeded()
             }
         }
+        .onChange(of: selectedTab) { _, _ in
+            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        }
         .onChange(of: vehicleLinks.navigationEventCount) { _, count in
             if count > 0 { selectedTab = .settings }
         }
@@ -131,6 +134,8 @@ private struct HomeTabView: View {
     var onOpenRequests: () -> Void
     var onOpenPeople: () -> Void
     var onOpenTracking: () -> Void
+
+    @FocusState private var inviteFieldFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -183,9 +188,12 @@ private struct HomeTabView: View {
                     Text("사람 탭에서 닉네임·마중 ID로 지인을 찾고 만날 장소를 지정해 마중을 요청할 수 있어요.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Button("사람 찾아 마중 요청", action: onOpenPeople)
-                        .buttonStyle(.borderedProminent)
-                        .accessibilityIdentifier("home-open-people-button")
+                    Button("사람 찾아 마중 요청") {
+                        inviteFieldFocused = false
+                        onOpenPeople()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("home-open-people-button")
                 }
 
                 MajungCard {
@@ -194,20 +202,42 @@ private struct HomeTabView: View {
                     Text("전달받은 초대 링크를 붙여넣어 만날 장소와 차량 도착 시간을 확인할 수 있어요.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    TextField("마중 초대 링크", text: $inviteLink, axis: .vertical)
-                        .textContentType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .padding(12)
-                        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                    HStack(spacing: 8) {
+                        TextField("마중 초대 링크", text: $inviteLink)
+                            .focused($inviteFieldFocused)
+                            .textContentType(.URL)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.go)
+                            .onSubmit {
+                                inviteFieldFocused = false
+                                if !inviteLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !pickup.busy {
+                                    Task { await pickup.openLink(inviteLink) }
+                                }
+                            }
+                        if !inviteLink.isEmpty {
+                            Button {
+                                inviteLink = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("초대 링크 지우기")
+                        }
+                    }
+                    .padding(12)
+                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
                     HStack(spacing: 10) {
                         PasteButton(payloadType: String.self) { values in
                             guard let value = values.first else { return }
+                            inviteFieldFocused = false
                             inviteLink = value
                             Task { await pickup.openLink(value) }
                         }
                         .disabled(pickup.busy)
                         Button {
+                            inviteFieldFocused = false
                             Task { await pickup.openLink(inviteLink) }
                         } label: {
                             Text("초대 확인하기")
@@ -226,7 +256,16 @@ private struct HomeTabView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("홈")
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("키보드 닫기") {
+                    inviteFieldFocused = false
+                }
+            }
+        }
         .refreshable {
             await rideRequests.refresh()
         }

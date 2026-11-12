@@ -6,6 +6,8 @@ struct LoginEntryView: View {
     @Binding var inviteLink: String
     var vehiclePendingMessage: String? = nil
 
+    @FocusState private var inviteFieldFocused: Bool
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -28,6 +30,14 @@ struct LoginEntryView: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("마중")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("키보드 닫기") {
+                    inviteFieldFocused = false
+                }
+            }
+        }
         #if DEBUG
         .task {
             if ProcessInfo.processInfo.environment["MAJUNG_TEST_PORT"] == nil,
@@ -132,11 +142,13 @@ struct LoginEntryView: View {
 
             HStack(spacing: 8) {
                 TextField("마중 초대 링크", text: $inviteLink)
+                    .focused($inviteFieldFocused)
                     .textContentType(.URL)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .submitLabel(.go)
                     .onSubmit {
+                        inviteFieldFocused = false
                         if !inviteLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !pickup.busy {
                             Task { await pickup.openLink(inviteLink) }
                         }
@@ -159,12 +171,14 @@ struct LoginEntryView: View {
             HStack(spacing: 10) {
                 PasteButton(payloadType: String.self) { values in
                     guard let value = values.first else { return }
+                    inviteFieldFocused = false
                     inviteLink = value
                     Task { await pickup.openLink(value) }
                 }
                 .disabled(pickup.busy)
 
                 Button {
+                    inviteFieldFocused = false
                     Task { await pickup.openLink(inviteLink) }
                 } label: {
                     Text("초대 확인하기")

@@ -10,6 +10,7 @@ struct PickupView: View {
     @State private var editingPlace = false
     @State private var showArrivalMap = false
     @State private var confirmingLeaveWaiting = false
+    @FocusState private var messageFocused: Bool
 
     private var alertToggleBinding: Binding<Bool> {
         Binding(
@@ -55,6 +56,7 @@ struct PickupView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
+        .scrollDismissesKeyboard(.interactively)
         .refreshable { await tracker.refresh() }
         .navigationTitle("마중 픽업")
         .sheet(isPresented: $editingPlace) {
@@ -138,7 +140,10 @@ struct PickupView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     if snapshot.placeProposal?.isPassenger != true {
-                        Button("다른 장소 제안") { editingPlace = true }
+                        Button("다른 장소 제안") {
+                            messageFocused = false
+                            editingPlace = true
+                        }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
                             .disabled(tracker.busy)
@@ -394,8 +399,9 @@ struct PickupView: View {
                     .padding(.vertical, 9)
                     .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
                     .submitLabel(.send)
-                    .onSubmit { Task { await tracker.sendMessage() } }
-                Button("전송") { Task { await tracker.sendMessage() } }
+                    .focused($messageFocused)
+                    .onSubmit { sendMessage() }
+                Button("전송") { sendMessage() }
                     .buttonStyle(.borderedProminent)
                     .disabled(
                         tracker.busy ||
@@ -414,6 +420,11 @@ struct PickupView: View {
                     .foregroundStyle(.green)
             }
         }
+    }
+
+    private func sendMessage() {
+        messageFocused = false
+        Task { await tracker.sendMessage() }
     }
 
     private func finished(_ snapshot: PickupSnapshot) -> some View {

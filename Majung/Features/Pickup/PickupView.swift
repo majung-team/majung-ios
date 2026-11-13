@@ -335,41 +335,19 @@ struct PickupView: View {
 
     private func arrival(_ snapshot: PickupSnapshot, place: PickupPlace) -> some View {
         MajungCard {
-            VStack(spacing: 10) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.green)
-                    .accessibilityHidden(true)
-                MajungStatusPill(text: "차량 도착 완료", tint: .green)
-                Text("마중 차량이 도착했어요")
-                    .font(.title2.bold())
-                    .accessibilityAddTraits(.isHeader)
-                Text("약속 장소에서 차량 번호와 차종을 확인하고 탑승해주세요.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
+            statusHeroHeader(
+                symbol: "checkmark.circle.fill",
+                tint: .green,
+                pillText: "차량 도착 완료",
+                title: "마중 차량이 도착했어요",
+                subtitle: "약속 장소에서 차량 번호와 차종을 확인하고 탑승해주세요."
+            )
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("만날 약속 장소")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Label(place.label, systemImage: "mappin.circle.fill")
-                    .font(.headline)
-                if let name = snapshot.vehicleName, !name.isEmpty {
-                    Divider()
-                    Label(name, systemImage: "car.fill")
-                        .font(.subheadline.weight(.bold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            placeSummaryBox(
+                caption: "만날 약속 장소",
+                placeName: place.label,
+                vehicleName: snapshot.vehicleName
+            )
 
             Button {
                 showArrivalMap.toggle()
@@ -449,58 +427,98 @@ struct PickupView: View {
     private func finished(_ snapshot: PickupSnapshot) -> some View {
         let summaryPlace = snapshot.place ?? tracker.lastPlace
         let summaryVehicle = (snapshot.vehicleName?.isEmpty == false ? snapshot.vehicleName : nil) ?? tracker.lastVehicleName
-        let isCompleted = snapshot.status == .completed
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                MajungStatusPill(
-                    text: isCompleted ? "방금 완료된 픽업" : snapshot.status == .cancelled ? "픽업 취소됨" : "픽업 만료됨",
-                    tint: isCompleted ? .green : .orange
-                )
-                Spacer()
-                Text("위치 공유 종료")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(isCompleted ? .green : .secondary)
-            }
-            Text(
-                isCompleted ? "잘 만났어요!" :
-                snapshot.status == .cancelled ? "픽업이 취소됐어요" : "픽업 시간이 지났어요"
+        let state = finishedDisplay(for: snapshot.status)
+
+        return MajungCard {
+            statusHeroHeader(
+                symbol: state.symbol,
+                tint: state.tint,
+                pillText: state.pillText,
+                title: state.title,
+                subtitle: state.subtitle
             )
-            .font(.title2.bold())
-            .accessibilityAddTraits(.isHeader)
-            Text("개인정보 보호를 위해 차량 위치 공유가 즉시 종료됐어요.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+
             if summaryPlace != nil || summaryVehicle != nil {
-                Divider()
-                if let summaryPlace {
-                    Label(summaryPlace.label, systemImage: "mappin.circle.fill")
-                        .font(.subheadline.weight(.medium))
-                }
-                if let summaryVehicle {
-                    Label(summaryVehicle, systemImage: "car.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+                placeSummaryBox(
+                    caption: summaryPlace != nil ? "약속했던 장소" : "이용한 차량",
+                    placeName: summaryPlace?.label,
+                    vehicleName: summaryVehicle
+                )
             }
+
             Button(action: onReset) {
                 Text(resetLabel)
                     .frame(maxWidth: .infinity, minHeight: 38)
             }
             .buttonStyle(.borderedProminent)
-            .tint(isCompleted ? .green : .accentColor)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(
-            isCompleted ? Color.green.opacity(0.08) : Color(.secondarySystemGroupedBackground),
-            in: RoundedRectangle(cornerRadius: 16)
-        )
-        .overlay {
-            if isCompleted {
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.green.opacity(0.28), lineWidth: 1)
+    }
+
+    private func finishedDisplay(
+        for status: PickupSnapshot.Status
+    ) -> (symbol: String, tint: Color, pillText: String, title: String, subtitle: String) {
+        let subtitle = "개인정보 보호를 위해 차량 위치 공유가 즉시 종료됐어요."
+        switch status {
+        case .completed:
+            return ("checkmark.circle.fill", .green, "위치 공유 종료", "잘 만났어요!", subtitle)
+        case .cancelled:
+            return ("xmark.circle.fill", .orange, "픽업 취소 · 공유 종료", "픽업이 취소됐어요", subtitle)
+        default:
+            return ("clock.badge.exclamationmark", .orange, "픽업 만료 · 공유 종료", "픽업 시간이 지났어요", subtitle)
+        }
+    }
+
+    private func statusHeroHeader(
+        symbol: String,
+        tint: Color,
+        pillText: String,
+        title: String,
+        subtitle: String
+    ) -> some View {
+        VStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 44))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+            MajungStatusPill(text: pillText, tint: tint)
+            Text(title)
+                .font(.title2.bold())
+                .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
+            Text(subtitle)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+    }
+
+    private func placeSummaryBox(
+        caption: String,
+        placeName: String?,
+        vehicleName: String?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let placeName {
+                Label(placeName, systemImage: "mappin.circle.fill")
+                    .font(.headline)
+            }
+            if let vehicleName, !vehicleName.isEmpty {
+                if placeName != nil { Divider() }
+                Label(vehicleName, systemImage: "car.fill")
+                    .font(.subheadline.weight(.bold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8))
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func loadingCard(_ message: String) -> some View {

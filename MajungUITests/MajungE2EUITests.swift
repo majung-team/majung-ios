@@ -159,11 +159,16 @@ final class MajungE2EUITests: XCTestCase {
         messageField.typeText("파란 우산 들고 있어요")
         app.buttons["pickup-message-send-button"].tap()
         XCTAssertTrue(app.staticTexts["보낸 메시지 · 파란 우산 들고 있어요"].waitForExistence(timeout: 5))
+        let keyboardHidden = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [keyboardHidden], timeout: 5), .completed)
 
         // 5. Open PlaceProposalView, select map center, submit & withdraw
-        app.swipeDown()
-        XCTAssertTrue(app.buttons["pickup-propose-place-button"].waitForExistence(timeout: 5))
-        app.buttons["pickup-propose-place-button"].tap()
+        let proposeButton = app.buttons["pickup-propose-place-button"]
+        for _ in 0..<3 where !proposeButton.isHittable { app.swipeDown() }
+        XCTAssertTrue(proposeButton.isHittable)
+        proposeButton.tap()
         XCTAssertTrue(app.navigationBars["다른 장소 제안"].waitForExistence(timeout: 5))
         app.buttons["proposal-place-map-select"].tap()
         let descField = app.textViews["proposal-place-label-field"].exists

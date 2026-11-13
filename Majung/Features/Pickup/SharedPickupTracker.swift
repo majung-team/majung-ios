@@ -20,6 +20,7 @@ final class PickupTracker {
     private var backend: Backend?
     private var revision = 0
     private var refreshing = false
+    private var refreshPending = false
     private(set) var vehicle: PickupVehicle?
     private(set) var vehicleExpiresAt: ContinuousClock.Instant?
     private(set) var vehicleUpdatedAt: Date?
@@ -40,11 +41,22 @@ final class PickupTracker {
     }
 
     func refresh() async {
-        guard let backend, !refreshing, !busy else { return }
+        guard backend != nil, snapshot?.status.ended != true else { return }
+        if refreshing || busy {
+            refreshPending = true
+            return
+        }
         refreshing = true
-        let revisionAtStart = revision
         defer { refreshing = false }
+        repeat {
+            refreshPending = false
+            await refreshOnce()
+        } while refreshPending && !busy && !Task.isCancelled && snapshot?.status.ended != true
+    }
 
+    private func refreshOnce() async {
+        guard let backend else { return }
+        let revisionAtStart = revision
         do {
             let started = ContinuousClock.now
             let (current, position) = try await backend.refresh()
@@ -121,6 +133,7 @@ final class PickupTracker {
 
     func resetState() {
         revision += 1
+        refreshPending = false
         snapshot = nil
         lastPlace = nil
         lastVehicleName = nil
@@ -147,17 +160,22 @@ final class PickupTracker {
         revision += 1
         busy = true
         error = nil
-        defer { busy = false }
+        let succeeded: Bool
         do {
             apply(try await operation())
             connectionProblem = false
-            return true
+            succeeded = true
         } catch {
             if !handleLostSession(error) {
                 self.error = backend.formatError(error)
             }
-            return false
+            succeeded = false
         }
+        busy = false
+        if refreshPending && !Task.isCancelled {
+            await refresh()
+        }
+        return succeeded
     }
 
     private func apply(_ current: PickupSnapshot) {
@@ -172,6 +190,7 @@ final class PickupTracker {
             lastVehicleName = name
         }
         if current.status.ended {
+            refreshPending = false
             clearVehicle()
             backend?.onTerminal()
         }

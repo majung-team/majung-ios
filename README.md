@@ -3,10 +3,12 @@
   <h1>마중 iOS (Majung iOS)</h1>
   <p>가족이나 친구가 차로 데리러 올 때, 만날 장소와 실시간 차량 위치·도착 예정 시간·탑승 준비 상태를 함께 확인하는 iOS 앱입니다.</p>
   <p>
-    <a href="https://app.notion.com/p/4146da9ae26a81f8b525ece0ed1c1962">Notion 워크스페이스</a> ·
-    <a href="https://www.figma.com/design/XfEx8dmI2KqQuFZQAtpm0I/Majung?node-id=170-3">Figma 디자인</a> ·
+    <a href="https://app.notion.com/p/4146da9ae26a81f8b525ece0ed1c1962">Notion</a> ·
+    <a href="https://www.figma.com/design/XfEx8dmI2KqQuFZQAtpm0I/Majung?node-id=170-3">Figma</a> ·
     <a href="https://majung.cloud">모바일 웹</a> ·
-    <a href="https://github.com/majung-team/majung">마중 프로젝트</a>
+    <a href="https://github.com/majung-team/majung">마중 프로젝트</a> ·
+    <a href="https://github.com/majung-team/majung/wiki">Wiki</a> ·
+    <a href="https://github.com/majung-team/majung/blob/main/docs/development-status.md">개발 현황</a>
   </p>
 </div>
 
@@ -19,7 +21,7 @@
 ### 참여 · 계정 · 차량 연결
 - **초대 링크 게스트 참여**: 로그인 없이 전달받은 초대 링크로 만날 장소를 먼저 확인한 뒤 바로 참여하거나 대기 중에 나갈 수 있습니다.
 - **카카오 로그인 · 지인 연결**: 인앱 브라우저(`ASWebAuthenticationSession`) 기반 카카오 로그인과 닉네임·마중 ID 설정, 지인 검색·연결, 회원 탈퇴를 지원합니다.
-- **차량 QR 연결**: 카메라 QR 스캔 또는 링크 입력으로 운전자 차량과 손쉽게 연결하고 해제할 수 있습니다.
+- **차량 QR 연결**: `AVFoundation` 카메라 QR 스캔 또는 링크 입력으로 운전자 차량과 손쉽게 연결하고 해제할 수 있습니다.
 
 ### 장소 검색 · 실시간 소통
 - **장소 · 주소 검색**: 서버의 카카오 로컬 검색으로 상호명과 도로명·지번 주소를 찾아주며, 서버 검색을 쓸 수 없는 환경에서는 Apple 지도(`MKLocalSearch`) 검색으로 자동 전환합니다.
@@ -37,7 +39,7 @@ flowchart LR
     iOS["마중 iOS (SwiftUI)"] -->|"HTTPS 인증 · 요청 · 상태 조회"| API["마중 백엔드 (/api/v1)"]
     API -->|"SSE 변경 신호 · APNs 푸시"| iOS
     iOS -->|"지도 · 보조 검색"| Map["MapKit"]
-    iOS -->|"QR 스캔"| Cam["VisionKit"]
+    iOS -->|"QR 스캔"| Cam["AVFoundation"]
 ```
 
 ### 패키지 구조
@@ -57,7 +59,7 @@ MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
 | 구분 | 구성 |
 | --- | --- |
 | **앱 프레임워크** | Swift · SwiftUI · Swift Observation (`@Observable`) · iOS 17.0+ |
-| **지도 · 스캔** | MapKit · CoreLocation · VisionKit (QR 스캔) |
+| **지도 · 스캔** | MapKit · CoreLocation · `AVFoundation` (`AVCaptureSession` QR 스캔) |
 | **인증 · 알림** | AuthenticationServices (PKCE OAuth) · UserNotifications · APNs |
 | **검증 · CI** | XCTest (`MajungTests`) · XCUITest (`MajungUITests`) · GitHub Actions |
 
@@ -67,8 +69,8 @@ MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
 
 | 구분 | 범위 |
 | --- | --- |
-| **자동화 · 시뮬레이터** | `MajungTests` 단위 테스트, 내장 테스트 서버 기반 `MajungUITests` 종단간(E2E) 테스트 및 [iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
-| **실환경 별도 확인** | iPhone 실기기 카카오 로그인·카메라 QR 스캔·실주행 연동, 유료 Apple Developer 프로비저닝 후 APNs 원격 푸시·유니버설 링크 검증 |
+| **확인 완료** | `MajungTests`(26개) · 내장 테스트 서버 `MajungUITests`(6개)<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
+| **추후 확인** | iPhone 실기기 카카오 로그인·카메라 QR 스캔·실주행 연동<br>유료 Apple Developer 프로비저닝 후 APNs 원격 푸시·유니버설 링크 검증 |
 
 ---
 
@@ -77,7 +79,7 @@ MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
 | 분류 | 문서 |
 | --- | --- |
 | **기획 · 디자인** | [Notion 홈](https://app.notion.com/p/4146da9ae26a81f8b525ece0ed1c1962) · [화면 설계와 이용 흐름](https://app.notion.com/p/4146da9ae26a8064b544d805ddc1b578) · [데이터 모델과 ERD](https://app.notion.com/p/4146da9ae26a809b928cffed612504f4) · [로드맵 · 체크리스트](https://app.notion.com/p/4146da9ae26a80d6bb0fe7bab3c929e2) · [Figma 디자인](https://www.figma.com/design/XfEx8dmI2KqQuFZQAtpm0I/Majung?node-id=170-3) |
-| **개발 규칙** | [기여 가이드](CONTRIBUTING.md) |
+| **프로젝트 문서** | [사용 안내 · 기술 회고 (Wiki)](https://github.com/majung-team/majung/wiki) · [개발 현황 및 PR 근거](https://github.com/majung-team/majung/blob/main/docs/development-status.md) · [시스템 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md) · [기여 가이드](CONTRIBUTING.md) |
 
 | 저장소 | 역할 |
 | --- | --- |

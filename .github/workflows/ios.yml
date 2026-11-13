@@ -12,12 +12,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ios-${{ github.ref }}
+  group: ios-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   commit-style:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.state == 'open'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -40,6 +40,7 @@ jobs:
           npm run lint:commit -- --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
 
   simulator-build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.state == 'open'
     runs-on: macos-26
     timeout-minutes: 20
     steps:

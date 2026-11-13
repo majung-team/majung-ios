@@ -46,49 +46,49 @@ final class MajungE2EUITests: XCTestCase {
         add(attachment)
     }
 
-    func test00FirstLaunchSplashAndOnboardingFlowAndPersistence() throws {
+    func test00SplashLandsDirectlyOnLoginAndGuideIsOnDemand() throws {
         let server = try startServer()
         server.setAccountMode(.unauthenticated)
 
         // 1. Verify Splash renders cleanly on cold launch
-        let app = launchApp(port: server.port, arguments: ["-UITestResetSessions", "-UITestShowOnboarding", "-UITestHoldSplash"])
+        let app = launchApp(port: server.port, arguments: ["-UITestResetSessions", "-UITestHoldSplash"])
         XCTAssertTrue(app.descendants(matching: .any)["splash-screen"].waitForExistence(timeout: 6))
         attachScreenshot(named: "00-splash")
 
-        // 2. Normal first launch auto-transitions from Splash to Onboarding and walks through all 3 slides
+        // 2. Cold launch / fresh install skips blocking onboarding and lands straight on login entry
         terminateApp(app)
-        app.launchArguments = ["-UITestResetSessions", "-UITestShowOnboarding"]
+        app.launchArguments = ["-UITestResetSessions"]
         app.launch()
 
-        let nextBtn = app.buttons["onboarding-next-button"]
-        XCTAssertTrue(nextBtn.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
+        XCTAssertFalse(app.buttons["guide-next-button"].exists)
+        XCTAssertFalse(app.buttons["guide-done-button"].exists)
+        attachScreenshot(named: "01-login-entry")
+
+        // 3. Guide is accessible on-demand from the login navigation toolbar and walks through all 3 slides
+        let loginGuideButton = app.buttons["login-guide-button"]
+        XCTAssertTrue(loginGuideButton.waitForExistence(timeout: 5))
+        loginGuideButton.tap()
+
+        let nextBtn = app.buttons["guide-next-button"]
+        XCTAssertTrue(nextBtn.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["실시간 위치 · ETA 공유"].exists)
-        attachScreenshot(named: "01-onboarding-page1")
+        attachScreenshot(named: "02-guide-page1")
 
         nextBtn.tap()
         XCTAssertTrue(app.staticTexts["장소 조율 · 빠른 소통"].waitForExistence(timeout: 3))
         usleep(350_000)
-        attachScreenshot(named: "02-onboarding-page2")
+        attachScreenshot(named: "03-guide-page2")
 
         nextBtn.tap()
-        let startBtn = app.buttons["onboarding-start-button"]
-        XCTAssertTrue(startBtn.waitForExistence(timeout: 3))
+        let doneBtn = app.buttons["guide-done-button"]
+        XCTAssertTrue(doneBtn.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["guide-close-button"].exists)
         usleep(350_000)
-        attachScreenshot(named: "03-onboarding-page3")
-        startBtn.tap()
+        attachScreenshot(named: "04-guide-page3")
+        doneBtn.tap()
 
-        // 3. Completing onboarding lands on login entry
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 5))
-        usleep(350_000)
-        attachScreenshot(named: "04-login-entry")
-
-        // 4. Subsequent cold launch skips onboarding straight to login entry after splash
-        terminateApp(app)
-        app.launchArguments = []
-        app.launch()
-        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
-        XCTAssertFalse(app.buttons["onboarding-next-button"].exists)
-        XCTAssertFalse(app.buttons["onboarding-start-button"].exists)
     }
 
     private func submitInviteLink(_ inviteURL: String, in app: XCUIApplication) {
@@ -275,12 +275,25 @@ final class MajungE2EUITests: XCTestCase {
         app.buttons["닫기"].tap()
     }
 
+    private func assertGuideOpensAndCloses(from trigger: XCUIElement, in app: XCUIApplication) {
+        if !trigger.isHittable { app.swipeUp() }
+        XCTAssertTrue(trigger.waitForExistence(timeout: 5))
+        trigger.tap()
+        XCTAssertTrue(app.staticTexts["실시간 위치 · ETA 공유"].waitForExistence(timeout: 4))
+        let closeBtn = app.buttons["guide-close-button"]
+        XCTAssertTrue(closeBtn.waitForExistence(timeout: 4))
+        closeBtn.tap()
+    }
+
     func test03SettingsVehicleQRPairingPollDetachAndLogout() throws {
         let server = try startServer()
         server.setAccountMode(.ready)
 
         let app = launchApp(port: server.port)
         XCTAssertTrue(app.buttons["home-open-tracking-button"].waitForExistence(timeout: 8))
+
+        assertGuideOpensAndCloses(from: app.buttons["home-guide-button"], in: app)
+        XCTAssertTrue(app.buttons["home-open-tracking-button"].waitForExistence(timeout: 5))
 
         app.tabBars.buttons["설정"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["1대 연결됨"].waitForExistence(timeout: 5))
@@ -306,14 +319,7 @@ final class MajungE2EUITests: XCTestCase {
         app.alerts.firstMatch.buttons["연결 해제"].tap()
         XCTAssertTrue(app.staticTexts["1대 연결됨"].waitForExistence(timeout: 6))
 
-        // Replay onboarding from settings -> skip back to settings
-        let replayBtn = app.buttons["settings-replay-onboarding-button"]
-        if !replayBtn.isHittable { app.swipeUp() }
-        XCTAssertTrue(replayBtn.waitForExistence(timeout: 5))
-        replayBtn.tap()
-        let skipBtn = app.buttons["onboarding-skip-button"]
-        XCTAssertTrue(skipBtn.waitForExistence(timeout: 4))
-        skipBtn.tap()
+        assertGuideOpensAndCloses(from: app.buttons["settings-guide-button"], in: app)
 
         // Logout via 2-step alert -> back to login entry
         let logoutBtn = app.buttons["settings-logout-button"]
@@ -323,14 +329,7 @@ final class MajungE2EUITests: XCTestCase {
         app.alerts["로그아웃할까요?"].buttons["로그아웃"].tap()
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
 
-        // Replay onboarding from logged-out entry -> skip back to login entry
-        let loggedOutReplay = app.buttons["login-replay-onboarding-button"]
-        if !loggedOutReplay.isHittable { app.swipeUp() }
-        XCTAssertTrue(loggedOutReplay.waitForExistence(timeout: 5))
-        loggedOutReplay.tap()
-        let loggedOutSkip = app.buttons["onboarding-skip-button"]
-        XCTAssertTrue(loggedOutSkip.waitForExistence(timeout: 4))
-        loggedOutSkip.tap()
+        assertGuideOpensAndCloses(from: app.buttons["login-guide-button"], in: app)
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 5))
     }
 

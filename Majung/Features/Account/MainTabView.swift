@@ -136,6 +136,7 @@ private struct HomeTabView: View {
     var onOpenTracking: () -> Void
 
     @FocusState private var inviteFieldFocused: Bool
+    @State private var showingGuide = false
 
     var body: some View {
         ScrollView {
@@ -258,6 +259,7 @@ private struct HomeTabView: View {
         .background(Color(.systemGroupedBackground))
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("홈")
+        .majungGuideToolbar(isPresented: $showingGuide, accessibilityIdentifier: "home-guide-button")
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -333,7 +335,7 @@ private struct SettingsTabView: View {
     @State private var copiedId = false
     @State private var showingVehicleScanner = false
     @State private var detachingVehicle: VehicleLink?
-    @State private var showingOnboardingReplay = false
+    @State private var showingGuide = false
     @State private var confirmingLogout = false
     @State private var confirmingDeleteAccount = false
 
@@ -546,11 +548,11 @@ private struct SettingsTabView: View {
 
             Section("마중 안내") {
                 Button {
-                    showingOnboardingReplay = true
+                    showingGuide = true
                 } label: {
-                    Label("앱 이용 안내 다시 보기", systemImage: "sparkles")
+                    Label("마중 이용 가이드", systemImage: "questionmark.circle")
                 }
-                .accessibilityIdentifier("settings-replay-onboarding-button")
+                .accessibilityIdentifier("settings-guide-button")
             }
 
             Section("계정") {
@@ -585,11 +587,7 @@ private struct SettingsTabView: View {
         .sheet(isPresented: $showingVehicleScanner) {
             VehicleQRScannerSheet(vehicleLinks: vehicleLinks) {}
         }
-        .fullScreenCover(isPresented: $showingOnboardingReplay) {
-            OnboardingView(isReplay: true) {
-                showingOnboardingReplay = false
-            }
-        }
+        .majungGuideSheet(isPresented: $showingGuide)
         .alert(
             "'\(detachingVehicle?.displayName ?? "차량")' 연결을 해제할까요?",
             isPresented: detachAlertPresented,

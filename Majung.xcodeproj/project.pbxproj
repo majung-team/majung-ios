@@ -42,7 +42,6 @@
 		A10000000000000000000096 /* PlaceComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000086 /* PlaceComposerView.swift */; };
 		A10000000000000000000097 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000087 /* Assets.xcassets */; };
 		A100000000000000000000A5 /* MajungBrandMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A1 /* MajungBrandMark.swift */; };
-		A100000000000000000000A6 /* OnboardingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A2 /* OnboardingStore.swift */; };
 		A100000000000000000000A7 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A3 /* SplashView.swift */; };
 		A100000000000000000000A8 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A4 /* OnboardingView.swift */; };
 		A100000000000000000000B1 /* SoloDemoServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B0 /* SoloDemoServer.swift */; };
@@ -106,7 +105,6 @@
 		A10000000000000000000086 /* PlaceComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceComposerView.swift; sourceTree = "<group>"; };
 		A10000000000000000000087 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A100000000000000000000A1 /* MajungBrandMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungBrandMark.swift; sourceTree = "<group>"; };
-		A100000000000000000000A2 /* OnboardingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingStore.swift; sourceTree = "<group>"; };
 		A100000000000000000000A3 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		A100000000000000000000A4 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A100000000000000000000B0 /* SoloDemoServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoloDemoServer.swift; sourceTree = "<group>"; };
@@ -203,7 +201,6 @@
 		A100000000000000000000A9 /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
-				A100000000000000000000A2 /* OnboardingStore.swift */,
 				A100000000000000000000A3 /* SplashView.swift */,
 				A100000000000000000000A4 /* OnboardingView.swift */,
 			);
@@ -428,7 +425,6 @@
 				A10000000000000000000095 /* PickupNotificationService.swift in Sources */,
 				A10000000000000000000096 /* PlaceComposerView.swift in Sources */,
 				A100000000000000000000A5 /* MajungBrandMark.swift in Sources */,
-				A100000000000000000000A6 /* OnboardingStore.swift in Sources */,
 				A100000000000000000000A7 /* SplashView.swift in Sources */,
 				A100000000000000000000A8 /* OnboardingView.swift in Sources */,
 				A100000000000000000000B1 /* SoloDemoServer.swift in Sources */,

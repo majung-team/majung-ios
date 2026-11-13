@@ -7,7 +7,7 @@ struct LoginEntryView: View {
     var vehiclePendingMessage: String? = nil
 
     @FocusState private var inviteFieldFocused: Bool
-    @State private var showingOnboardingReplay = false
+    @State private var showingGuide = false
 
     var body: some View {
         ScrollView {
@@ -19,7 +19,6 @@ struct LoginEntryView: View {
                 kakaoSection
                 divider
                 guestInviteCard
-                onboardingReplayCard
             }
             .padding(20)
         }
@@ -27,11 +26,7 @@ struct LoginEntryView: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("마중")
         .navigationBarTitleDisplayMode(.inline)
-        .fullScreenCover(isPresented: $showingOnboardingReplay) {
-            OnboardingView(isReplay: true) {
-                showingOnboardingReplay = false
-            }
-        }
+        .majungGuideToolbar(isPresented: $showingGuide, accessibilityIdentifier: "login-guide-button")
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -190,26 +185,5 @@ struct LoginEntryView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-    }
-
-    private var onboardingReplayCard: some View {
-        Button {
-            inviteFieldFocused = false
-            showingOnboardingReplay = true
-        } label: {
-            HStack {
-                Label("마중 앱 이용 안내 다시 보기", systemImage: "sparkles")
-                    .font(.subheadline.weight(.medium))
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("login-replay-onboarding-button")
     }
 }

@@ -13,13 +13,6 @@ struct MajungApp: App {
         if args.contains("-UITestResetSessions") {
             AccountSessionStore.clear()
             PickupSessionStore.clear()
-            if args.contains("-UITestShowOnboarding") {
-                OnboardingStore.reset()
-            } else {
-                OnboardingStore.markCompleted()
-            }
-        } else if args.contains("-UITestShowOnboarding") {
-            OnboardingStore.reset()
         }
         #endif
         UNUserNotificationCenter.current().delegate = notificationDelegate

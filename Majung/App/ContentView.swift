@@ -10,7 +10,6 @@ struct ContentView: View {
     @State private var pickupModel = PickupViewModel()
     @State private var link = ""
     @State private var showingSplash = true
-    @State private var onboardingCompleted = OnboardingStore.isCompleted()
 
     init() {
         let account = AccountViewModel()
@@ -71,13 +70,6 @@ struct ContentView: View {
             } else if accountModel.needsNicknameSetup {
                 NavigationStack {
                     NicknameSetupView(account: accountModel)
-                }
-            } else if !onboardingCompleted {
-                OnboardingView {
-                    OnboardingStore.markCompleted()
-                    withAnimation(reduceMotion ? .none : .easeInOut(duration: 0.28)) {
-                        onboardingCompleted = true
-                    }
                 }
             } else {
                 NavigationStack {
@@ -163,10 +155,7 @@ struct ContentView: View {
             return .seconds(8)
         }
         if args.contains("-UITestResetSessions") {
-            return args.contains("-UITestShowOnboarding") ? .milliseconds(900) : .milliseconds(150)
-        }
-        if args.contains("-UITestShowOnboarding") {
-            return .milliseconds(900)
+            return .milliseconds(150)
         }
         #endif
         return .milliseconds(1050)

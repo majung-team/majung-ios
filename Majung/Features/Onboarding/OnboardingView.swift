@@ -1,7 +1,8 @@
 import SwiftUI
+import UIKit
 
-/// Three-step first-launch introduction highlighting live ETA, readiness/place coordination, and flexible entry.
-struct OnboardingView: View {
+/// Reusable three-step feature guide highlighting live ETA, readiness/place coordination, and flexible entry.
+struct MajungGuideView: View {
     private enum Page: Int, CaseIterable, Identifiable {
         case liveEta = 0
         case readinessAndPlace = 1
@@ -45,8 +46,7 @@ struct OnboardingView: View {
         }
     }
 
-    var isReplay = false
-    let onComplete: () -> Void
+    let onClose: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentPage: Page = .liveEta
@@ -74,24 +74,21 @@ struct OnboardingView: View {
         HStack {
             HStack(spacing: 8) {
                 MajungBrandBadge(size: 28, cornerRadius: 8)
-                Text("마중")
+                Text("마중 이용 가이드")
                     .font(.headline.weight(.bold))
             }
 
             Spacer()
 
-            Button("건너뛰기") {
-                onComplete()
+            Button("닫기") {
+                onClose()
             }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.secondary)
-            .opacity(isLastPage ? 0 : 1)
-            .disabled(isLastPage)
-            .accessibilityHidden(isLastPage)
-            .accessibilityIdentifier("onboarding-skip-button")
+            .accessibilityIdentifier("guide-close-button")
         }
         .padding(.horizontal, 20)
-        .padding(.top, 12)
+        .padding(.top, 16)
         .padding(.bottom, 4)
     }
 
@@ -151,20 +148,20 @@ struct OnboardingView: View {
                     .accessibilityLabel("\(page.rawValue + 1)번째 안내")
                 }
             }
-            .accessibilityIdentifier("onboarding-page-indicator")
+            .accessibilityIdentifier("guide-page-indicator")
 
             if isLastPage {
                 Button {
-                    onComplete()
+                    onClose()
                 } label: {
-                    Text(isReplay ? "확인 완료" : "마중 시작하기")
+                    Text("확인 완료")
                         .font(.headline.weight(.bold))
                         .frame(maxWidth: .infinity, minHeight: 50)
                 }
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.roundedRectangle(radius: 16))
                 .tint(MajungBrand.blue)
-                .accessibilityIdentifier("onboarding-start-button")
+                .accessibilityIdentifier("guide-done-button")
             } else {
                 Button {
                     guard let next = Page(rawValue: currentPage.rawValue + 1) else { return }
@@ -179,7 +176,7 @@ struct OnboardingView: View {
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.roundedRectangle(radius: 16))
                 .tint(MajungBrand.blue)
-                .accessibilityIdentifier("onboarding-next-button")
+                .accessibilityIdentifier("guide-next-button")
             }
 
             Text("픽업이 종료되면 실시간 위치 공유는 자동으로 멈춰요.")
@@ -383,5 +380,32 @@ private struct OnboardingEntryCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    /// Adds a top-trailing guide toolbar button and shared sheet presentation.
+    func majungGuideToolbar(isPresented: Binding<Bool>, accessibilityIdentifier: String) -> some View {
+        toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    isPresented.wrappedValue = true
+                } label: {
+                    Label("이용 가이드", systemImage: "questionmark.circle")
+                }
+                .accessibilityLabel("이용 가이드")
+                .accessibilityIdentifier(accessibilityIdentifier)
+            }
+        }
+        .majungGuideSheet(isPresented: isPresented)
+    }
+
+    func majungGuideSheet(isPresented: Binding<Bool>) -> some View {
+        sheet(isPresented: isPresented) {
+            MajungGuideView {
+                isPresented.wrappedValue = false
+            }
+        }
     }
 }

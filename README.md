@@ -29,6 +29,7 @@
 
 ### 알림 · 화면 테마
 - **도착 알림 · 다크 모드**: 라이트·다크 모드를 지원하며, 앱 내 도착 임박·도착 로컬 알림과 APNs 원격 푸시 연동을 제공합니다.
+- **상시 이용 가이드**: 초기 강제 화면 없이 로그인·홈 우측 상단(`?`)과 설정의 **마중 이용 가이드**에서 언제든 이용 흐름을 다시 볼 수 있습니다.
 
 ---
 
@@ -49,7 +50,7 @@ Majung/
 ├── App/           # 앱 진입점 · 푸시 등록(AppDelegate) · 루트 화면 전환(ContentView)
 ├── Core/          # 백엔드 API 클라이언트(계정·픽업·요청·차량 연결) · SSE 파서
 ├── DesignSystem/  # 브랜드 컬러(#2669DD)·심볼 및 공통 카드·검색·지도 컴포넌트
-└── Features/      # Onboarding · Account · VehicleLinks · RideRequest · Pickup 화면/뷰모델
+└── Features/      # Onboarding(이용 가이드) · Account · VehicleLinks · RideRequest · Pickup 화면/뷰모델
 MajungTests/       # 모델 · 검증기 · SSE · 위치 추적 단위 테스트
 MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
 ```
@@ -69,7 +70,7 @@ MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
 
 | 구분 | 범위 |
 | --- | --- |
-| **확인 완료** | `MajungTests`(30개) · 내장 테스트 서버 `MajungUITests`(6개)<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
+| **확인 완료** | `MajungTests`(32개) · 내장 테스트 서버 `MajungUITests`(6개)<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
 | **추후 확인** | iPhone 실기기 카카오 로그인·카메라 QR 스캔·실주행 연동<br>유료 Apple Developer 프로비저닝 후 APNs 원격 푸시·유니버설 링크 검증 |
 
 ---

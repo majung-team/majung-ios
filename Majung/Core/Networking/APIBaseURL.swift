@@ -134,6 +134,8 @@ enum MajungEventStream {
             }
 
             await onState(true)
+            // Recover changes that happened before this connection was established.
+            await onRefresh()
             var currentEvent = "message"
             var dataLines: [String] = []
             var lineBytes: [UInt8] = []

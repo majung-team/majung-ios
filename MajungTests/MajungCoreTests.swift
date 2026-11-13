@@ -343,6 +343,31 @@ final class MajungCoreTests: XCTestCase {
         )
 
         XCTAssertEqual(states, [true, false])
+        XCTAssertEqual(refreshes, 3)
+    }
+
+    @MainActor
+    func testMajungEventStreamRefreshesOnReconnectWithoutChangedEvent() async {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [SSEStubURLProtocol.self]
+        let session = URLSession(configuration: config)
+        defer { session.finishTasksAndInvalidate() }
+        SSEStubURLProtocol.handler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "text/event-stream"]
+            )!
+            return (response, Data(": connected\r\n\r\n".utf8))
+        }
+        var refreshes = 0
+        for _ in 0..<2 {
+            await MajungEventStream.listen(
+                request: URLRequest(url: URL(string: "https://majung.cloud/api/v1/pickups/stream")!),
+                session: session,
+                onState: { _ in },
+                onRefresh: { refreshes += 1 }
+            )
+        }
         XCTAssertEqual(refreshes, 2)
     }
 

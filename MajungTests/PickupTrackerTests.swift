@@ -269,4 +269,108 @@ final class PickupTrackerTests: XCTestCase {
         XCTAssertEqual(withdrawCount, 1)
         XCTAssertNil(tracker.snapshot?.placeProposal)
     }
+
+    private func makeTracker(
+        refresh: @escaping () async throws -> (PickupSnapshot, PickupVehicle?),
+        setReady: ((Bool, Int) async throws -> PickupSnapshot)? = nil
+    ) -> PickupTracker {
+        let tracker = PickupTracker()
+        tracker.configure(PickupTracker.Backend(
+            refresh: refresh,
+            setReady: setReady ?? { ready, sequence in
+                self.makeSnapshot(ready: ready, readinessSequence: sequence)
+            },
+            propose: { _ in self.makeSnapshot() },
+            withdraw: { self.makeSnapshot() },
+            sendMessage: { _ in self.makeSnapshot() },
+            isSessionLost: { _ in false },
+            onSessionLost: {},
+            onTerminal: {},
+            formatError: { _ in "error" },
+            lostMessage: "lost"
+        ))
+        return tracker
+    }
+
+    func testRefreshDuringInFlightReadFetchesLatestTerminalState() async throws {
+        let started = expectation(description: "First snapshot request started")
+        var response: CheckedContinuation<(PickupSnapshot, PickupVehicle?), Error>?
+        var calls = 0
+        let tracker = makeTracker(refresh: {
+            calls += 1
+            if calls == 1 {
+                return try await withCheckedThrowingContinuation { continuation in
+                    response = continuation
+                    started.fulfill()
+                }
+            }
+            return (self.makeSnapshot(status: .completed, place: nil, vehicleName: nil), nil)
+        })
+        tracker.applyExternal(makeSnapshot(), vehicle: makeVehicle())
+        let firstRefresh = Task { await tracker.refresh() }
+        await fulfillment(of: [started], timeout: 5)
+
+        // A terminal change arrives while the earlier ARRIVED read is still in flight.
+        await tracker.refresh()
+        await tracker.refresh()
+        try XCTUnwrap(response).resume(returning: (makeSnapshot(status: .arrived), makeVehicle()))
+        await firstRefresh.value
+
+        XCTAssertEqual(calls, 2)
+        XCTAssertEqual(tracker.snapshot?.status, .completed)
+        XCTAssertNil(tracker.vehicle)
+        XCTAssertEqual(tracker.lastPlace, initialPlace)
+    }
+
+    func testRefreshDuringReadinessWriteRunsAfterWriteCompletes() async throws {
+        let started = expectation(description: "Readiness request started")
+        var response: CheckedContinuation<PickupSnapshot, Error>?
+        var reads = 0
+        let tracker = makeTracker(refresh: {
+            reads += 1
+            return (self.makeSnapshot(status: .completed, place: nil, vehicleName: nil), nil)
+        }, setReady: { _, _ in
+            try await withCheckedThrowingContinuation { continuation in
+                response = continuation
+                started.fulfill()
+            }
+        })
+        tracker.applyExternal(makeSnapshot(), vehicle: makeVehicle())
+        let write = Task { await tracker.setReady(true) }
+        await fulfillment(of: [started], timeout: 5)
+
+        await tracker.refresh()
+        await tracker.refresh()
+        try XCTUnwrap(response).resume(returning: makeSnapshot(ready: true))
+        await write.value
+
+        XCTAssertEqual(reads, 1)
+        XCTAssertEqual(tracker.snapshot?.status, .completed)
+        XCTAssertFalse(tracker.busy)
+        XCTAssertNil(tracker.vehicle)
+    }
+
+    func testResetDiscardsQueuedRefreshFromPreviousSession() async throws {
+        let started = expectation(description: "Previous session request started")
+        var response: CheckedContinuation<(PickupSnapshot, PickupVehicle?), Error>?
+        var calls = 0
+        let tracker = makeTracker(refresh: {
+            calls += 1
+            return try await withCheckedThrowingContinuation { continuation in
+                response = continuation
+                started.fulfill()
+            }
+        })
+        tracker.applyExternal(makeSnapshot(), vehicle: makeVehicle())
+        let previousRefresh = Task { await tracker.refresh() }
+        await fulfillment(of: [started], timeout: 5)
+        await tracker.refresh()
+        tracker.resetState()
+        try XCTUnwrap(response).resume(returning: (makeSnapshot(status: .arrived), makeVehicle()))
+        await previousRefresh.value
+
+        XCTAssertEqual(calls, 1)
+        XCTAssertNil(tracker.snapshot)
+        XCTAssertNil(tracker.vehicle)
+    }
 }

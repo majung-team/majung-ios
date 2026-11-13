@@ -16,6 +16,8 @@ final class RideRequestViewModel {
 
     private(set) var busy = false
     private(set) var loading = false
+    private var refreshPending = false
+    private var pendingRefreshSilent = true
     var error: String?
     var notice: String?
 
@@ -128,6 +130,8 @@ final class RideRequestViewModel {
         trackedRequestId = nil
         activeStreamConnected = false
         listStreamConnected = false
+        refreshPending = false
+        pendingRefreshSilent = true
         tracking.resetState()
         error = nil
         notice = nil
@@ -165,12 +169,29 @@ final class RideRequestViewModel {
     }
 
     func refresh(silent: Bool = false) async {
-        guard account.isReady, !loading, !busy else { return }
+        guard account.isReady else { return }
+        if loading || busy {
+            refreshPending = true
+            pendingRefreshSilent = pendingRefreshSilent && silent
+            return
+        }
         loading = true
+        defer { loading = false }
+
+        var nextSilent = silent
+        while !Task.isCancelled && account.isReady && !busy {
+            refreshPending = false
+            pendingRefreshSilent = true
+            await performRefresh(silent: nextSilent)
+            guard refreshPending else { break }
+            nextSilent = pendingRefreshSilent
+        }
+    }
+
+    private func performRefresh(silent: Bool) async {
         if !silent {
             error = nil
         }
-        defer { loading = false }
 
         do {
             let fetchedAt = ContinuousClock.now
@@ -189,63 +210,71 @@ final class RideRequestViewModel {
 
     func submitRequest(driverId: UUID, place: PickupPlace, requestId: UUID) async -> Bool {
         guard !busy else { return false }
-        busy = true
-        error = nil
-        notice = nil
-        defer { busy = false }
-
-        do {
-            _ = try await account.performAuthorizedMutation { cookie, csrfToken in
-                try await self.api.submit(driverId: driverId, place: place, requestId: requestId, cookie: cookie, csrfToken: csrfToken)
+        return await runBusyOperation {
+            do {
+                _ = try await account.performAuthorizedMutation { cookie, csrfToken in
+                    try await self.api.submit(driverId: driverId, place: place, requestId: requestId, cookie: cookie, csrfToken: csrfToken)
+                }
+                await reloadAfterMutation()
+                notice = "운전자에게 마중을 요청했어요. 수락하면 픽업 대기에 들어가요."
+                return true
+            } catch {
+                self.error = account.displayError(error)
+                return false
             }
-            await reloadAfterMutation()
-            notice = "운전자에게 마중을 요청했어요. 수락하면 픽업 대기에 들어가요."
-            return true
-        } catch {
-            self.error = account.displayError(error)
-            return false
         }
     }
 
     @discardableResult
     func answerInvitation(_ item: RideRequestItem, accept: Bool) async -> RideRequestItem.Status? {
         guard !busy else { return nil }
-        busy = true
-        error = nil
-        notice = nil
-        defer { busy = false }
-
-        do {
-            let updated = try await account.performAuthorizedMutation { cookie, csrfToken in
-                try await self.api.answerInvitation(id: item.requestId, accept: accept, cookie: cookie, csrfToken: csrfToken)
+        return await runBusyOperation {
+            do {
+                let updated = try await account.performAuthorizedMutation { cookie, csrfToken in
+                    try await self.api.answerInvitation(id: item.requestId, accept: accept, cookie: cookie, csrfToken: csrfToken)
+                }
+                await reloadAfterMutation()
+                notice = accept
+                    ? "초대를 수락했어요. 운전자가 내 픽업을 시작하면 위치를 확인할 수 있어요."
+                    : "초대를 거절했어요."
+                return updated.status
+            } catch {
+                self.error = account.displayError(error)
+                return nil
             }
-            await reloadAfterMutation()
-            notice = accept
-                ? "초대를 수락했어요. 운전자가 내 픽업을 시작하면 위치를 확인할 수 있어요."
-                : "초대를 거절했어요."
-            return updated.status
-        } catch {
-            self.error = account.displayError(error)
-            return nil
         }
     }
 
     func cancelRequest(_ item: RideRequestItem) async {
         guard !busy else { return }
+        await runBusyOperation {
+            do {
+                _ = try await account.performAuthorizedMutation { cookie, csrfToken in
+                    try await self.api.cancel(id: item.requestId, cookie: cookie, csrfToken: csrfToken)
+                }
+                await reloadAfterMutation()
+                notice = "마중 요청을 취소했어요."
+            } catch {
+                self.error = account.displayError(error)
+            }
+        }
+    }
+
+    private func runBusyOperation<T>(_ operation: () async -> T) async -> T {
         busy = true
         error = nil
         notice = nil
-        defer { busy = false }
+        let result = await operation()
+        busy = false
+        await flushPendingRefreshIfNeeded()
+        return result
+    }
 
-        do {
-            _ = try await account.performAuthorizedMutation { cookie, csrfToken in
-                try await self.api.cancel(id: item.requestId, cookie: cookie, csrfToken: csrfToken)
-            }
-            await reloadAfterMutation()
-            notice = "마중 요청을 취소했어요."
-        } catch {
-            self.error = account.displayError(error)
-        }
+    private func flushPendingRefreshIfNeeded() async {
+        guard refreshPending, account.isReady, !Task.isCancelled else { return }
+        let nextSilent = pendingRefreshSilent
+        pendingRefreshSilent = true
+        await refresh(silent: nextSilent)
     }
 
     func runEventStream(for requestId: UUID) async {

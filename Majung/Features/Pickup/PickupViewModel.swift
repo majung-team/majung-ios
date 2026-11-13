@@ -8,9 +8,49 @@ final class PickupViewModel {
         case entry, invitation, pickup
     }
 
-    private let api = PickupAPI()
+    struct Transport {
+        let preview: (PickupInvitation) async throws -> String
+        let join: (PickupInvitation) async throws -> PickupSession
+        let snapshot: (PickupSession) async throws -> PickupSnapshot
+        let vehicle: (PickupSession) async throws -> PickupVehicle
+        let readiness: (PickupSession, Bool, Int) async throws -> PickupSnapshot
+        let propose: (PickupSession, PickupPlace) async throws -> PickupSnapshot
+        let withdraw: (PickupSession) async throws -> PickupSnapshot
+        let message: (PickupSession, String) async throws -> PickupSnapshot
+        let leaveWaiting: (PickupSession) async throws -> Void
+        let registerArrivalPush: (PickupSession, String) async throws -> Void
+        let streamEvents: (
+            PickupSession,
+            @escaping @MainActor (Bool) -> Void,
+            @escaping @MainActor () async -> Void
+        ) async -> Void
+        let saveSession: (PickupSession) throws -> Void
+        let clearSession: () -> Void
+
+        static func live(_ api: PickupAPI = PickupAPI()) -> Transport {
+            Transport(
+                preview: { try await api.preview($0) },
+                join: { try await api.join($0) },
+                snapshot: { try await api.snapshot($0) },
+                vehicle: { try await api.vehicle($0) },
+                readiness: { try await api.readiness($0, ready: $1, sequence: $2) },
+                propose: { try await api.propose($0, place: $1) },
+                withdraw: { try await api.withdraw($0) },
+                message: { try await api.message($0, text: $1) },
+                leaveWaiting: { try await api.leaveWaiting($0) },
+                registerArrivalPush: { try await api.registerArrivalPush($0, endpoint: $1) },
+                streamEvents: { session, onState, onRefresh in
+                    await api.streamEvents(session: session, onState: onState, onRefresh: onRefresh)
+                },
+                saveSession: { try PickupSessionStore.save($0) },
+                clearSession: { PickupSessionStore.clear() }
+            )
+        }
+    }
+
+    private let transport: Transport
     private var invitation: PickupInvitation?
-    private(set) var session = PickupSessionStore.load()
+    private(set) var session: PickupSession?
     private var inviteBusy = false
     private var inviteError: String?
 
@@ -29,34 +69,34 @@ final class PickupViewModel {
         }
     }
 
-    init() {
+    init(
+        transport: Transport = .live(),
+        initialSession: PickupSession? = PickupSessionStore.load()
+    ) {
+        self.transport = transport
+        self.session = initialSession
         let missingSessionError = PickupAPI.Failure(status: 401, code: "SESSION_MISSING", message: "세션이 없어요.")
         tracker.configure(
             PickupTracker.Backend(
                 refresh: { [weak self] in
                     guard let self, let current = self.session else { throw missingSessionError }
-                    let snapshot = try await self.api.snapshot(current)
-                    guard snapshot.status == .active || snapshot.status == .arrived else {
-                        return (snapshot, nil)
-                    }
-                    let vehicle = try? await self.api.vehicle(current)
-                    return (snapshot, vehicle)
+                    return try await self.fetchPickupState(for: current)
                 },
                 setReady: { [weak self] ready, sequence in
                     guard let self, let current = self.session else { throw missingSessionError }
-                    return try await self.api.readiness(current, ready: ready, sequence: sequence)
+                    return try await self.transport.readiness(current, ready, sequence)
                 },
                 propose: { [weak self] place in
                     guard let self, let current = self.session else { throw missingSessionError }
-                    return try await self.api.propose(current, place: place)
+                    return try await self.transport.propose(current, place)
                 },
                 withdraw: { [weak self] in
                     guard let self, let current = self.session else { throw missingSessionError }
-                    return try await self.api.withdraw(current)
+                    return try await self.transport.withdraw(current)
                 },
                 sendMessage: { [weak self] text in
                     guard let self, let current = self.session else { throw missingSessionError }
-                    return try await self.api.message(current, text: text)
+                    return try await self.transport.message(current, text)
                 },
                 isSessionLost: { error in
                     guard let failure = error as? PickupAPI.Failure,
@@ -69,7 +109,7 @@ final class PickupViewModel {
                 onSessionLost: { [weak self] in self?.clearGuestSession() },
                 onTerminal: { [weak self] in
                     self?.session = nil
-                    PickupSessionStore.clear()
+                    self?.transport.clearSession()
                 },
                 formatError: { error in
                     (error as? PickupAPI.Failure)?.errorDescription ?? "연결이 원활하지 않아요. 잠시 후 다시 시도해주세요."
@@ -77,6 +117,15 @@ final class PickupViewModel {
                 lostMessage: "이 픽업에 연결할 수 없어요. 새 초대 링크를 받아주세요."
             )
         )
+    }
+
+    private func fetchPickupState(for current: PickupSession) async throws -> (PickupSnapshot, PickupVehicle?) {
+        let snapshot = try await transport.snapshot(current)
+        guard snapshot.status == .active || snapshot.status == .arrived else {
+            return (snapshot, nil)
+        }
+        let vehicle = try? await transport.vehicle(current)
+        return (snapshot, vehicle)
     }
 
     func openLink(_ text: String) async {
@@ -102,7 +151,7 @@ final class PickupViewModel {
         inviteBusy = true
         defer { inviteBusy = false }
         do {
-            let currentSnapshot = try await api.snapshot(current)
+            let currentSnapshot = try await transport.snapshot(current)
             tracker.applyExternal(currentSnapshot, vehicle: nil)
             if session != nil {
                 inviteError = "진행 중인 픽업이 있어요. 픽업이 끝난 뒤 새 초대를 열어주세요."
@@ -127,7 +176,7 @@ final class PickupViewModel {
         inviteError = nil
         defer { inviteBusy = false }
         do {
-            placeLabel = try await api.preview(invite)
+            placeLabel = try await transport.preview(invite)
         } catch {
             showInviteError(error)
         }
@@ -139,16 +188,24 @@ final class PickupViewModel {
         inviteError = nil
         defer { inviteBusy = false }
         do {
-            let joined = try await api.join(invite)
-            session = joined
-            invitation = nil
+            let joined = try await transport.join(invite)
+            var persistenceWarning: String?
             do {
-                try PickupSessionStore.save(joined)
+                try transport.saveSession(joined)
             } catch {
-                inviteError = "연결됐어요. 앱을 닫으면 이 픽업으로 돌아오지 못할 수 있어요."
+                persistenceWarning = "연결됐어요. 앱을 닫으면 이 픽업으로 돌아오지 못할 수 있어요."
             }
             if let endpoint = PickupNotificationService.apnsEndpoint {
-                Task { try? await api.registerArrivalPush(joined, endpoint: endpoint) }
+                let registerPush = transport.registerArrivalPush
+                Task { try? await registerPush(joined, endpoint) }
+            }
+            let initialState = try? await fetchPickupState(for: joined)
+            // Flip session and apply initial snapshot in the same turn so PickupView renders populated content directly.
+            session = joined
+            invitation = nil
+            inviteError = persistenceWarning
+            if let initialState {
+                tracker.applyExternal(initialState.0, vehicle: initialState.1)
             }
         } catch {
             showInviteError(error)
@@ -164,13 +221,13 @@ final class PickupViewModel {
         var delaySeconds = 1
         while !Task.isCancelled && session?.id == sessionId {
             guard let currentSession = session, currentSession.id == sessionId else { break }
-            await api.streamEvents(
-                session: currentSession,
-                onState: { [weak self] connected in
+            await transport.streamEvents(
+                currentSession,
+                { [weak self] connected in
                     self?.streamConnected = connected
                     if connected { delaySeconds = 1 }
                 },
-                onRefresh: { [weak self] in
+                { [weak self] in
                     await self?.refresh()
                 }
             )
@@ -195,7 +252,7 @@ final class PickupViewModel {
     func leaveWaiting() async {
         guard let status = tracker.snapshot?.status, status == .inviting || status == .waiting else { return }
         if let active = session {
-            try? await api.leaveWaiting(active)
+            try? await transport.leaveWaiting(active)
         }
         clearGuestSession()
         inviteError = nil
@@ -204,7 +261,7 @@ final class PickupViewModel {
 
     private func clearGuestSession() {
         session = nil
-        PickupSessionStore.clear()
+        transport.clearSession()
         invitation = nil
         placeLabel = nil
         linkUnavailable = false

@@ -295,6 +295,8 @@ struct ContentView: View {
                     .disabled(pickupModel.busy)
                 } else if pickupModel.busy {
                     ProgressView("초대를 확인하고 있어요")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
                 } else {
                     VStack(alignment: .leading, spacing: 10) {
                         MajungStatusPill(

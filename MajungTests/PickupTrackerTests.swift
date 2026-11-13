@@ -373,4 +373,114 @@ final class PickupTrackerTests: XCTestCase {
         XCTAssertNil(tracker.snapshot)
         XCTAssertNil(tracker.vehicle)
     }
+
+    private func makeViewModelTransport(
+        preview: @escaping (PickupInvitation) async throws -> String = { _ in "왕십리역 1번 출구" },
+        join: @escaping (PickupInvitation) async throws -> PickupSession = { invite in
+            PickupSession(id: invite.id, token: "participant-token")
+        },
+        snapshot: @escaping (PickupSession) async throws -> PickupSnapshot,
+        vehicle: @escaping (PickupSession) async throws -> PickupVehicle,
+        saveSession: @escaping (PickupSession) throws -> Void = { _ in },
+        clearSession: @escaping () -> Void = {}
+    ) -> PickupViewModel.Transport {
+        PickupViewModel.Transport(
+            preview: preview,
+            join: join,
+            snapshot: snapshot,
+            vehicle: vehicle,
+            readiness: { _, _, _ in self.makeSnapshot() },
+            propose: { _, _ in self.makeSnapshot() },
+            withdraw: { _ in self.makeSnapshot() },
+            message: { _, _ in self.makeSnapshot() },
+            leaveWaiting: { _ in },
+            registerArrivalPush: { _, _ in },
+            streamEvents: { _, _, _ in },
+            saveSession: saveSession,
+            clearSession: clearSession
+        )
+    }
+
+    func testJoinFetchesInitialSnapshotBeforeSwitchingToPickupPage() async throws {
+        let snapshotStarted = expectation(description: "Initial snapshot started before page transition")
+        var snapshotContinuation: CheckedContinuation<PickupSnapshot, Error>?
+        var savedSessions: [PickupSession] = []
+        let activeSnapshot = makeSnapshot(status: .active, place: initialPlace)
+        let activeVehicle = makeVehicle()
+
+        let viewModel = PickupViewModel(
+            transport: makeViewModelTransport(
+                snapshot: { _ in
+                    try await withCheckedThrowingContinuation { continuation in
+                        snapshotContinuation = continuation
+                        snapshotStarted.fulfill()
+                    }
+                },
+                vehicle: { _ in activeVehicle },
+                saveSession: { savedSessions.append($0) }
+            ),
+            initialSession: nil
+        )
+
+        let inviteURL = "https://majung.cloud/#join/11111111-2222-4333-8444-555555555555/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklm0123"
+        await viewModel.openLink(inviteURL)
+        XCTAssertEqual(viewModel.page, .invitation)
+        XCTAssertEqual(viewModel.placeLabel, "왕십리역 1번 출구")
+
+        let joinTask = Task { await viewModel.join() }
+        await fulfillment(of: [snapshotStarted], timeout: 5)
+
+        // While initial snapshot is in flight, page must remain .invitation instead of showing empty PickupView.
+        XCTAssertEqual(viewModel.page, .invitation)
+        XCTAssertNil(viewModel.tracker.snapshot)
+        XCTAssertEqual(savedSessions.count, 1)
+
+        try XCTUnwrap(snapshotContinuation).resume(returning: activeSnapshot)
+        await joinTask.value
+
+        XCTAssertEqual(viewModel.page, .pickup)
+        XCTAssertEqual(viewModel.tracker.snapshot?.status, .active)
+        XCTAssertEqual(viewModel.tracker.snapshot?.place, initialPlace)
+        XCTAssertEqual(viewModel.tracker.vehicle?.durationSeconds, activeVehicle.durationSeconds)
+        XCTAssertFalse(viewModel.busy)
+    }
+
+    func testJoinFallsBackToPickupPageWhenInitialSnapshotFails() async {
+        let viewModel = PickupViewModel(
+            transport: makeViewModelTransport(
+                snapshot: { _ in throw StubError.networkDown },
+                vehicle: { _ in self.makeVehicle() }
+            ),
+            initialSession: nil
+        )
+
+        let inviteURL = "https://majung.cloud/#join/11111111-2222-4333-8444-555555555555/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklm0123"
+        await viewModel.openLink(inviteURL)
+        await viewModel.join()
+
+        XCTAssertEqual(viewModel.page, .pickup)
+        XCTAssertNotNil(viewModel.session)
+        XCTAssertNil(viewModel.tracker.snapshot)
+    }
+
+    func testJoinWithCompletedSnapshotClearsSessionAndShowsSummary() async {
+        var clearedCount = 0
+        let viewModel = PickupViewModel(
+            transport: makeViewModelTransport(
+                snapshot: { _ in self.makeSnapshot(status: .completed, place: self.initialPlace, vehicleName: "아이오닉 5") },
+                vehicle: { _ in self.makeVehicle() },
+                clearSession: { clearedCount += 1 }
+            ),
+            initialSession: nil
+        )
+
+        let inviteURL = "https://majung.cloud/#join/11111111-2222-4333-8444-555555555555/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklm0123"
+        await viewModel.openLink(inviteURL)
+        await viewModel.join()
+
+        XCTAssertEqual(viewModel.page, .pickup)
+        XCTAssertNil(viewModel.session)
+        XCTAssertEqual(viewModel.tracker.snapshot?.status, .completed)
+        XCTAssertEqual(clearedCount, 1)
+    }
 }

@@ -37,10 +37,15 @@ struct PickupView: View {
                     switch snapshot.status {
                     case .active:
                         if let place = snapshot.place { active(snapshot, place: place) }
-                        else { ProgressView("만날 장소를 확인하고 있어요") }
+                        else { loadingCard("만날 장소를 확인하고 있어요") }
                     case .arrived:
                         if let place = snapshot.place { arrival(snapshot, place: place) }
-                        else { Text("마중 차량이 도착했어요").font(.title2.bold()) }
+                        else {
+                            MajungCard {
+                                Text("마중 차량이 도착했어요")
+                                    .font(.title2.bold())
+                            }
+                        }
                         messages(snapshot)
                     case .completed, .cancelled, .expired, .inviteExpired:
                         finished(snapshot)
@@ -48,9 +53,22 @@ struct PickupView: View {
                         waitingCard(snapshot)
                     }
                 } else if tracker.connectionProblem {
-                    Button("다시 확인") { Task { await tracker.refresh() } }
+                    MajungCard {
+                        Text("픽업 상태를 아직 확인하지 못했어요")
+                            .font(.headline)
+                        Text("네트워크 연결을 확인한 뒤 다시 시도해주세요.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Button {
+                            Task { await tracker.refresh() }
+                        } label: {
+                            Text("다시 확인")
+                                .frame(maxWidth: .infinity, minHeight: 38)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 } else {
-                    ProgressView("픽업을 불러오고 있어요")
+                    loadingCard("픽업을 불러오고 있어요")
                 }
             }
             .padding(16)
@@ -59,6 +77,7 @@ struct PickupView: View {
         .scrollDismissesKeyboard(.interactively)
         .refreshable { await tracker.refresh() }
         .navigationTitle("마중 픽업")
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $editingPlace) {
             if let place = tracker.snapshot?.place {
                 PlaceProposalView(
@@ -481,6 +500,14 @@ struct PickupView: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(Color.green.opacity(0.28), lineWidth: 1)
             }
+        }
+    }
+
+    private func loadingCard(_ message: String) -> some View {
+        MajungCard {
+            ProgressView(message)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 20)
         }
     }
 }

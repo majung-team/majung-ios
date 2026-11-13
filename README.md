@@ -78,8 +78,8 @@ MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
 
 | 분류 | 문서 |
 | --- | --- |
-| **기획 · 디자인** | [Notion 홈](https://app.notion.com/p/4146da9ae26a81f8b525ece0ed1c1962) · [화면 설계와 이용 흐름](https://app.notion.com/p/4146da9ae26a8064b544d805ddc1b578) · [데이터 모델과 ERD](https://app.notion.com/p/4146da9ae26a809b928cffed612504f4) · [로드맵 · 체크리스트](https://app.notion.com/p/4146da9ae26a80d6bb0fe7bab3c929e2) · [Figma 디자인](https://www.figma.com/design/XfEx8dmI2KqQuFZQAtpm0I/Majung?node-id=170-3) |
-| **프로젝트 문서** | [사용 안내 · 기술 회고 (Wiki)](https://github.com/majung-team/majung/wiki) · [개발 현황 및 PR 근거](https://github.com/majung-team/majung/blob/main/docs/development-status.md) · [시스템 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md) · [기여 가이드](CONTRIBUTING.md) |
+| **기획&nbsp;·&nbsp;디자인** | [Notion 홈](https://app.notion.com/p/4146da9ae26a81f8b525ece0ed1c1962) · [화면 설계와 이용 흐름](https://app.notion.com/p/4146da9ae26a8064b544d805ddc1b578) · [데이터 모델과 ERD](https://app.notion.com/p/4146da9ae26a809b928cffed612504f4)<br>[로드맵 · 체크리스트](https://app.notion.com/p/4146da9ae26a80d6bb0fe7bab3c929e2) · [Figma 디자인](https://www.figma.com/design/XfEx8dmI2KqQuFZQAtpm0I/Majung?node-id=170-3) |
+| **프로젝트&nbsp;문서** | [사용 안내 · 기술 회고 (Wiki)](https://github.com/majung-team/majung/wiki) · [개발 현황 및 PR 근거](https://github.com/majung-team/majung/blob/main/docs/development-status.md)<br>[시스템 아키텍처](https://github.com/majung-team/majung/blob/main/docs/architecture.md) · [기여 가이드](CONTRIBUTING.md) |
 
 | 저장소 | 역할 |
 | --- | --- |

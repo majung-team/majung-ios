@@ -29,6 +29,7 @@ struct PickupLiveActivityAttributes: ActivityAttributes {
         let durationSeconds: Int?
         let countdownStartDate: Date?
         let estimatedArrivalDate: Date?
+        let vehicleFreshUntil: Date?
         let passengerReady: Bool
         let updatedAt: Date
 
@@ -60,6 +61,8 @@ struct PickupLiveActivityAttributes: ActivityAttributes {
             guard phase == .approaching,
                   let start = countdownStartDate,
                   let end = estimatedArrivalDate,
+                  let freshUntil = vehicleFreshUntil,
+                  freshUntil > now,
                   end > now,
                   start < end else {
                 return nil

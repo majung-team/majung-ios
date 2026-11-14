@@ -61,6 +61,7 @@ final class LocalE2EServer {
     private var guestReadinessReceivedSeq = 0
     private var guestProposal: (label: String, lat: Double, lng: Double)?
     private var guestQuickMessage: String?
+    private var staleVehicle = false
     private var rejectNextGuestProposal = false
 
     private var rideRequests: [RequestItemModel] = []
@@ -119,6 +120,7 @@ final class LocalE2EServer {
         guestReadinessReceivedSeq = 0
         guestProposal = nil
         guestQuickMessage = nil
+        staleVehicle = false
         rejectNextGuestProposal = false
 
         memberPickupStatus = "ACTIVE"
@@ -214,6 +216,13 @@ final class LocalE2EServer {
     func setGuestPhase(_ phase: GuestPhase) {
         lock.lock()
         guestPhase = phase
+        lock.unlock()
+        pushSSEChanged()
+    }
+
+    func setVehicleStale(_ stale: Bool) {
+        lock.lock()
+        staleVehicle = stale
         lock.unlock()
         pushSSEChanged()
     }
@@ -608,11 +617,11 @@ final class LocalE2EServer {
     private func vehicleJSON() -> String {
         """
         {
-          "freshness": "FRESH",
+          "freshness": "\(staleVehicle ? "STALE" : "FRESH")",
           "latitude": 37.3120,
           "longitude": 126.9410,
           "durationSeconds": 240,
-          "validForMillis": 15000,
+          "validForMillis": \(staleVehicle ? 0 : 15000),
           "ageMillis": 2000,
           "placeVersion": 1
         }

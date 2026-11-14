@@ -20,14 +20,15 @@ struct MajungPickupLiveActivityWidget: Widget {
                 .activityBackgroundTint(Color.black.opacity(0.84))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
-            let accent = context.state.phase == .arrived ? arrivedGreen : brandBlue
+            let stale = context.isStale || context.state.vehicleFreshUntil == nil
+            let accent = stale ? Color.secondary : (context.state.phase == .arrived ? arrivedGreen : brandBlue)
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 5) {
                         Image(systemName: context.state.phase == .arrived ? "checkmark.circle.fill" : "car.fill")
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(accent)
-                        Text(context.state.phase.shortBadgeText)
+                        Text(stale ? "갱신 필요" : context.state.phase.shortBadgeText)
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(.white)
                             .lineLimit(1)
@@ -36,7 +37,11 @@ struct MajungPickupLiveActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Group {
-                        if context.state.phase == .arrived {
+                        if stale {
+                            Text("앱 열어 확인")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        } else if context.state.phase == .arrived {
                             Text("정차 완료")
                                 .font(.subheadline.weight(.bold))
                                 .foregroundStyle(arrivedGreen)
@@ -77,7 +82,7 @@ struct MajungPickupLiveActivityWidget: Widget {
                                 .foregroundStyle(.white.opacity(0.85))
                                 .lineLimit(1)
                             Spacer(minLength: 6)
-                            Text(context.state.etaSummaryText)
+                            Text(stale ? "앱을 열어 최신 정보를 확인해주세요" : context.state.etaSummaryText)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -95,7 +100,11 @@ struct MajungPickupLiveActivityWidget: Widget {
                         .font(.caption2.weight(.bold))
                 }
             } compactTrailing: {
-                if context.state.phase == .arrived {
+                if stale {
+                    Text("갱신 필요")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                } else if context.state.phase == .arrived {
                     Text("도착")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(arrivedGreen)
@@ -112,7 +121,7 @@ struct MajungPickupLiveActivityWidget: Widget {
                         .foregroundStyle(.secondary)
                 }
             } minimal: {
-                Image(systemName: context.state.phase == .arrived ? "checkmark.circle.fill" : "car.fill")
+                Image(systemName: stale ? "arrow.clockwise" : (context.state.phase == .arrived ? "checkmark.circle.fill" : "car.fill"))
                     .foregroundStyle(accent)
             }
             .widgetURL(PickupLiveActivityAttributes.deepLinkURL(pickupId: context.attributes.pickupId))
@@ -122,7 +131,8 @@ struct MajungPickupLiveActivityWidget: Widget {
 
     @ViewBuilder
     private func lockScreenView(context: ActivityViewContext<PickupLiveActivityAttributes>) -> some View {
-        let accent = context.state.phase == .arrived ? arrivedGreen : brandBlue
+        let stale = context.isStale || context.state.vehicleFreshUntil == nil
+        let accent = stale ? Color.secondary : (context.state.phase == .arrived ? arrivedGreen : brandBlue)
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: context.state.phase == .arrived ? "checkmark.circle.fill" : "car.fill")
@@ -133,7 +143,7 @@ struct MajungPickupLiveActivityWidget: Widget {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 Spacer()
-                Text(context.state.phase.shortBadgeText)
+                Text(stale ? "갱신 필요" : context.state.phase.shortBadgeText)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(accent)
                     .padding(.horizontal, 8)
@@ -150,7 +160,11 @@ struct MajungPickupLiveActivityWidget: Widget {
                     .foregroundStyle(.white)
                     .lineLimit(1)
                 Spacer()
-                if context.state.phase == .arrived {
+                if stale {
+                    Text("앱 열어 확인")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                } else if context.state.phase == .arrived {
                     Text("정차 완료")
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(arrivedGreen)
@@ -164,7 +178,7 @@ struct MajungPickupLiveActivityWidget: Widget {
             }
 
             HStack(spacing: 8) {
-                Text(context.state.etaSummaryText)
+                Text(stale ? "앱을 열어 최신 정보를 확인해주세요" : context.state.etaSummaryText)
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.78))
                     .lineLimit(1)

@@ -324,6 +324,203 @@ final class MajungE2EUITests: XCTestCase {
         closeBtn.tap()
     }
 
+    private func waitForKeyboardDismissed(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let keyboardGone = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.keyboards.firstMatch
+        )
+        let dismissGone = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.buttons["키보드 닫기"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [keyboardGone, dismissGone], timeout: 5), .completed, file: file, line: line)
+    }
+
+    private func revealElement(_ element: XCUIElement, in app: XCUIApplication) {
+        XCTAssertTrue(element.waitForExistence(timeout: 5))
+        for _ in 0..<6 where !element.isHittable {
+            if element.frame.minY < app.frame.midY {
+                app.swipeDown()
+            } else {
+                app.swipeUp()
+            }
+        }
+        XCTAssertTrue(element.isHittable)
+    }
+
+    func test09KeyboardGlassDismissAndCancelConsistency() throws {
+        let server = try startServer()
+        server.setAccountMode(.unauthenticated)
+
+        let loginApp = launchApp(port: server.port)
+        XCTAssertTrue(loginApp.buttons["kakao-login-button"].waitForExistence(timeout: 8))
+
+        let dividerText = loginApp.staticTexts["또는 비로그인 초대 참여"]
+        XCTAssertTrue(dividerText.waitForExistence(timeout: 5))
+        XCTAssertLessThan(dividerText.frame.height, 26)
+        attachScreenshot(named: "07-login-divider-single-line")
+
+        let loginInviteField = loginApp.textFields["마중 초대 링크"]
+        XCTAssertTrue(loginInviteField.waitForExistence(timeout: 5))
+        loginInviteField.tap()
+        XCTAssertTrue(loginApp.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(loginApp.buttons["키보드 닫기"].waitForExistence(timeout: 5))
+        attachScreenshot(named: "07-login-keyboard-glass-dismiss")
+
+        loginApp.staticTexts["전달받은 마중 초대 링크가 있나요?"].tap()
+        waitForKeyboardDismissed(in: loginApp)
+
+        loginInviteField.tap()
+        XCTAssertTrue(loginApp.keyboards.firstMatch.waitForExistence(timeout: 5))
+        loginInviteField.typeText("https://majung.cloud/#join/test")
+        let loginClearBtn = loginApp.buttons["초대 링크 지우기"]
+        XCTAssertTrue(loginClearBtn.waitForExistence(timeout: 3))
+        loginClearBtn.tap()
+        XCTAssertTrue(loginApp.keyboards.firstMatch.exists)
+        loginInviteField.typeText("\n")
+        waitForKeyboardDismissed(in: loginApp)
+
+        server.setAccountMode(.ready)
+        let app = launchApp(port: server.port)
+        XCTAssertTrue(app.buttons["home-open-tracking-button"].waitForExistence(timeout: 8))
+
+        app.tabBars.buttons["설정"].firstMatch.tap()
+        let nicknameField = app.textFields["settings-nickname-field"]
+        XCTAssertTrue(nicknameField.waitForExistence(timeout: 5))
+        nicknameField.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["키보드 닫기"].waitForExistence(timeout: 5))
+        attachScreenshot(named: "07-settings-keyboard-glass-dismiss")
+
+        // Tap non-interactive profile label in Form -> dismisses keyboard
+        app.staticTexts["이름"].firstMatch.tap()
+        waitForKeyboardDismissed(in: app)
+
+        // Clear button preserves active keyboard; empty Return dismisses cleanly
+        nicknameField.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let clearNicknameBtn = app.buttons["닉네임 지우기"]
+        XCTAssertTrue(clearNicknameBtn.waitForExistence(timeout: 3))
+        clearNicknameBtn.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        nicknameField.typeText("\n")
+        waitForKeyboardDismissed(in: app)
+
+        // Scroll in Form immediately dismisses keyboard
+        nicknameField.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        app.swipeDown()
+        waitForKeyboardDismissed(in: app)
+
+        // Switching tabs dismisses keyboard
+        nicknameField.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        app.tabBars.buttons["사람"].tap()
+        waitForKeyboardDismissed(in: app)
+
+        // People search: invalid 1-char Return still dismisses keyboard; Glass dismiss works too
+        let peopleSearch = app.textFields["people-search-field"]
+        XCTAssertTrue(peopleSearch.waitForExistence(timeout: 5))
+        peopleSearch.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        peopleSearch.typeText("김\n")
+        waitForKeyboardDismissed(in: app)
+
+        peopleSearch.tap()
+        XCTAssertTrue(app.buttons["키보드 닫기"].waitForExistence(timeout: 5))
+        app.buttons["검색어 지우기"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        peopleSearch.typeText("김민수")
+        app.buttons["키보드 닫기"].tap()
+        waitForKeyboardDismissed(in: app)
+        app.buttons["people-search-button"].tap()
+        XCTAssertTrue(app.buttons["people-search-ride-minsu_car"].waitForExistence(timeout: 5))
+        app.buttons["people-search-ride-minsu_car"].tap()
+        XCTAssertTrue(app.navigationBars["만날 장소 선택"].waitForExistence(timeout: 5))
+
+        // PlaceComposerView: search focus -> map select clears keyboard; multiline label gets Glass dismiss
+        let placeSearch = app.textFields["ride-place-search-field"]
+        XCTAssertTrue(placeSearch.waitForExistence(timeout: 5))
+        placeSearch.tap()
+        XCTAssertTrue(app.buttons["키보드 닫기"].waitForExistence(timeout: 5))
+        app.buttons["ride-place-map-select"].tap()
+        waitForKeyboardDismissed(in: app)
+
+        let placeLabel = app.textFields["ride-place-label-field"]
+        revealElement(placeLabel, in: app)
+        placeLabel.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["키보드 닫기"].waitForExistence(timeout: 5))
+        placeLabel.typeText("정문 앞")
+        attachScreenshot(named: "07-place-label-keyboard-glass-dismiss")
+        app.buttons["키보드 닫기"].tap()
+        waitForKeyboardDismissed(in: app)
+        app.buttons["닫기"].tap()
+
+        // VehicleQRScannerSheet: unified Glass dismiss + outside tap
+        app.tabBars.buttons["설정"].firstMatch.tap()
+        let connectBtn = app.buttons["vehicle-connect-button"]
+        revealElement(connectBtn, in: app)
+        connectBtn.tap()
+        XCTAssertTrue(app.navigationBars["차량 QR 연결"].waitForExistence(timeout: 5))
+        let qrField = app.textFields["vehicle-qr-link-field"]
+        revealElement(qrField, in: app)
+        qrField.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["키보드 닫기"].waitForExistence(timeout: 5))
+        app.staticTexts["연결 링크 직접 입력"].tap()
+        waitForKeyboardDismissed(in: app)
+        app.buttons["닫기"].tap()
+    }
+
+    func test09bNicknameSetupAndPickupKeyboardConsistency() throws {
+        let server = try startServer()
+        server.setAccountMode(.needsNickname)
+
+        let setupApp = launchApp(port: server.port)
+        let setupField = setupApp.textFields["nickname-setup-field"]
+        XCTAssertTrue(setupField.waitForExistence(timeout: 8))
+        setupField.tap()
+        XCTAssertTrue(setupApp.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(setupApp.buttons["키보드 닫기"].waitForExistence(timeout: 5))
+        setupField.typeText("ㄱ\n")
+        waitForKeyboardDismissed(in: setupApp)
+
+        setupField.tap()
+        XCTAssertTrue(setupApp.keyboards.firstMatch.waitForExistence(timeout: 5))
+        setupField.typeText("테스터")
+        let clearSetupBtn = setupApp.buttons["닉네임 지우기"]
+        XCTAssertTrue(clearSetupBtn.waitForExistence(timeout: 3))
+        clearSetupBtn.tap()
+        XCTAssertTrue(setupApp.keyboards.firstMatch.exists)
+        setupApp.buttons["키보드 닫기"].tap()
+        waitForKeyboardDismissed(in: setupApp)
+
+        server.setAccountMode(.ready)
+        let app = launchApp(port: server.port)
+        let trackingBtn = app.buttons["home-open-tracking-button"]
+        XCTAssertTrue(trackingBtn.waitForExistence(timeout: 8))
+        trackingBtn.tap()
+        XCTAssertTrue(app.navigationBars["마중 픽업"].waitForExistence(timeout: 6))
+
+        let msgField = app.textFields["직접 메시지 입력 (최대 50자)"]
+        revealElement(msgField, in: app)
+        msgField.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["키보드 닫기"].waitForExistence(timeout: 5))
+
+        // Quick preset chip clears focus; clear button preserves focus; Glass dismiss closes keyboard
+        app.buttons["지금 내려가요"].tap()
+        waitForKeyboardDismissed(in: app)
+
+        msgField.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        app.buttons["메시지 지우기"].tap()
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        app.buttons["키보드 닫기"].tap()
+        waitForKeyboardDismissed(in: app)
+    }
+
     func test03SettingsVehicleQRPairingPollDetachAndLogout() throws {
         let server = try startServer()
         server.setAccountMode(.ready)

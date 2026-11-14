@@ -27,14 +27,7 @@ struct LoginEntryView: View {
         .navigationTitle("마중")
         .navigationBarTitleDisplayMode(.inline)
         .majungGuideToolbar(isPresented: $showingGuide, accessibilityIdentifier: "login-guide-button")
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("키보드 닫기") {
-                    inviteFieldFocused = false
-                }
-            }
-        }
+        .majungKeyboardDismiss(isFocused: $inviteFieldFocused)
     }
 
     private var header: some View {

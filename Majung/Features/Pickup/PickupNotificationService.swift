@@ -24,9 +24,27 @@ final class PickupNotificationService {
     private(set) var permissionDenied = false
     private(set) var statusNote: String?
     private var sentEventKeys: Set<String> = []
+    private var trackedIdentifiers: Set<String> = []
+    private var deliveryTasks: [String: Task<Void, Never>] = [:]
+    private let defaults: UserDefaults
+    private let addNotification: (UNNotificationRequest) async -> Void
+    private let removeNotifications: ([String]) -> Void
 
-    init() {
-        enabled = UserDefaults.standard.bool(forKey: StorageKey.enabled)
+    init(
+        defaults: UserDefaults = .standard,
+        addNotification: @escaping (UNNotificationRequest) async -> Void = {
+            try? await UNUserNotificationCenter.current().add($0)
+        },
+        removeNotifications: @escaping ([String]) -> Void = {
+            let center = UNUserNotificationCenter.current()
+            center.removePendingNotificationRequests(withIdentifiers: $0)
+            center.removeDeliveredNotifications(withIdentifiers: $0)
+        }
+    ) {
+        self.defaults = defaults
+        self.addNotification = addNotification
+        self.removeNotifications = removeNotifications
+        enabled = defaults.bool(forKey: StorageKey.enabled)
     }
 
     func refreshStatus() async {
@@ -35,7 +53,8 @@ final class PickupNotificationService {
         case .denied:
             permissionDenied = true
             enabled = false
-            UserDefaults.standard.set(false, forKey: StorageKey.enabled)
+            defaults.set(false, forKey: StorageKey.enabled)
+            clearNotifications(identifiers: Array(trackedIdentifiers))
         case .authorized, .provisional, .ephemeral:
             permissionDenied = false
         case .notDetermined:
@@ -49,7 +68,8 @@ final class PickupNotificationService {
         statusNote = nil
         if !wantOn {
             enabled = false
-            UserDefaults.standard.set(false, forKey: StorageKey.enabled)
+            defaults.set(false, forKey: StorageKey.enabled)
+            clearNotifications(identifiers: Array(trackedIdentifiers))
             return
         }
 
@@ -59,7 +79,7 @@ final class PickupNotificationService {
         case .authorized, .provisional, .ephemeral:
             permissionDenied = false
             enabled = true
-            UserDefaults.standard.set(true, forKey: StorageKey.enabled)
+            defaults.set(true, forKey: StorageKey.enabled)
             UIApplication.shared.registerForRemoteNotifications()
             statusNote = Self.apnsEndpoint != nil
                 ? "도착 약 3분 전과 차량 도착 시 푸시 및 로컬 알림으로 알려드려요."
@@ -70,7 +90,7 @@ final class PickupNotificationService {
                 if granted {
                     permissionDenied = false
                     enabled = true
-                    UserDefaults.standard.set(true, forKey: StorageKey.enabled)
+                    defaults.set(true, forKey: StorageKey.enabled)
                     UIApplication.shared.registerForRemoteNotifications()
                     statusNote = Self.apnsEndpoint != nil
                         ? "도착 약 3분 전과 차량 도착 시 푸시 및 로컬 알림으로 알려드려요."
@@ -89,8 +109,16 @@ final class PickupNotificationService {
     }
 
     func evaluate(snapshot: PickupSnapshot?, vehicle: PickupVehicle?) {
-        guard enabled, let snapshot else { return }
+        guard let snapshot else { return }
         let pickupKey = snapshot.pickupId?.uuidString.lowercased() ?? snapshot.place?.label ?? "active"
+        let approachingIdentifier = "majung.approaching-\(pickupKey)"
+        let arrivedIdentifier = "majung.arrived-\(pickupKey)"
+        trackedIdentifiers.formUnion([approachingIdentifier, arrivedIdentifier])
+        if snapshot.status.ended {
+            clearNotifications(identifiers: Array(trackedIdentifiers))
+            return
+        }
+        guard enabled else { return }
         let placeLabel = snapshot.place?.label ?? "만날 장소"
         let vehicleLabel: String = if let name = snapshot.vehicleName?.trimmingCharacters(in: .whitespacesAndNewlines),
                                        !name.isEmpty {
@@ -113,6 +141,7 @@ final class PickupNotificationService {
                 )
             }
         case .arrived:
+            clearNotifications(identifiers: [approachingIdentifier])
             let key = "arrived-\(pickupKey)"
             guard !sentEventKeys.contains(key) else { return }
             sentEventKeys.insert(key)
@@ -129,7 +158,8 @@ final class PickupNotificationService {
     private func markDenied() {
         permissionDenied = true
         enabled = false
-        UserDefaults.standard.set(false, forKey: StorageKey.enabled)
+        defaults.set(false, forKey: StorageKey.enabled)
+        clearNotifications(identifiers: Array(trackedIdentifiers))
         statusNote = "알림 권한이 꺼져 있어요. 기기 설정에서 마중 알림을 허용해주세요."
     }
 
@@ -138,8 +168,22 @@ final class PickupNotificationService {
         content.title = title
         content.body = body
         content.sound = .default
-        let request = UNNotificationRequest(identifier: "majung.\(id)", content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request)
+        let identifier = "majung.\(id)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        deliveryTasks[identifier] = Task {
+            await addNotification(request)
+            // Registration can finish after a terminal event has already removed the alert.
+            if Task.isCancelled { removeNotifications([identifier]) }
+            deliveryTasks.removeValue(forKey: identifier)
+        }
+    }
+
+    private func clearNotifications(identifiers: [String]) {
+        for identifier in identifiers {
+            deliveryTasks.removeValue(forKey: identifier)?.cancel()
+        }
+        trackedIdentifiers.subtract(identifiers)
+        removeNotifications(identifiers)
     }
 
     #if DEBUG

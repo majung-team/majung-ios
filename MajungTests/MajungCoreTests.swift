@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import XCTest
+import UserNotifications
 @testable import Majung
 
 final class MajungCoreTests: XCTestCase {
@@ -546,6 +547,93 @@ final class MajungCoreTests: XCTestCase {
     }
 
     // MARK: - Solo Demo Mode & Server Switching
+
+    @MainActor
+    func testEndedPickupClearsItsAlertsEvenWhenNotificationsAreDisabled() {
+        let name = "notification-test-\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        var removals: [String] = []
+        let service = PickupNotificationService(defaults: defaults, addNotification: { _ in
+            XCTFail("Ended pickups must not send alerts")
+        }, removeNotifications: { removals.append(contentsOf: $0) })
+        let id = UUID()
+        for status in [PickupSnapshot.Status.completed, .cancelled, .expired, .inviteExpired] {
+            removals.removeAll()
+            service.evaluate(snapshot: notificationSnapshot(id: id, status: status), vehicle: nil)
+            XCTAssertEqual(Set(removals), Set([
+                "majung.approaching-\(id.uuidString.lowercased())",
+                "majung.arrived-\(id.uuidString.lowercased())"
+            ]))
+        }
+    }
+
+    @MainActor
+    func testArrivalAndDisablingAlertsRemovePreviousPickupNotifications() async {
+        let name = "notification-test-\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(true, forKey: "majung.arrivalAlertEnabled")
+        let approachingAdded = expectation(description: "Approaching alert added")
+        let arrivedAdded = expectation(description: "Arrived alert added")
+        var removals: [String] = []
+        let service = PickupNotificationService(defaults: defaults, addNotification: { request in
+            if request.identifier.hasPrefix("majung.approaching-") { approachingAdded.fulfill() }
+            else { arrivedAdded.fulfill() }
+        }, removeNotifications: { removals.append(contentsOf: $0) })
+        let id = UUID()
+        service.evaluate(snapshot: notificationSnapshot(id: id, status: .active), vehicle: notificationVehicle())
+        await fulfillment(of: [approachingAdded], timeout: 2)
+        service.evaluate(snapshot: notificationSnapshot(id: id, status: .arrived), vehicle: nil)
+        await fulfillment(of: [arrivedAdded], timeout: 2)
+        XCTAssertTrue(removals.contains("majung.approaching-\(id.uuidString.lowercased())"))
+        await service.setEnabled(false)
+        XCTAssertTrue(removals.contains("majung.arrived-\(id.uuidString.lowercased())"))
+        XCTAssertFalse(service.enabled)
+    }
+
+    @MainActor
+    func testAlertRegistrationFinishingAfterCancellationIsRemovedAgain() async {
+        let name = "notification-test-\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(true, forKey: "majung.arrivalAlertEnabled")
+        let started = expectation(description: "Alert registration suspended")
+        let lateAlertRemoved = expectation(description: "Late alert removed after registration finishes")
+        var continuation: CheckedContinuation<Void, Never>?
+        var registrationFinished = false
+        var removals: [String] = []
+        let service = PickupNotificationService(defaults: defaults, addNotification: { _ in
+            await withCheckedContinuation {
+                continuation = $0
+                started.fulfill()
+            }
+            registrationFinished = true
+        }, removeNotifications: {
+            removals.append(contentsOf: $0)
+            if registrationFinished { lateAlertRemoved.fulfill() }
+        })
+        let id = UUID()
+        let approaching = "majung.approaching-\(id.uuidString.lowercased())"
+        service.evaluate(snapshot: notificationSnapshot(id: id, status: .active), vehicle: notificationVehicle())
+        await fulfillment(of: [started], timeout: 2)
+        service.evaluate(snapshot: notificationSnapshot(id: id, status: .cancelled), vehicle: nil)
+        XCTAssertTrue(removals.contains(approaching))
+        continuation?.resume()
+        await fulfillment(of: [lateAlertRemoved], timeout: 2)
+        XCTAssertEqual(removals.filter { $0 == approaching }.count, 2)
+    }
+
+    private func notificationSnapshot(id: UUID, status: PickupSnapshot.Status) -> PickupSnapshot {
+        PickupSnapshot(pickupId: id, status: status,
+                       place: PickupPlace(label: "시험 장소", latitude: 37.5, longitude: 127.0),
+                       placeVersion: 0, participant: nil, placeProposal: nil, quickMessage: nil, vehicleName: nil)
+    }
+
+    private func notificationVehicle() -> PickupVehicle {
+        PickupVehicle(freshness: "FRESH", latitude: nil, longitude: nil, durationSeconds: 60,
+                      validForMillis: 10000, ageMillis: 0, placeVersion: 0)
+    }
 
     @MainActor
     func testSoloDemoServerSupportsAccountsLoginPlacesRequestsAndVehicleTick() async throws {

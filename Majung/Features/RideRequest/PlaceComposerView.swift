@@ -36,9 +36,14 @@ struct PlaceComposerView<Header: View>: View {
     @State private var labelDraft = ""
     @State private var localError: String?
 
+    private enum ComposerField: Hashable {
+        case search
+        case label
+    }
+
     @State private var mapPosition: MapCameraPosition
     @State private var mapCenter: CLLocationCoordinate2D
-    @FocusState private var searchFocused: Bool
+    @FocusState private var focusedField: ComposerField?
 
     private let pageSize = 5
 
@@ -124,6 +129,7 @@ struct PlaceComposerView<Header: View>: View {
                 .padding(16)
             }
             .background(Color(.systemGroupedBackground))
+            .majungKeyboardDismiss(focusedField: $focusedField)
         }
     }
 
@@ -135,31 +141,20 @@ struct PlaceComposerView<Header: View>: View {
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
                     TextField("예: 강남역 2번 출구, 서울역", text: $searchQuery)
-                        .focused($searchFocused)
+                        .focused($focusedField, equals: .search)
                         .submitLabel(.search)
                         .onSubmit {
-                            searchFocused = false
+                            focusedField = nil
                             Task { await performSearch() }
                         }
                         .accessibilityIdentifier("\(idPrefix)-place-search-field")
 
-                    if !searchQuery.isEmpty {
-                        Button {
-                            searchQuery = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("장소 검색어 지우기")
-                    }
+                    MajungClearInputButton(text: $searchQuery, accessibilityLabel: "장소 검색어 지우기")
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                .majungInputSurface()
 
                 Button(searching ? "검색 중…" : "장소 찾기") {
-                    searchFocused = false
+                    focusedField = nil
                     Task { await performSearch() }
                 }
                 .buttonStyle(.borderedProminent)
@@ -169,7 +164,7 @@ struct PlaceComposerView<Header: View>: View {
             }
 
             Button {
-                searchFocused = false
+                focusedField = nil
                 Task { await useCurrentLocation(onSelected: onSelected) }
             } label: {
                 Label(locationService.locating ? "현재 위치 확인 중…" : "현재 위치 선택", systemImage: "location.fill")
@@ -205,6 +200,7 @@ struct PlaceComposerView<Header: View>: View {
                             return false
                         }()
                         Button {
+                            focusedField = nil
                             chooseSearchResult(candidate: candidate, place: place)
                             onSelected()
                         } label: {
@@ -249,7 +245,10 @@ struct PlaceComposerView<Header: View>: View {
 
                     if totalPages > 1 || canAdvanceNextPage {
                         HStack {
-                            Button("이전 결과") { searchPage = max(0, searchPage - 1) }
+                            Button("이전 결과") {
+                                focusedField = nil
+                                searchPage = max(0, searchPage - 1)
+                            }
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
                                 .disabled(searchPage == 0 || searching)
@@ -260,6 +259,7 @@ struct PlaceComposerView<Header: View>: View {
                                 .foregroundStyle(.secondary)
                             Spacer()
                             Button(searching ? "불러오는 중…" : "다음 결과") {
+                                focusedField = nil
                                 Task { await advanceSearchPage() }
                             }
                             .buttonStyle(.bordered)
@@ -298,7 +298,7 @@ struct PlaceComposerView<Header: View>: View {
             .clipShape(RoundedRectangle(cornerRadius: 12))
 
             Button("지도 중심을 만날 장소로 선택") {
-                searchFocused = false
+                focusedField = nil
                 chooseMapCenter()
                 onSelected()
             }
@@ -315,13 +315,17 @@ struct PlaceComposerView<Header: View>: View {
 
             selectionSummary
 
-            TextField("예: 1번 출구 택시 승강장 앞 (1~120자)", text: $labelDraft, axis: .vertical)
-                .lineLimit(2...4)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-                .onChange(of: labelDraft) { _, _ in onSelectionChanged() }
-                .accessibilityIdentifier("\(idPrefix)-place-label-field")
+            HStack(alignment: .top, spacing: 8) {
+                TextField("예: 1번 출구 택시 승강장 앞 (1~120자)", text: $labelDraft, axis: .vertical)
+                    .focused($focusedField, equals: .label)
+                    .lineLimit(2...4)
+                    .onChange(of: labelDraft) { _, _ in onSelectionChanged() }
+                    .accessibilityIdentifier("\(idPrefix)-place-label-field")
+
+                MajungClearInputButton(text: $labelDraft, accessibilityLabel: "장소 설명 지우기")
+                    .padding(.top, 2)
+            }
+            .majungInputSurface()
 
             HStack {
                 Text("\(trimmedLabel.count)/120자")
@@ -338,6 +342,7 @@ struct PlaceComposerView<Header: View>: View {
             }
 
             Button {
+                focusedField = nil
                 Task { await submit() }
             } label: {
                 Text(busy ? busySubmitLabel : submitLabel)

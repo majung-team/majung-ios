@@ -61,6 +61,7 @@ struct PeopleTabView: View {
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle("사람")
+        .majungKeyboardDismiss(isFocused: $searchFocused)
         .refreshable {
             await people.loadConnections(page: people.connectionPage)
         }
@@ -94,6 +95,7 @@ struct PeopleTabView: View {
                     .font(.headline.monospaced())
                 Spacer()
                 Button(copiedId ? "복사됨" : "ID 복사") {
+                    searchFocused = false
                     UIPasteboard.general.string = member.majungId
                     copiedId = true
                     Task {
@@ -121,27 +123,16 @@ struct PeopleTabView: View {
                         .autocorrectionDisabled()
                         .submitLabel(.search)
                         .onSubmit {
+                            searchFocused = false
                             if canSearch {
-                                searchFocused = false
                                 Task { await people.search(queryDraft, page: 0) }
                             }
                         }
                         .accessibilityIdentifier("people-search-field")
 
-                    if !queryDraft.isEmpty {
-                        Button {
-                            queryDraft = ""
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("검색어 지우기")
-                    }
+                    MajungClearInputButton(text: $queryDraft, accessibilityLabel: "검색어 지우기")
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                .majungInputSurface()
 
                 Button(people.busy ? "검색 중…" : "검색") {
                     searchFocused = false
@@ -377,19 +368,25 @@ struct PeopleTabView: View {
 
     private func pager(page: Int, hasNext: Bool, onPrevious: @escaping () -> Void, onNext: @escaping () -> Void) -> some View {
         HStack {
-            Button("이전", action: onPrevious)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(page == 0 || people.busy || people.loadingConnections)
+            Button("이전") {
+                searchFocused = false
+                onPrevious()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(page == 0 || people.busy || people.loadingConnections)
             Spacer()
             Text("\(page + 1) 페이지")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Spacer()
-            Button("다음", action: onNext)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(!hasNext || people.busy || people.loadingConnections)
+            Button("다음") {
+                searchFocused = false
+                onNext()
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(!hasNext || people.busy || people.loadingConnections)
         }
         .padding(.top, 4)
     }

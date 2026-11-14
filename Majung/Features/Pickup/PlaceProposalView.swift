@@ -44,8 +44,11 @@ struct PlaceProposalView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
-                        .disabled(tracker.busy)
+                    Button("닫기") {
+                        dismissMajungKeyboard()
+                        dismiss()
+                    }
+                    .disabled(tracker.busy)
                 }
             }
             .onAppear {

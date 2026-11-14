@@ -224,8 +224,9 @@ final class PickupLiveActivityService {
         pickupKey: String,
         state: PickupLiveActivityAttributes.ContentState
     ) async {
-        let staleDate = state.vehicleFreshUntil ?? state.updatedAt
-        let content = ActivityContent(state: state, staleDate: staleDate)
+        // Missing vehicle data is shown as needing refresh by the widget itself.
+        // Starting with a past staleDate can suppress the initial Dynamic Island view.
+        let content = ActivityContent(state: state, staleDate: state.vehicleFreshUntil)
 
         var matchedExisting = false
         for activity in Activity<PickupLiveActivityAttributes>.activities {

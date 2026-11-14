@@ -441,7 +441,6 @@ final class MajungE2EUITests: XCTestCase {
     }
 
 
-    /// Explicit production rehearsal only. CI uses the local-server scenarios above.
     func test07StaleLiveActivityShowsRefreshHintAndOpensPickup() throws {
         let server = try startServer()
         server.setAccountMode(.unauthenticated)
@@ -477,6 +476,41 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 8), .completed)
     }
 
+    func test08InitialStaleLiveActivityShowsRefreshHintAndOpensPickup() throws {
+        let server = try startServer()
+        server.setAccountMode(.unauthenticated)
+        let app = launchApp(port: server.port)
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 8))
+        submitInviteLink("https://majung.cloud/#join/\(server.pickupId)/\(server.inviteCode)", in: app)
+        XCTAssertTrue(app.buttons["약속에 참여하기"].waitForExistence(timeout: 8))
+        app.buttons["약속에 참여하기"].tap()
+        XCTAssertTrue(app.buttons["pickup-waiting-refresh-button"].waitForExistence(timeout: 8))
+        server.setVehicleStale(true)
+        server.setGuestPhase(.active)
+        XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["pickup-retry-vehicle-button"].waitForExistence(timeout: 8))
+
+        sleep(3)
+        XCUIDevice.shared.press(.home)
+        sleep(2)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.025)).press(forDuration: 0.9)
+        let refreshHint = springboard.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", "갱신 필요")).firstMatch
+        let staleVisible = refreshHint.waitForExistence(timeout: 15)
+        attachScreenshot(named: "pickup-live-activity-initial-stale")
+        XCTAssertTrue(staleVisible)
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 6))
+        XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
+        server.setGuestPhase(.completed)
+        XCTAssertTrue(app.staticTexts["잘 만났어요!"].waitForExistence(timeout: 8))
+        XCUIDevice.shared.press(.home)
+        let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: refreshHint)
+        XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 8), .completed)
+    }
+
+    /// Explicit production rehearsal only. CI uses the local-server scenarios above.
     func test10LiveVehicleRoundTrip() throws {
         #if !targetEnvironment(simulator)
         throw XCTSkip("운영 연동 자동 검사는 iPhone 시뮬레이터에서만 실행")

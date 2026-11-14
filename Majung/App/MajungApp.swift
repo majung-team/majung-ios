@@ -30,7 +30,8 @@ private final class MajungNotificationDelegate: NSObject, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        // The foreground pickup screen already shows status; a system banner can outlive it.
+        [.sound]
     }
 }
 

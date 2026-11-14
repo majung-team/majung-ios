@@ -28,6 +28,7 @@
 - **실시간 위치 · 소통**: 실시간 연결(SSE)로 차량 위치와 도착 예정 시간을 받아보고, 탑승 준비 상태·빠른 메시지 전달 및 만날 장소 변경을 제안합니다.
 
 ### 알림 · 화면 테마
+- **다이나믹 아일랜드 · 잠금화면 실시간 현황**: 픽업 중 앱을 나가도 다이나믹 아일랜드와 잠금화면(`ActivityKit` · `WidgetKit`)에 차량 정보·만날 장소·ETA 카운트다운을 표시하고, 터치 시 픽업 화면(`majung://pickup`)으로 바로 복귀합니다.
 - **도착 알림 · 다크 모드**: 라이트·다크 모드를 지원하며, 앱 내 도착 임박·도착 로컬 알림과 APNs 원격 푸시 연동을 제공합니다.
 - **상시 이용 가이드**: 초기 강제 화면 없이 로그인·홈 우측 상단(`?`)과 설정의 **마중 이용 가이드**에서 언제든 이용 흐름을 다시 볼 수 있습니다.
 
@@ -41,18 +42,20 @@ flowchart LR
     API -->|"SSE 변경 신호 · APNs 푸시"| iOS
     iOS -->|"지도 · 보조 검색"| Map["MapKit"]
     iOS -->|"QR 스캔"| Cam["AVFoundation"]
+    iOS -->|"다이나믹 아일랜드 · 실시간 현황"| Live["ActivityKit · WidgetKit"]
 ```
 
 ### 패키지 구조
 
 ```text
 Majung/
-├── App/           # 앱 진입점 · 푸시 등록(AppDelegate) · 루트 화면 전환(ContentView)
-├── Core/          # 백엔드 API 클라이언트(계정·픽업·요청·차량 연결) · SSE 파서
-├── DesignSystem/  # 브랜드 컬러(#2669DD)·심볼 및 공통 카드·검색·지도 컴포넌트
-└── Features/      # Onboarding(이용 가이드) · Account · VehicleLinks · RideRequest · Pickup 화면/뷰모델
-MajungTests/       # 모델 · 검증기 · SSE · 위치 추적 단위 테스트
-MajungUITests/     # 로컬 UI 검사 · 명시적으로 실행하는 운영 차량 연동 검사
+├── App/                # 앱 진입점 · 푸시 등록(AppDelegate) · 루트 화면 전환(ContentView)
+├── Core/               # 백엔드 API 클라이언트(계정·픽업·요청·차량 연결) · SSE 파서
+├── DesignSystem/       # 브랜드 컬러(#2669DD)·심볼 및 공통 카드·검색·지도 컴포넌트
+└── Features/           # Onboarding(이용 가이드) · Account · VehicleLinks · RideRequest · Pickup 화면/뷰모델
+MajungLiveActivity/     # 다이나믹 아일랜드 · 잠금화면 실시간 현황(ActivityKit · WidgetKit) 확장
+MajungTests/            # 모델 · 검증기 · SSE · 위치 추적 · 실시간 현황 단위 테스트
+MajungUITests/          # 로컬 UI 검사 · 명시적으로 실행하는 운영 차량 연동 검사
 ```
 
 ### 기술 스택
@@ -61,7 +64,7 @@ MajungUITests/     # 로컬 UI 검사 · 명시적으로 실행하는 운영 차
 | --- | --- |
 | **앱 프레임워크** | Swift · SwiftUI · Swift Observation (`@Observable`) · iOS 17.0+ |
 | **지도 · 스캔** | MapKit · CoreLocation · `AVFoundation` (`AVCaptureSession` QR 스캔) |
-| **인증 · 알림** | AuthenticationServices (PKCE OAuth) · UserNotifications · APNs |
+| **인증 · 알림** | AuthenticationServices (PKCE OAuth) · UserNotifications · APNs · `ActivityKit` · `WidgetKit` |
 | **검증 · CI** | XCTest (`MajungTests`) · XCUITest (`MajungUITests`) · GitHub Actions |
 
 ---
@@ -70,7 +73,7 @@ MajungUITests/     # 로컬 UI 검사 · 명시적으로 실행하는 운영 차
 
 | 구분 | 범위 |
 | --- | --- |
-| **확인 완료** | `MajungTests`(35개) · 내장 테스트 서버 `MajungUITests`(7개)<br>운영 차량↔iPhone 시뮬레이터의 ETA·메시지·제안·복귀·도착·완료·취소 확인<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
+| **확인 완료** | `MajungTests`(37개) · 내장 테스트 서버 `MajungUITests`(7개) · 다이나믹 아일랜드 실시간 현황<br>운영 차량↔iPhone 시뮬레이터의 ETA·메시지·제안·복귀·도착·완료·취소 확인<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
 | **추후 확인** | iPhone 실기기 카카오 로그인·카메라 QR 스캔·실주행 연동<br>유료 Apple Developer 프로비저닝 후 APNs 원격 푸시·유니버설 링크 검증 |
 
 ---

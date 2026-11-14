@@ -63,6 +63,7 @@ final class PickupLiveActivityService {
                 durationSeconds: 0,
                 countdownStartDate: nil,
                 estimatedArrivalDate: nil,
+                vehicleFreshUntil: now.addingTimeInterval(30),
                 passengerReady: passengerReady,
                 updatedAt: now
             )
@@ -71,10 +72,17 @@ final class PickupLiveActivityService {
         var durationSeconds: Int?
         var countdownStartDate: Date?
         var estimatedArrivalDate: Date?
+        var vehicleFreshUntil: Date?
 
         if let vehicle,
            vehicle.freshness == "FRESH",
            vehicle.placeVersion == snapshot.placeVersion,
+           vehicle.validForMillis > 0,
+           (vehicleUpdatedAt ?? now).addingTimeInterval(Double(vehicle.validForMillis) / 1000) > now {
+            vehicleFreshUntil = (vehicleUpdatedAt ?? now).addingTimeInterval(Double(vehicle.validForMillis) / 1000)
+        }
+
+        if let vehicle, vehicleFreshUntil != nil,
            let seconds = vehicle.durationSeconds,
            seconds >= 0 {
             let start = vehicleUpdatedAt ?? now
@@ -86,15 +94,18 @@ final class PickupLiveActivityService {
             } else {
                 durationSeconds = 0
             }
-        } else if let previousState,
+        } else if vehicle == nil, let previousState,
                   previousState.phase == .approaching,
                   previousState.placeVersion == snapshot.placeVersion,
+                  let freshUntil = previousState.vehicleFreshUntil,
+                  freshUntil > now,
                   let prevStart = previousState.countdownStartDate,
                   let prevArrival = previousState.estimatedArrivalDate,
                   prevArrival > now {
             durationSeconds = max(1, Int(prevArrival.timeIntervalSince(now).rounded()))
             countdownStartDate = prevStart
             estimatedArrivalDate = prevArrival
+            vehicleFreshUntil = freshUntil
         }
 
         return PickupLiveActivityAttributes.ContentState(
@@ -105,6 +116,7 @@ final class PickupLiveActivityService {
             durationSeconds: durationSeconds,
             countdownStartDate: countdownStartDate,
             estimatedArrivalDate: estimatedArrivalDate,
+            vehicleFreshUntil: vehicleFreshUntil,
             passengerReady: passengerReady,
             updatedAt: now
         )
@@ -190,6 +202,14 @@ final class PickupLiveActivityService {
               lhs.passengerReady == rhs.passengerReady else {
             return false
         }
+        switch (lhs.vehicleFreshUntil, rhs.vehicleFreshUntil) {
+        case let (left?, right?):
+            if abs(left.timeIntervalSince(right)) >= 2 { return false }
+        case (nil, nil):
+            break
+        default:
+            return false
+        }
         switch (lhs.estimatedArrivalDate, rhs.estimatedArrivalDate) {
         case (nil, nil):
             return lhs.durationSeconds == rhs.durationSeconds
@@ -204,8 +224,7 @@ final class PickupLiveActivityService {
         pickupKey: String,
         state: PickupLiveActivityAttributes.ContentState
     ) async {
-        let staleDate = state.estimatedArrivalDate?.addingTimeInterval(60)
-            ?? Date().addingTimeInterval(15 * 60)
+        let staleDate = state.vehicleFreshUntil ?? state.updatedAt
         let content = ActivityContent(state: state, staleDate: staleDate)
 
         var matchedExisting = false

@@ -292,7 +292,7 @@ struct PickupView: View {
             }
 
             Label(
-                "앱을 나가도 다이나믹 아일랜드와 잠금화면에서 도착 예정 시간을 계속 확인할 수 있어요.",
+                "앱 밖에서는 다이나믹 아일랜드와 잠금화면에 마지막 도착 정보가 표시돼요. 갱신이 필요하면 앱을 다시 열어주세요.",
                 systemImage: "platter.filled.top.iphone"
             )
             .font(.caption)

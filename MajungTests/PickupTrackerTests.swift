@@ -489,7 +489,7 @@ final class PickupTrackerTests: XCTestCase {
     func testLiveActivityStatePreservesCountdownAcrossSnapshotUpdatesAndClearsOnPlaceChangeOrArrival() throws {
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         let activeSnapshot = makeSnapshot(status: .active, place: initialPlace, placeVersion: 1, ready: true, vehicleName: "최수빈 카니발")
-        let freshVehicle = makeVehicle(durationSeconds: 240, placeVersion: 1)
+        let freshVehicle = makeVehicle(durationSeconds: 240, validForMillis: 30_000, placeVersion: 1)
 
         let initialState = try XCTUnwrap(
             PickupLiveActivityService.makeState(
@@ -565,6 +565,49 @@ final class PickupTrackerTests: XCTestCase {
                 now: tenSecondsLater
             )
         )
+    }
+
+    func testLiveActivityDropsExpiredAndExplicitlyStaleVehicleETA() throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let snapshot = makeSnapshot()
+        let initial = try XCTUnwrap(PickupLiveActivityService.makeState(
+            snapshot: snapshot, vehicle: makeVehicle(durationSeconds: 240, validForMillis: 5_000),
+            vehicleUpdatedAt: now, previousState: nil, now: now
+        ))
+        for vehicle in [makeVehicle(freshness: "STALE"), makeVehicle(validForMillis: 0)] {
+            let state = try XCTUnwrap(PickupLiveActivityService.makeState(
+                snapshot: snapshot, vehicle: vehicle, vehicleUpdatedAt: now,
+                previousState: initial, now: now.addingTimeInterval(1)
+            ))
+            XCTAssertNil(state.estimatedArrivalDate)
+            XCTAssertNil(state.durationSeconds)
+        }
+        let expired = try XCTUnwrap(PickupLiveActivityService.makeState(
+            snapshot: snapshot, vehicle: nil, vehicleUpdatedAt: nil,
+            previousState: initial, now: now.addingTimeInterval(6)
+        ))
+        XCTAssertNil(expired.estimatedArrivalDate)
+        XCTAssertNil(initial.activeTimerRange(at: now.addingTimeInterval(6)))
+        let freshWithoutETA = try XCTUnwrap(PickupLiveActivityService.makeState(
+            snapshot: snapshot, vehicle: makeVehicle(durationSeconds: nil), vehicleUpdatedAt: now,
+            previousState: initial, now: now
+        ))
+        XCTAssertNil(freshWithoutETA.estimatedArrivalDate)
+        XCTAssertEqual(freshWithoutETA.vehicleFreshUntil, now.addingTimeInterval(10))
+    }
+
+    func testLiveActivityRefreshesValidityWhenArrivalEstimateIsUnchanged() async {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let snapshot = makeSnapshot()
+        let refreshed = expectation(description: "Validity renewed with the same arrival estimate")
+        refreshed.expectedFulfillmentCount = 2
+        let service = PickupLiveActivityService(isEnabled: { true }, upsertHandler: { _, _ in
+            refreshed.fulfill()
+        }, endAllHandler: {})
+        service.sync(snapshot: snapshot, vehicle: makeVehicle(durationSeconds: 240), vehicleUpdatedAt: now, now: now)
+        service.sync(snapshot: snapshot, vehicle: makeVehicle(durationSeconds: 237),
+                     vehicleUpdatedAt: now.addingTimeInterval(3), now: now.addingTimeInterval(3))
+        await fulfillment(of: [refreshed], timeout: 2)
     }
 
     func testTrackerSyncsAndEndsLiveActivityOnlyForOwnedPickup() async {

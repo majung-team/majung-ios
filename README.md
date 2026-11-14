@@ -12,7 +12,7 @@
   </p>
 </div>
 
-> 현재 시뮬레이터와 로컬 테스트 서버 중심으로 기능을 검증했으며, 실기기 푸시(APNs) 및 유니버설 링크는 Apple Developer 계정 프로비저닝 시 활성화됩니다.
+> 앱 밖의 실시간 현황은 마지막 차량 정보를 기준으로 표시합니다. 정보가 오래되면 앱을 열어 갱신해야 하며, APNs 원격 갱신과 유니버설 링크의 실기기 검증은 포함하지 않습니다.
 
 ---
 
@@ -29,7 +29,7 @@
 
 ### 알림 · 화면 테마
 - **다이나믹 아일랜드 · 잠금화면 실시간 현황**: 픽업 중 앱을 나가도 다이나믹 아일랜드와 잠금화면(`ActivityKit` · `WidgetKit`)에 차량 정보·만날 장소·ETA 카운트다운을 표시하고, 터치 시 픽업 화면(`majung://pickup`)으로 바로 복귀합니다.
-- **도착 알림 · 다크 모드**: 라이트·다크 모드를 지원하며, 앱 내 도착 임박·도착 로컬 알림과 APNs 원격 푸시 연동을 제공합니다.
+- **도착 알림 · 다크 모드**: 라이트·다크 모드를 지원하며, 앱 실행 중 도착 임박·도착을 안내합니다. 취소·완료 뒤에는 해당 픽업의 알림을 정리합니다.
 - **상시 이용 가이드**: 초기 강제 화면 없이 로그인·홈 우측 상단(`?`)과 설정의 **마중 이용 가이드**에서 언제든 이용 흐름을 다시 볼 수 있습니다.
 
 ---
@@ -39,7 +39,7 @@
 ```mermaid
 flowchart LR
     iOS["마중 iOS (SwiftUI)"] -->|"HTTPS 인증 · 요청 · 상태 조회"| API["마중 백엔드 (/api/v1)"]
-    API -->|"SSE 변경 신호 · APNs 푸시"| iOS
+    API -->|"SSE 변경 신호"| iOS
     iOS -->|"지도 · 보조 검색"| Map["MapKit"]
     iOS -->|"QR 스캔"| Cam["AVFoundation"]
     iOS -->|"다이나믹 아일랜드 · 실시간 현황"| Live["ActivityKit · WidgetKit"]
@@ -73,7 +73,7 @@ MajungUITests/          # 로컬 UI 검사 · 명시적으로 실행하는 운�
 
 | 구분 | 범위 |
 | --- | --- |
-| **확인 완료** | `MajungTests`(37개) · 내장 테스트 서버 `MajungUITests`(7개) · 다이나믹 아일랜드 실시간 현황<br>운영 차량↔iPhone 시뮬레이터의 ETA·메시지·제안·복귀·도착·완료·취소 확인<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
+| **확인 완료** | `MajungTests`(39개) · 내장 테스트 서버 `MajungUITests`(8개) · 다이나믹 아일랜드 실시간 현황<br>운영 차량↔iPhone 시뮬레이터의 ETA·메시지·제안·복귀·도착·완료·취소 확인<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
 | **추후 확인** | iPhone 실기기 카카오 로그인·카메라 QR 스캔·실주행 연동<br>유료 Apple Developer 프로비저닝 후 APNs 원격 푸시·유니버설 링크 검증 |
 
 ---

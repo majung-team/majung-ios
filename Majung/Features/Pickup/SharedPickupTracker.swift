@@ -37,8 +37,8 @@ final class PickupTracker {
     }
     var error: String?
 
-    init(liveActivity: PickupLiveActivityService = .shared) {
-        self.liveActivity = liveActivity
+    init(liveActivity: PickupLiveActivityService? = nil) {
+        self.liveActivity = liveActivity ?? .shared
     }
 
     func configure(_ backend: Backend) {
@@ -162,7 +162,7 @@ final class PickupTracker {
         } else {
             clearVehicle()
         }
-        liveActivity.sync(snapshot: current, vehicle: vehicle, vehicleUpdatedAt: vehicleUpdatedAt)
+        liveActivity.sync(snapshot: current, vehicle: position, vehicleUpdatedAt: vehicleUpdatedAt)
     }
 
     private func update(_ operation: () async throws -> PickupSnapshot) async -> Bool {

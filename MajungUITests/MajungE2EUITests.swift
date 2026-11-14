@@ -99,12 +99,22 @@ final class MajungE2EUITests: XCTestCase {
         let dismissKeyboard = app.buttons["키보드 닫기"]
         if dismissKeyboard.waitForExistence(timeout: 1.5) && dismissKeyboard.isHittable {
             dismissKeyboard.tap()
+            assertKeyboardIsDismissed(in: app)
         }
         let openButton = app.buttons["초대 확인하기"]
         XCTAssertTrue(openButton.waitForExistence(timeout: 3))
         if !openButton.isHittable { app.swipeUp() }
         XCTAssertTrue(openButton.isEnabled)
         openButton.tap()
+    }
+
+    private func assertKeyboardIsDismissed(in app: XCUIApplication) {
+        let hidden = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: app.keyboards.firstMatch
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
+        XCTAssertFalse(app.buttons["키보드 닫기"].exists)
     }
 
     func test01GuestPickupLifecycleWaitingExitReadinessMessageProposalAndCompletion() throws {
@@ -427,8 +437,10 @@ final class MajungE2EUITests: XCTestCase {
                 field.tap()
                 let dismiss = app.buttons["키보드 닫기"]
                 XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+                XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
                 if attempt == 0 { attachScreenshot(named: "invite-keyboard-dismiss-\(mode)") }
                 dismiss.tap()
+                assertKeyboardIsDismissed(in: app)
             }
             let invite = "https://majung.cloud/#join/\(server.pickupId)/\(server.inviteCode)"
             submitInviteLink(invite, in: app)

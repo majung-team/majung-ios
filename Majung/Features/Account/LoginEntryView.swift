@@ -23,7 +23,7 @@ struct LoginEntryView: View {
             .padding(20)
         }
         .background(Color(.systemGroupedBackground))
-        .scrollDismissesKeyboard(.interactively)
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("마중")
         .navigationBarTitleDisplayMode(.inline)
         .majungGuideToolbar(isPresented: $showingGuide, accessibilityIdentifier: "login-guide-button")

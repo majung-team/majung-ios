@@ -1,6 +1,24 @@
 import MapKit
 import SwiftUI
 
+extension View {
+    func majungKeyboardDismiss(isFocused: FocusState<Bool>.Binding) -> some View {
+        safeAreaInset(edge: .bottom, spacing: 0) {
+            if isFocused.wrappedValue {
+                HStack {
+                    Spacer()
+                    Button("키보드 닫기") {
+                        isFocused.wrappedValue = false
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(.bar)
+            }
+        }
+    }
+}
+
 enum MajungCodec {
     static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()

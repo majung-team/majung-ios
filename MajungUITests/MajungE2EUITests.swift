@@ -402,6 +402,32 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertEqual(server.requestsMatching(method: "DELETE", pathPrefix: "/api/v1/accounts/me").count, 1)
     }
 
+    func test06GuestAndHomeInviteKeyboardRepeatedFocusDismissAndSubmit() throws {
+        let server = try startServer()
+        for mode in [LocalE2EServer.AccountMode.unauthenticated, .ready] {
+            server.setAccountMode(mode)
+            let app = launchApp(port: server.port)
+            let field = app.textFields["마중 초대 링크"]
+            XCTAssertTrue(field.waitForExistence(timeout: 8))
+            for attempt in 0..<3 {
+                if !field.isHittable { app.swipeUp() }
+                field.tap()
+                let dismiss = app.buttons["키보드 닫기"]
+                XCTAssertTrue(dismiss.waitForExistence(timeout: 5))
+                if attempt == 0 { attachScreenshot(named: "invite-keyboard-dismiss-\(mode)") }
+                dismiss.tap()
+            }
+            let invite = "https://majung.cloud/#join/\(server.pickupId)/\(server.inviteCode)"
+            submitInviteLink(invite, in: app)
+            XCTAssertTrue(app.buttons["약속에 참여하기"].waitForExistence(timeout: 8))
+            app.buttons["약속에 참여하기"].tap()
+            XCTAssertTrue(app.buttons["pickup-waiting-refresh-button"].waitForExistence(timeout: 8))
+            terminateApp(app)
+            server.setGuestPhase(.none)
+        }
+    }
+
+
     /// Explicit production rehearsal only. CI uses the local-server scenarios above.
     func test10LiveVehicleRoundTrip() throws {
         #if !targetEnvironment(simulator)

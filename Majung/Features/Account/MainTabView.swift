@@ -260,14 +260,7 @@ private struct HomeTabView: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("홈")
         .majungGuideToolbar(isPresented: $showingGuide, accessibilityIdentifier: "home-guide-button")
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("키보드 닫기") {
-                    inviteFieldFocused = false
-                }
-            }
-        }
+        .majungKeyboardDismiss(isFocused: $inviteFieldFocused)
         .refreshable {
             await rideRequests.refresh()
         }

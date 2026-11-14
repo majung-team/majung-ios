@@ -70,7 +70,7 @@ MajungUITests/     # 로컬 UI 검사 · 명시적으로 실행하는 운영 차
 
 | 구분 | 범위 |
 | --- | --- |
-| **확인 완료** | `MajungTests`(32개) · 내장 테스트 서버 `MajungUITests`(6개)<br>운영 차량↔iPhone 시뮬레이터의 ETA·메시지·제안·복귀·도착·완료·취소 확인<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
+| **확인 완료** | `MajungTests`(32개) · 내장 테스트 서버 `MajungUITests`(7개)<br>운영 차량↔iPhone 시뮬레이터의 ETA·메시지·제안·복귀·도착·완료·취소 확인<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
 | **추후 확인** | iPhone 실기기 카카오 로그인·카메라 QR 스캔·실주행 연동<br>유료 Apple Developer 프로비저닝 후 APNs 원격 푸시·유니버설 링크 검증 |
 
 ---

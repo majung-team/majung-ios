@@ -164,7 +164,7 @@ final class MajungE2EUITests: XCTestCase {
         )
         XCTAssertEqual(XCTWaiter.wait(for: [keyboardHidden], timeout: 5), .completed)
 
-        // 5. Open PlaceProposalView, select map center, submit & withdraw
+        // 5. Recover from SAME_PLACE without dismissing the form or losing the description.
         let proposeButton = app.buttons["pickup-propose-place-button"]
         for _ in 0..<3 where !proposeButton.isHittable { app.swipeDown() }
         XCTAssertTrue(proposeButton.isHittable)
@@ -177,8 +177,24 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(descField.waitForExistence(timeout: 5))
         descField.tap()
         descField.typeText("의왕역 2번 출구")
+        server.rejectNextProposalAsSamePlace()
         app.buttons["proposal-submit-button"].tap()
+        XCTAssertTrue(app.staticTexts["현재 만날 장소와 같은 위치예요. 지도를 옮기거나 다른 장소를 검색해주세요."].waitForExistence(timeout: 8))
+        XCTAssertEqual(descField.value as? String, "의왕역 2번 출구")
+        attachScreenshot(named: "proposal-same-place-guidance")
+        let searchField = app.textFields["proposal-place-search-field"]
+        for _ in 0..<3 where !searchField.isHittable { app.swipeDown() }
+        searchField.tap()
+        searchField.typeText("강남역")
+        app.buttons["proposal-place-search-button"].tap()
+        let searchResult = app.buttons["proposal-place-result-0"]
+        XCTAssertTrue(searchResult.waitForExistence(timeout: 8))
+        searchResult.tap()
+        let submitProposal = app.buttons["proposal-submit-button"]
+        for _ in 0..<3 where !submitProposal.isHittable { app.swipeUp() }
+        submitProposal.tap()
         XCTAssertTrue(app.buttons["pickup-withdraw-proposal-button"].waitForExistence(timeout: 8))
+        XCTAssertEqual(server.requestsMatching(method: "PUT", pathPrefix: "/api/v1/pickups/\(server.pickupId)/place-proposal").count, 2)
         app.buttons["pickup-withdraw-proposal-button"].tap()
         XCTAssertTrue(app.buttons["pickup-propose-place-button"].waitForExistence(timeout: 5))
 
@@ -385,4 +401,163 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 6))
         XCTAssertEqual(server.requestsMatching(method: "DELETE", pathPrefix: "/api/v1/accounts/me").count, 1)
     }
+
+    /// Explicit production rehearsal only. CI uses the local-server scenarios above.
+    func test10LiveVehicleRoundTrip() throws {
+        #if !targetEnvironment(simulator)
+        throw XCTSkip("운영 연동 자동 검사는 iPhone 시뮬레이터에서만 실행")
+        #else
+        guard let invite = ProcessInfo.processInfo.environment["MAJUNG_LIVE_INVITE"],
+              let url = URL(string: invite), url.scheme == "https", url.host == "majung.cloud",
+              url.fragment?.hasPrefix("join/") == true else {
+            throw XCTSkip("운영 시험 초대가 지정된 경우에만 실행")
+        }
+        let app = XCUIApplication()
+        terminateApp(app)
+        app.launchArguments = ["-UITestResetSessions"]
+        app.launchEnvironment.removeValue(forKey: "MAJUNG_TEST_PORT")
+        activeApp = app
+        app.launch()
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 12))
+        submitInviteLink(invite, in: app)
+        XCTAssertTrue(app.buttons["약속에 참여하기"].waitForExistence(timeout: 15))
+        app.buttons["약속에 참여하기"].tap()
+        XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 20))
+        let eta = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "도착 예정")).firstMatch
+        XCTAssertTrue(eta.waitForExistence(timeout: 20))
+        attachScreenshot(named: "live-01-operating-pickup")
+
+        func reveal(_ element: XCUIElement) {
+            XCTAssertTrue(element.waitForExistence(timeout: 10))
+            for _ in 0..<7 where !element.isHittable {
+                if element.frame.minY < app.frame.minY { app.swipeDown() }
+                else { app.swipeUp() }
+            }
+            XCTAssertTrue(element.isHittable)
+        }
+        func send(_ text: String) {
+            let field = app.textFields["직접 메시지 입력 (최대 50자)"]
+            reveal(field)
+            field.tap()
+            field.typeText(text)
+            let send = app.buttons["pickup-message-send-button"]
+            XCTAssertTrue(send.isEnabled)
+            send.tap()
+            XCTAssertTrue(app.staticTexts["보낸 메시지 · \(text)"].waitForExistence(timeout: 12))
+        }
+        send("ios-simulator-check")
+
+        // Restore the same guest authority after terminating the app process.
+        terminateApp(app)
+        app.launchArguments = []
+        app.launch()
+        XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 20))
+        attachScreenshot(named: "live-02-restored-pickup")
+
+        let propose = app.buttons["pickup-propose-place-button"]
+        reveal(propose)
+        propose.tap()
+        XCTAssertTrue(app.navigationBars["다른 장소 제안"].waitForExistence(timeout: 8))
+        let select = app.buttons["proposal-place-map-select"]
+        reveal(select)
+        select.tap()
+        let field = app.textViews["proposal-place-label-field"].exists
+            ? app.textViews["proposal-place-label-field"] : app.textFields["proposal-place-label-field"]
+        reveal(field)
+        field.tap()
+        field.typeText("시뮬레이터 장소 시험")
+        let submit = app.buttons["proposal-submit-button"]
+        reveal(submit)
+        submit.tap()
+        // The real server rejects an unchanged pin. Recover by choosing a different search result.
+        XCTAssertTrue(app.staticTexts["현재 만날 장소와 같은 위치예요. 지도를 옮기거나 다른 장소를 검색해주세요."].firstMatch.waitForExistence(timeout: 10))
+        attachScreenshot(named: "live-03a-same-place-guidance")
+        let search = app.textFields["proposal-place-search-field"]
+        reveal(search)
+        search.tap()
+        search.typeText("판교역")
+        let searchButton = app.buttons["proposal-place-search-button"]
+        reveal(searchButton)
+        searchButton.tap()
+        let candidate = app.buttons["proposal-place-result-0"]
+        reveal(candidate)
+        candidate.tap()
+        reveal(submit)
+        submit.tap()
+        let withdraw = app.buttons["pickup-withdraw-proposal-button"]
+        XCTAssertTrue(withdraw.waitForExistence(timeout: 15))
+        attachScreenshot(named: "live-03-proposal-pending")
+        // Keep the proposal open for at least two vehicle polling intervals.
+        Thread.sleep(forTimeInterval: 7)
+        reveal(withdraw)
+        withdraw.tap()
+        XCTAssertTrue(propose.waitForExistence(timeout: 12))
+
+        let ready = app.buttons["pickup-readiness-ready-button"]
+        reveal(ready)
+        ready.tap()
+        XCTAssertTrue(app.staticTexts["마중 차량이 도착했어요"].waitForExistence(timeout: 25))
+        attachScreenshot(named: "live-04-arrived")
+        send("ios-simulator-arrival-confirmed")
+        XCTAssertTrue(app.staticTexts["잘 만났어요!"].waitForExistence(timeout: 25))
+        XCTAssertFalse(app.buttons["pickup-readiness-ready-button"].exists)
+        attachScreenshot(named: "live-05-completed")
+        app.buttons["처음으로"].tap()
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 10))
+        #endif
+    }
+
+
+    func test11LiveCancellationWhileTypingAndExpiredInvite() throws {
+        #if !targetEnvironment(simulator)
+        throw XCTSkip("운영 연동 자동 검사는 iPhone 시뮬레이터에서만 실행")
+        #else
+        guard let invite = ProcessInfo.processInfo.environment["MAJUNG_LIVE_INVITE"],
+              let url = URL(string: invite), url.scheme == "https", url.host == "majung.cloud",
+              url.fragment?.hasPrefix("join/") == true else {
+            throw XCTSkip("운영 시험 초대가 지정된 경우에만 실행")
+        }
+        let app = XCUIApplication()
+        terminateApp(app)
+        app.launchArguments = ["-UITestResetSessions"]
+        app.launchEnvironment.removeValue(forKey: "MAJUNG_TEST_PORT")
+        activeApp = app
+        app.launch()
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 12))
+        submitInviteLink(invite, in: app)
+        XCTAssertTrue(app.buttons["약속에 참여하기"].waitForExistence(timeout: 15))
+        app.buttons["약속에 참여하기"].tap()
+        let ready = app.buttons["pickup-readiness-ready-button"]
+        XCTAssertTrue(ready.waitForExistence(timeout: 20))
+        if !ready.isHittable { app.swipeUp() }
+        ready.tap()
+
+        let field = app.textFields["직접 메시지 입력 (최대 50자)"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        for _ in 0..<4 where !field.isHittable { app.swipeUp() }
+        XCTAssertTrue(field.isHittable)
+        field.tap()
+        let draft = "취소 확인 중 작성하던 메모"
+        field.typeText(draft)
+        XCTAssertEqual(field.value as? String, draft)
+        attachScreenshot(named: "live-cancel-01-typing")
+
+        XCTAssertTrue(app.staticTexts["픽업이 취소됐어요"].waitForExistence(timeout: 25))
+        XCTAssertFalse(field.exists)
+        XCTAssertFalse(ready.exists)
+        attachScreenshot(named: "live-cancel-02-terminal")
+        terminateApp(app)
+        app.launchArguments = []
+        app.launch()
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.staticTexts["픽업이 취소됐어요"].exists)
+
+        submitInviteLink(invite, in: app)
+        XCTAssertTrue(app.staticTexts["초대를 사용할 수 없어요"].waitForExistence(timeout: 15))
+        attachScreenshot(named: "live-cancel-03-expired-invite")
+        app.buttons["다른 초대 열기"].tap()
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 10))
+        #endif
+    }
+
 }

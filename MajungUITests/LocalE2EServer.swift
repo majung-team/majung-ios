@@ -61,6 +61,7 @@ final class LocalE2EServer {
     private var guestReadinessReceivedSeq = 0
     private var guestProposal: (label: String, lat: Double, lng: Double)?
     private var guestQuickMessage: String?
+    private var rejectNextGuestProposal = false
 
     private var rideRequests: [RequestItemModel] = []
     private var memberPickupStatus = "ACTIVE"
@@ -118,6 +119,7 @@ final class LocalE2EServer {
         guestReadinessReceivedSeq = 0
         guestProposal = nil
         guestQuickMessage = nil
+        rejectNextGuestProposal = false
 
         memberPickupStatus = "ACTIVE"
         memberReadiness = "NOT_READY"
@@ -200,6 +202,12 @@ final class LocalE2EServer {
     func setInvitePreviewStatus(_ status: Int) {
         lock.lock()
         invitePreviewStatus = status
+        lock.unlock()
+    }
+
+    func rejectNextProposalAsSamePlace() {
+        lock.lock()
+        rejectNextGuestProposal = true
         lock.unlock()
     }
 
@@ -424,6 +432,10 @@ final class LocalE2EServer {
             return (200, guestSnapshotJSON(), nil)
 
         case ("PUT", "/api/v1/pickups/\(pickupId)/place-proposal"):
+            if rejectNextGuestProposal {
+                rejectNextGuestProposal = false
+                return (409, #"{"code":"SAME_PLACE","message":"현재 장소와 같은 위치입니다."}"#, nil)
+            }
             if let obj = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
                let place = obj["place"] as? [String: Any],
                let label = place["label"] as? String,

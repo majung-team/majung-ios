@@ -52,7 +52,7 @@ Majung/
 ├── DesignSystem/  # 브랜드 컬러(#2669DD)·심볼 및 공통 카드·검색·지도 컴포넌트
 └── Features/      # Onboarding(이용 가이드) · Account · VehicleLinks · RideRequest · Pickup 화면/뷰모델
 MajungTests/       # 모델 · 검증기 · SSE · 위치 추적 단위 테스트
-MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
+MajungUITests/     # 로컬 UI 검사 · 명시적으로 실행하는 운영 차량 연동 검사
 ```
 
 ### 기술 스택
@@ -70,7 +70,7 @@ MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
 
 | 구분 | 범위 |
 | --- | --- |
-| **확인 완료** | `MajungTests`(32개) · 내장 테스트 서버 `MajungUITests`(6개)<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
+| **확인 완료** | `MajungTests`(32개) · 내장 테스트 서버 `MajungUITests`(6개)<br>운영 차량↔iPhone 시뮬레이터의 ETA·메시지·제안·복귀·도착·완료·취소 확인<br>[iOS CI](https://github.com/majung-team/majung-ios/actions/workflows/ios.yml) 시뮬레이터 빌드 |
 | **추후 확인** | iPhone 실기기 카카오 로그인·카메라 QR 스캔·실주행 연동<br>유료 Apple Developer 프로비저닝 후 APNs 원격 푸시·유니버설 링크 검증 |
 
 ---
@@ -89,3 +89,5 @@ MajungUITests/     # 내장 테스트 서버 기반 UI E2E 테스트
 | [majung-web](https://github.com/majung-team/majung-web) | 운전자 · 탑승자 모바일 웹 |
 | [majung-ios](https://github.com/majung-team/majung-ios) | SwiftUI iOS 모바일 앱 |
 | [majung-backend](https://github.com/majung-team/majung-backend) | Spring Boot API 및 운영 배포 |
+
+[운영 차량 연동 검사](docs/operating-rehearsal.md)에서 실행 조건과 실기기 검증의 차이를 확인할 수 있다.

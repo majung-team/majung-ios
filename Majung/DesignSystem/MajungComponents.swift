@@ -8,7 +8,11 @@ extension View {
                 HStack {
                     Spacer()
                     Button("키보드 닫기") {
-                        isFocused.wrappedValue = false
+                        var transaction = Transaction()
+                        transaction.disablesAnimations = true
+                        withTransaction(transaction) {
+                            isFocused.wrappedValue = false
+                        }
                     }
                 }
                 .padding(.horizontal, 20)

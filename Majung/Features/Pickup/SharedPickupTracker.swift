@@ -18,6 +18,7 @@ final class PickupTracker {
     }
 
     private var backend: Backend?
+    private let liveActivity: PickupLiveActivityService
     private var revision = 0
     private var refreshing = false
     private var refreshPending = false
@@ -35,6 +36,10 @@ final class PickupTracker {
         didSet { if messageDraft != oldValue { messageSent = false } }
     }
     var error: String?
+
+    init(liveActivity: PickupLiveActivityService = .shared) {
+        self.liveActivity = liveActivity
+    }
 
     func configure(_ backend: Backend) {
         self.backend = backend
@@ -132,6 +137,7 @@ final class PickupTracker {
     }
 
     func resetState() {
+        let previousKey = snapshot.map(PickupLiveActivityService.pickupKey(for:))
         revision += 1
         refreshPending = false
         snapshot = nil
@@ -142,6 +148,9 @@ final class PickupTracker {
         connectionProblem = false
         messageDraft = ""
         messageSent = false
+        if let previousKey {
+            liveActivity.end(pickupKey: previousKey)
+        }
     }
 
     private func applyVehicle(_ position: PickupVehicle?, for current: PickupSnapshot, startedAt: ContinuousClock.Instant) {
@@ -153,6 +162,7 @@ final class PickupTracker {
         } else {
             clearVehicle()
         }
+        liveActivity.sync(snapshot: current, vehicle: vehicle, vehicleUpdatedAt: vehicleUpdatedAt)
     }
 
     private func update(_ operation: () async throws -> PickupSnapshot) async -> Bool {
@@ -192,7 +202,10 @@ final class PickupTracker {
         if current.status.ended {
             refreshPending = false
             clearVehicle()
+            liveActivity.end(pickupKey: PickupLiveActivityService.pickupKey(for: current))
             backend?.onTerminal()
+        } else {
+            liveActivity.sync(snapshot: current, vehicle: vehicle, vehicleUpdatedAt: vehicleUpdatedAt)
         }
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -10,6 +11,10 @@ struct ContentView: View {
     @State private var pickupModel = PickupViewModel()
     @State private var link = ""
     @State private var showingSplash = true
+    @State private var pickupNavigationEventCount = 0
+    @State private var backgroundGraceActive = false
+    @State private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
+    @State private var backgroundGraceTimerTask: Task<Void, Never>?
 
     init() {
         let account = AccountViewModel()
@@ -19,13 +24,14 @@ struct ContentView: View {
         _vehicleLinkModel = State(initialValue: VehicleLinkViewModel(account: account))
     }
 
-    private var activeSession: PickupSession? { scenePhase == .active ? pickupModel.session : nil }
+    private var isPickupSceneRunning: Bool { scenePhase == .active || backgroundGraceActive }
+    private var activeSession: PickupSession? { isPickupSceneRunning ? pickupModel.session : nil }
     private var activeGuestStreamKey: String {
-        "\(activeSession?.id.uuidString ?? "none")-\(scenePhase == .active)"
+        "\(activeSession?.id.uuidString ?? "none")-\(isPickupSceneRunning)"
     }
-    private var accountPollingKey: String { "\(accountModel.isReady)-\(scenePhase == .active)" }
+    private var accountPollingKey: String { "\(accountModel.isReady)-\(isPickupSceneRunning)" }
     private var activeRideStreamKey: String {
-        "\(rideRequestModel.activeRequest?.id.uuidString ?? "none")-\(scenePhase == .active)"
+        "\(rideRequestModel.activeRequest?.id.uuidString ?? "none")-\(isPickupSceneRunning)"
     }
     private var pendingVehiclePollingKey: String {
         "\(accountModel.isReady)-\(scenePhase == .active)-\(vehicleLinkModel.hasPendingPairing)"
@@ -65,7 +71,8 @@ struct ContentView: View {
                     rideRequests: rideRequestModel,
                     vehicleLinks: vehicleLinkModel,
                     pickup: pickupModel,
-                    inviteLink: $link
+                    inviteLink: $link,
+                    pickupNavigationEventCount: pickupNavigationEventCount
                 )
             } else if accountModel.needsNicknameSetup {
                 NavigationStack {
@@ -106,13 +113,19 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                endPickupBackgroundGrace()
                 guard !showingSplash else { return }
                 Task {
                     await restoreAccountAndLinkedState()
+                    await pickupModel.refresh()
                 }
-            } else {
-                pickupModel.tracker.clearVehicle()
-                rideRequestModel.handleSceneInactive()
+            } else if phase == .background {
+                if pickupModel.session != nil || rideRequestModel.activeRequest != nil {
+                    beginPickupBackgroundGrace()
+                } else {
+                    pickupModel.tracker.clearVehicle()
+                    rideRequestModel.handleSceneInactive()
+                }
             }
         }
         .onOpenURL { url in
@@ -131,15 +144,15 @@ struct ContentView: View {
             await pickupModel.runEventStream(for: session.id)
         }
         .task(id: accountPollingKey) {
-            guard accountModel.isReady && scenePhase == .active else { return }
+            guard accountModel.isReady && isPickupSceneRunning else { return }
             await pollAccountRequestsUntilInactive()
         }
         .task(id: "\(accountPollingKey)-stream") {
-            guard accountModel.isReady && scenePhase == .active else { return }
+            guard accountModel.isReady && isPickupSceneRunning else { return }
             await rideRequestModel.runListEventStream()
         }
         .task(id: activeRideStreamKey) {
-            guard scenePhase == .active, let requestId = rideRequestModel.activeRequest?.id else { return }
+            guard isPickupSceneRunning, let requestId = rideRequestModel.activeRequest?.id else { return }
             await rideRequestModel.runEventStream(for: requestId)
         }
         .task(id: pendingVehiclePollingKey) {
@@ -197,11 +210,56 @@ struct ContentView: View {
 
     private func handleIncomingURL(_ url: URL) {
         if url.scheme?.lowercased() == "majung", url.host?.lowercased() == "auth" { return }
+        if url.scheme?.lowercased() == "majung", url.host?.lowercased() == "pickup" {
+            pickupNavigationEventCount += 1
+            Task {
+                if pickupModel.session != nil {
+                    await pickupModel.refresh()
+                } else if accountModel.isReady {
+                    await rideRequestModel.refresh(silent: true)
+                }
+            }
+            return
+        }
         if VehiclePairingTarget(url: url) != nil {
             Task { await vehicleLinkModel.handleIncoming(url: url) }
             return
         }
         Task { await pickupModel.openLink(url.absoluteString) }
+    }
+
+    private func beginPickupBackgroundGrace() {
+        endPickupBackgroundGrace()
+        backgroundGraceActive = true
+        backgroundTaskId = UIApplication.shared.beginBackgroundTask(withName: "majung.pickup.liveactivity") {
+            Task { @MainActor in
+                suspendPickupAfterBackgroundGrace()
+            }
+        }
+        backgroundGraceTimerTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(25))
+            guard !Task.isCancelled else { return }
+            suspendPickupAfterBackgroundGrace()
+        }
+    }
+
+    private func suspendPickupAfterBackgroundGrace() {
+        guard backgroundGraceActive else { return }
+        endPickupBackgroundGrace()
+        if scenePhase != .active {
+            pickupModel.tracker.clearVehicle()
+            rideRequestModel.handleSceneInactive()
+        }
+    }
+
+    private func endPickupBackgroundGrace() {
+        backgroundGraceTimerTask?.cancel()
+        backgroundGraceTimerTask = nil
+        backgroundGraceActive = false
+        if backgroundTaskId != .invalid {
+            UIApplication.shared.endBackgroundTask(backgroundTaskId)
+            backgroundTaskId = .invalid
+        }
     }
 
     private func pollPendingVehicleUntilDone() async {
@@ -222,21 +280,21 @@ struct ContentView: View {
 
     private func refreshUntilInactive() async {
         while !Task.isCancelled && pickupModel.session != nil {
-            if scenePhase == .active { await pickupModel.refresh() }
+            if isPickupSceneRunning { await pickupModel.refresh() }
             let interval = pickupModel.streamConnected ? 30 : 3
             do { try await Task.sleep(for: .seconds(interval)) } catch { return }
         }
     }
 
     private func pollAccountRequestsUntilInactive() async {
-        while !Task.isCancelled && accountModel.isReady && scenePhase == .active {
+        while !Task.isCancelled && accountModel.isReady && isPickupSceneRunning {
             let interval: Int = if rideRequestModel.activeRequest != nil {
                 rideRequestModel.activeStreamConnected ? 30 : 3
             } else {
                 rideRequestModel.listStreamConnected ? 30 : 10
             }
             do { try await Task.sleep(for: .seconds(interval)) } catch { return }
-            if !Task.isCancelled && accountModel.isReady && scenePhase == .active {
+            if !Task.isCancelled && accountModel.isReady && isPickupSceneRunning {
                 await rideRequestModel.refresh(silent: true)
             }
         }

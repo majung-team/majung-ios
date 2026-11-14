@@ -1,3 +1,4 @@
+import ActivityKit
 import Foundation
 import XCTest
 @testable import Majung
@@ -39,6 +40,7 @@ final class PickupTrackerTests: XCTestCase {
 
     private func makeVehicle(
         freshness: String = "FRESH",
+        durationSeconds: Int? = 180,
         validForMillis: Int = 10_000,
         placeVersion: Int = 1
     ) -> PickupVehicle {
@@ -46,7 +48,7 @@ final class PickupTrackerTests: XCTestCase {
             freshness: freshness,
             latitude: 37.5600,
             longitude: 127.0360,
-            durationSeconds: 180,
+            durationSeconds: durationSeconds,
             validForMillis: validForMillis,
             ageMillis: 500,
             placeVersion: placeVersion
@@ -482,5 +484,153 @@ final class PickupTrackerTests: XCTestCase {
         XCTAssertNil(viewModel.session)
         XCTAssertEqual(viewModel.tracker.snapshot?.status, .completed)
         XCTAssertEqual(clearedCount, 1)
+    }
+
+    func testLiveActivityStatePreservesCountdownAcrossSnapshotUpdatesAndClearsOnPlaceChangeOrArrival() throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let activeSnapshot = makeSnapshot(status: .active, place: initialPlace, placeVersion: 1, ready: true, vehicleName: "최수빈 카니발")
+        let freshVehicle = makeVehicle(durationSeconds: 240, placeVersion: 1)
+
+        let initialState = try XCTUnwrap(
+            PickupLiveActivityService.makeState(
+                snapshot: activeSnapshot,
+                vehicle: freshVehicle,
+                vehicleUpdatedAt: now,
+                previousState: nil,
+                now: now
+            )
+        )
+        XCTAssertEqual(initialState.phase, .approaching)
+        XCTAssertEqual(initialState.placeLabel, initialPlace.label)
+        XCTAssertEqual(initialState.vehicleName, "최수빈 카니발")
+        XCTAssertEqual(initialState.durationSeconds, 240)
+        XCTAssertEqual(initialState.estimatedArrivalDate, now.addingTimeInterval(240))
+        XCTAssertTrue(initialState.passengerReady)
+        XCTAssertNotNil(initialState.activeTimerRange(at: now.addingTimeInterval(10)))
+        XCTAssertEqual(initialState.etaSummaryText, "약 4분 후 도착 예정")
+
+        // Snapshot-only update (e.g. background transition or readiness update before next vehicle poll) preserves active countdown.
+        let tenSecondsLater = now.addingTimeInterval(10)
+        let preservedState = try XCTUnwrap(
+            PickupLiveActivityService.makeState(
+                snapshot: activeSnapshot,
+                vehicle: nil,
+                vehicleUpdatedAt: nil,
+                previousState: initialState,
+                now: tenSecondsLater
+            )
+        )
+        XCTAssertEqual(preservedState.estimatedArrivalDate, initialState.estimatedArrivalDate)
+        XCTAssertEqual(preservedState.durationSeconds, 230)
+
+        // Accepting a new place increments placeVersion and resets the previous place's countdown until new vehicle ETA arrives.
+        let newPlaceSnapshot = makeSnapshot(status: .active, place: updatedPlace, placeVersion: 2, ready: true, vehicleName: "최수빈 카니발")
+        let resetCountdownState = try XCTUnwrap(
+            PickupLiveActivityService.makeState(
+                snapshot: newPlaceSnapshot,
+                vehicle: nil,
+                vehicleUpdatedAt: nil,
+                previousState: preservedState,
+                now: tenSecondsLater
+            )
+        )
+        XCTAssertEqual(resetCountdownState.placeLabel, updatedPlace.label)
+        XCTAssertNil(resetCountdownState.estimatedArrivalDate)
+        XCTAssertEqual(resetCountdownState.etaSummaryText, "도착 시간을 확인 중이에요")
+
+        // Arrival switches phase to .arrived and clears countdown timer.
+        let arrivedSnapshot = makeSnapshot(status: .arrived, place: updatedPlace, placeVersion: 2, ready: true, vehicleName: "최수빈 카니발")
+        let arrivedState = try XCTUnwrap(
+            PickupLiveActivityService.makeState(
+                snapshot: arrivedSnapshot,
+                vehicle: freshVehicle,
+                vehicleUpdatedAt: tenSecondsLater,
+                previousState: initialState,
+                now: tenSecondsLater
+            )
+        )
+        XCTAssertEqual(arrivedState.phase, .arrived)
+        XCTAssertNil(arrivedState.estimatedArrivalDate)
+        XCTAssertNil(arrivedState.activeTimerRange(at: tenSecondsLater))
+        XCTAssertEqual(arrivedState.compactTrailingLabel, "도착")
+
+        // Terminal state returns nil so Live Activity ends immediately.
+        let completedSnapshot = makeSnapshot(status: .completed, place: updatedPlace, placeVersion: 2)
+        XCTAssertNil(
+            PickupLiveActivityService.makeState(
+                snapshot: completedSnapshot,
+                vehicle: nil,
+                vehicleUpdatedAt: nil,
+                previousState: arrivedState,
+                now: tenSecondsLater
+            )
+        )
+    }
+
+    func testTrackerSyncsAndEndsLiveActivityOnlyForOwnedPickup() async {
+        var upserts: [(String, PickupLiveActivityAttributes.ContentState)] = []
+        var endCount = 0
+        let upsertExp = expectation(description: "Initial upsert")
+        upsertExp.expectedFulfillmentCount = 2
+        let endExp = expectation(description: "Terminal end")
+
+        let service = PickupLiveActivityService(
+            isEnabled: { true },
+            upsertHandler: { key, state in
+                upserts.append((key, state))
+                upsertExp.fulfill()
+            },
+            endAllHandler: {
+                endCount += 1
+                endExp.fulfill()
+            }
+        )
+
+        let trackerA = PickupTracker(liveActivity: service)
+        let trackerB = PickupTracker(liveActivity: service)
+        let pickupIdA = UUID(uuidString: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee")!
+
+        trackerA.applyExternal(
+            PickupSnapshot(
+                pickupId: pickupIdA,
+                status: .active,
+                place: initialPlace,
+                placeVersion: 1,
+                participant: PickupSnapshot.Participant(readiness: "NOT_READY", readinessSequence: 1, readinessReceivedSequence: 1),
+                placeProposal: nil,
+                quickMessage: nil,
+                vehicleName: "아이오닉 5"
+            ),
+            vehicle: makeVehicle(durationSeconds: 180, placeVersion: 1)
+        )
+
+        // Resetting an unrelated empty tracker must not end trackerA's Live Activity.
+        trackerB.resetState()
+        XCTAssertEqual(service.currentPickupKey, pickupIdA.uuidString.lowercased())
+
+        // Clearing vehicle on background transition keeps the Live Activity alive.
+        trackerA.clearVehicle()
+        XCTAssertNotNil(service.currentState)
+
+        // Terminal update on trackerA ends the Live Activity.
+        trackerA.applyExternal(
+            PickupSnapshot(
+                pickupId: pickupIdA,
+                status: .completed,
+                place: initialPlace,
+                placeVersion: 1,
+                participant: nil,
+                placeProposal: nil,
+                quickMessage: nil,
+                vehicleName: "아이오닉 5"
+            ),
+            vehicle: nil
+        )
+
+        await fulfillment(of: [upsertExp, endExp], timeout: 5)
+        XCTAssertEqual(upserts.count, 2)
+        XCTAssertEqual(upserts.last?.1.durationSeconds, 180)
+        XCTAssertEqual(endCount, 1)
+        XCTAssertNil(service.currentState)
     }
 }

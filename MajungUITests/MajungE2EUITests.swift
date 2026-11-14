@@ -144,12 +144,27 @@ final class MajungE2EUITests: XCTestCase {
 
         server.setGuestPhase(.active)
         XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["pickup-live-activity-note"].waitForExistence(timeout: 5))
 
         // 3. Toggle readiness READY & test resend receipt
         app.buttons["pickup-readiness-ready-button"].tap()
         XCTAssertTrue(app.buttons["pickup-resend-readiness-button"].waitForExistence(timeout: 5))
         app.buttons["pickup-resend-readiness-button"].tap()
         XCTAssertEqual(server.requestsMatching(method: "PUT", pathPrefix: "/api/v1/pickups/\(server.pickupId)/readiness").count, 2)
+
+        // Background to Home Screen so Dynamic Island Live Activity renders (compact + expanded), then tap Dynamic Island to return to app
+        XCUIDevice.shared.press(.home)
+        sleep(2)
+        attachScreenshot(named: "pickup-dynamic-island-compact")
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.025)).press(forDuration: 0.9)
+        sleep(1)
+        attachScreenshot(named: "pickup-dynamic-island-expanded")
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        if !app.wait(for: .runningForeground, timeout: 4) {
+            app.activate()
+        }
+        XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
 
         // 4. Send quick message directly
         let messageField = app.textFields["직접 메시지 입력 (최대 50자)"]

@@ -45,6 +45,11 @@
 		A100000000000000000000A7 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A3 /* SplashView.swift */; };
 		A100000000000000000000A8 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000A4 /* OnboardingView.swift */; };
 		A100000000000000000000B1 /* SoloDemoServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B0 /* SoloDemoServer.swift */; };
+		A100000000000000000000B2 /* PickupLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B4 /* PickupLiveActivityAttributes.swift */; };
+		A100000000000000000000B3 /* PickupLiveActivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B5 /* PickupLiveActivityService.swift */; };
+		D10000000000000000000001 /* PickupLiveActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B4 /* PickupLiveActivityAttributes.swift */; };
+		D10000000000000000000002 /* MajungLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000003 /* MajungLiveActivityWidget.swift */; };
+		D1000000000000000000000E /* MajungLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D10000000000000000000005 /* MajungLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B10000000000000000000001 /* MajungCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000003 /* MajungCoreTests.swift */; };
 		B10000000000000000000002 /* PickupTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000004 /* PickupTrackerTests.swift */; };
 		C10000000000000000000001 /* LocalE2EServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000003 /* LocalE2EServer.swift */; };
@@ -66,7 +71,28 @@
 			remoteGlobalIDString = A10000000000000000000009;
 			remoteInfo = Majung;
 		};
+		D1000000000000000000000C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000000000000000000000B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D10000000000000000000007;
+			remoteInfo = MajungLiveActivityExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		D1000000000000000000000F /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D1000000000000000000000E /* MajungLiveActivityExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A10000000000000000000003 /* MajungApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungApp.swift; sourceTree = "<group>"; };
@@ -108,6 +134,11 @@
 		A100000000000000000000A3 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		A100000000000000000000A4 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A100000000000000000000B0 /* SoloDemoServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoloDemoServer.swift; sourceTree = "<group>"; };
+		A100000000000000000000B4 /* PickupLiveActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupLiveActivityAttributes.swift; sourceTree = "<group>"; };
+		A100000000000000000000B5 /* PickupLiveActivityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupLiveActivityService.swift; sourceTree = "<group>"; };
+		D10000000000000000000003 /* MajungLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungLiveActivityWidget.swift; sourceTree = "<group>"; };
+		D10000000000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D10000000000000000000005 /* MajungLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MajungLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000003 /* MajungCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungCoreTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000004 /* PickupTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupTrackerTests.swift; sourceTree = "<group>"; };
 		B10000000000000000000005 /* MajungTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MajungTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -121,6 +152,7 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000007 /* Majung */,
+				D10000000000000000000006 /* MajungLiveActivity */,
 				B10000000000000000000006 /* MajungTests */,
 				C10000000000000000000006 /* MajungUITests */,
 				A10000000000000000000008 /* Products */,
@@ -227,6 +259,8 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000012 /* PickupModels.swift */,
+				A100000000000000000000B4 /* PickupLiveActivityAttributes.swift */,
+				A100000000000000000000B5 /* PickupLiveActivityService.swift */,
 				A10000000000000000000013 /* PickupSessionStore.swift */,
 				A10000000000000000000014 /* PickupViewModel.swift */,
 				A10000000000000000000063 /* SharedPickupTracker.swift */,
@@ -264,10 +298,20 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000005 /* Majung.app */,
+				D10000000000000000000005 /* MajungLiveActivityExtension.appex */,
 				B10000000000000000000005 /* MajungTests.xctest */,
 				C10000000000000000000005 /* MajungUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D10000000000000000000006 /* MajungLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				D10000000000000000000003 /* MajungLiveActivityWidget.swift */,
+				D10000000000000000000004 /* Info.plist */,
+			);
+			path = MajungLiveActivity;
 			sourceTree = "<group>";
 		};
 		B10000000000000000000006 /* MajungTests */ = {
@@ -297,15 +341,32 @@
 			buildPhases = (
 				A1000000000000000000000A /* Sources */,
 				A10000000000000000000098 /* Resources */,
+				D1000000000000000000000F /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				D1000000000000000000000D /* PBXTargetDependency */,
 			);
 			name = Majung;
 			productName = Majung;
 			productReference = A10000000000000000000005 /* Majung.app */;
 			productType = "com.apple.product-type.application";
+		};
+		D10000000000000000000007 /* MajungLiveActivityExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D10000000000000000000009 /* Build configuration list for PBXNativeTarget "MajungLiveActivityExtension" */;
+			buildPhases = (
+				D10000000000000000000008 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MajungLiveActivityExtension;
+			productName = MajungLiveActivityExtension;
+			productReference = D10000000000000000000005 /* MajungLiveActivityExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		B10000000000000000000007 /* MajungTests */ = {
 			isa = PBXNativeTarget;
@@ -369,6 +430,7 @@
 			projectRoot = "";
 			targets = (
 				A10000000000000000000009 /* Majung */,
+				D10000000000000000000007 /* MajungLiveActivityExtension */,
 				B10000000000000000000007 /* MajungTests */,
 				C10000000000000000000007 /* MajungUITests */,
 			);
@@ -428,6 +490,17 @@
 				A100000000000000000000A7 /* SplashView.swift in Sources */,
 				A100000000000000000000A8 /* OnboardingView.swift in Sources */,
 				A100000000000000000000B1 /* SoloDemoServer.swift in Sources */,
+				A100000000000000000000B2 /* PickupLiveActivityAttributes.swift in Sources */,
+				A100000000000000000000B3 /* PickupLiveActivityService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D10000000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D10000000000000000000001 /* PickupLiveActivityAttributes.swift in Sources */,
+				D10000000000000000000002 /* MajungLiveActivityWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -461,6 +534,11 @@
 			isa = PBXTargetDependency;
 			target = A10000000000000000000009 /* Majung */;
 			targetProxy = C1000000000000000000000C /* PBXContainerItemProxy */;
+		};
+		D1000000000000000000000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D10000000000000000000007 /* MajungLiveActivityExtension */;
+			targetProxy = D1000000000000000000000C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -600,6 +678,58 @@
 			};
 			name = Release;
 		};
+		D1000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = K2G6G3ZNZQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MajungLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "마중 실시간 현황";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.majung.ios.liveactivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D1000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = K2G6G3ZNZQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = MajungLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "마중 실시간 현황";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.majung.ios.liveactivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -635,6 +765,15 @@
 			buildConfigurations = (
 				C1000000000000000000000A /* Debug */,
 				C1000000000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D10000000000000000000009 /* Build configuration list for PBXNativeTarget "MajungLiveActivityExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D1000000000000000000000A /* Debug */,
+				D1000000000000000000000B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

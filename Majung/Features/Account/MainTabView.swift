@@ -8,10 +8,12 @@ struct MainTabView: View {
     @Bindable var vehicleLinks: VehicleLinkViewModel
     @Bindable var pickup: PickupViewModel
     @Binding var inviteLink: String
+    var pickupNavigationEventCount = 0
 
     @State private var selectedTab: TabItem = .home
     @State private var rideTarget: RideTargetPerson?
     @State private var showingRideTracking = false
+    @State private var pendingPickupDeepLink = false
 
     private enum TabItem: Hashable {
         case home, requests, people, settings
@@ -100,6 +102,11 @@ struct MainTabView: View {
             }
         }
         .onChange(of: rideRequests.activeRequest?.id) { _, activeId in
+            if activeId != nil && pendingPickupDeepLink {
+                pendingPickupDeepLink = false
+                rideRequests.beginTrackingSession()
+                showingRideTracking = true
+            }
             if activeId == nil && !showingRideTracking {
                 rideRequests.clearEndedTrackingIfNeeded()
             }
@@ -118,10 +125,28 @@ struct MainTabView: View {
         .onChange(of: vehicleLinks.navigationEventCount) { _, count in
             if count > 0 { selectedTab = .settings }
         }
+        .onChange(of: pickupNavigationEventCount) { _, count in
+            guard count > 0 else { return }
+            openActivePickupFromDeepLink()
+        }
         .onAppear {
             if vehicleLinks.hasPendingPairing || vehicleLinks.navigationEventCount > 0 {
                 selectedTab = .settings
             }
+            if pickupNavigationEventCount > 0 {
+                openActivePickupFromDeepLink()
+            }
+        }
+    }
+
+    private func openActivePickupFromDeepLink() {
+        if rideRequests.activeRequest != nil {
+            pendingPickupDeepLink = false
+            rideRequests.beginTrackingSession()
+            showingRideTracking = true
+        } else {
+            pendingPickupDeepLink = true
+            selectedTab = .requests
         }
     }
 }
@@ -534,7 +559,7 @@ private struct SettingsTabView: View {
                     }
                 }
 
-                Text("앱 화면이 켜진 동안 도착 전·도착 로컬 알림을 제공하며, APNs 푸시 인증이 적용된 배포 빌드에서는 백그라운드 알림도 지원해요. 위치 권한은 만날 장소를 고를 때만 사용하며, 픽업이 종료되면 실시간 위치 공유가 즉시 멈춰요.")
+                Text("픽업이 진행되는 동안 다이나믹 아일랜드와 잠금화면에 실시간 현황이 표시되며, 앱 실행 중 도착 전·도착 로컬 알림과 APNs 푸시 인증이 적용된 배포 빌드의 백그라운드 알림을 지원해요. 위치 권한은 만날 장소를 고를 때만 사용하며, 픽업이 종료되면 실시간 위치 공유가 즉시 멈춰요.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

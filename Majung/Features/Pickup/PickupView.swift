@@ -290,6 +290,14 @@ struct PickupView: View {
                     .font(.footnote)
                     .foregroundStyle(notifications.permissionDenied ? .red : .secondary)
             }
+
+            Label(
+                "앱을 나가도 다이나믹 아일랜드와 잠금화면에서 도착 예정 시간을 계속 확인할 수 있어요.",
+                systemImage: "platter.filled.top.iphone"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .accessibilityIdentifier("pickup-live-activity-note")
         }
     }
 

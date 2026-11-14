@@ -282,7 +282,7 @@ private struct HomeTabView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .scrollDismissesKeyboard(.interactively)
+        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("홈")
         .majungGuideToolbar(isPresented: $showingGuide, accessibilityIdentifier: "home-guide-button")
         .majungKeyboardDismiss(isFocused: $inviteFieldFocused)

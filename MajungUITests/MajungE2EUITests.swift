@@ -392,8 +392,11 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.buttons["키보드 닫기"].waitForExistence(timeout: 5))
         attachScreenshot(named: "07-settings-keyboard-glass-dismiss")
 
-        // Tap non-interactive profile label in Form -> dismisses keyboard
-        app.staticTexts["이름"].firstMatch.tap()
+        // Tap non-interactive section label cleanly above keyboard in Form -> dismisses keyboard
+        let nicknameSectionHeader = app.staticTexts["내 이름(닉네임) 변경"].firstMatch
+        XCTAssertTrue(nicknameSectionHeader.waitForExistence(timeout: 5))
+        XCTAssertTrue(nicknameSectionHeader.isHittable)
+        nicknameSectionHeader.tap()
         waitForKeyboardDismissed(in: app)
 
         // Clear button preserves active keyboard; empty Return dismisses cleanly
@@ -412,11 +415,18 @@ final class MajungE2EUITests: XCTestCase {
         app.swipeDown()
         waitForKeyboardDismissed(in: app)
 
-        // Switching tabs dismisses keyboard
+        // Switching tabs dismisses keyboard (if software keyboard covers tab bar, dismiss via Glass pill first)
         nicknameField.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        app.tabBars.buttons["사람"].tap()
-        waitForKeyboardDismissed(in: app)
+        let peopleTab = app.tabBars.buttons["사람"]
+        if peopleTab.isHittable {
+            peopleTab.tap()
+            waitForKeyboardDismissed(in: app)
+        } else {
+            app.buttons["키보드 닫기"].tap()
+            waitForKeyboardDismissed(in: app)
+            peopleTab.tap()
+        }
 
         // People search: invalid 1-char Return still dismisses keyboard; Glass dismiss works too
         let peopleSearch = app.textFields["people-search-field"]

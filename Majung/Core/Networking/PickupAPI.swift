@@ -5,7 +5,12 @@ struct PickupAPI {
         let status: Int
         let code: String?
         let message: String?
-        var errorDescription: String? { message ?? "잠시 후 다시 시도해주세요." }
+        var errorDescription: String? {
+            if code == "SAME_PLACE" {
+                return "현재 만날 장소와 같은 위치예요. 지도를 옮기거나 다른 장소를 검색해주세요."
+            }
+            return message ?? "잠시 후 다시 시도해주세요."
+        }
     }
 
     private struct ErrorBody: Decodable {

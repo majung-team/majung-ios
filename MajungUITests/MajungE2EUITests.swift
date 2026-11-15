@@ -731,17 +731,8 @@ final class MajungE2EUITests: XCTestCase {
         let apertureQuery = springboard.descendants(matching: .any)
             .matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "마중", expandedStatusLabel))
 
-        func compactApertureElement() -> XCUIElement? {
-            let maxCompactY = max(springboard.frame.height * 0.085, 80)
-            return apertureQuery.allElementsBoundByIndex.first { element in
-                element.exists
-                    && element.elementType != .icon
-                    && !element.identifier.hasPrefix("card:")
-                    && !element.frame.isEmpty
-                    && element.frame.minY >= 0
-                    && element.frame.height >= 16
-                    && element.frame.maxY <= maxCompactY
-            }
+        func compactApertureIsVisible() -> Bool {
+            apertureQuery.firstMatch.exists
         }
 
         // Wait briefly for ActivityKit upsert enqueue and initial transition before backgrounding.
@@ -749,12 +740,10 @@ final class MajungE2EUITests: XCTestCase {
         XCUIDevice.shared.press(.home)
 
         // Wait for cold WidgetRenderer-Activities to present the compact pill before capturing or long-pressing it.
-        var detectedCompact: XCUIElement?
         let compactDeadline = Date().addingTimeInterval(8)
         let fallbackCompactDelay = Date().addingTimeInterval(6)
         while Date() < compactDeadline {
-            if let element = compactApertureElement() {
-                detectedCompact = element
+            if compactApertureIsVisible() {
                 break
             }
             if Date() >= fallbackCompactDelay {
@@ -780,15 +769,7 @@ final class MajungE2EUITests: XCTestCase {
                 expanded = true
                 break
             }
-            let pressOffsetY: CGFloat
-            if let compact = detectedCompact ?? compactApertureElement(),
-               !compact.frame.isEmpty,
-               springboard.frame.height > 0 {
-                pressOffsetY = max(0.025, min(compact.frame.midY / springboard.frame.height, 0.05))
-            } else {
-                pressOffsetY = 0.03
-            }
-            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: pressOffsetY)).press(forDuration: 0.9)
+            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.03)).press(forDuration: 0.9)
             if expandedPlace.waitForExistence(timeout: 3.5) && expandedStatus.waitForExistence(timeout: 1.5) {
                 expanded = true
                 break

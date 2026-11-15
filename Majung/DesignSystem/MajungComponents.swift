@@ -7,6 +7,14 @@ func dismissMajungKeyboard() {
     var transaction = Transaction()
     transaction.disablesAnimations = true
     withTransaction(transaction) {
+        // Commit marked IME text and resign active responders across main and sheet hierarchies.
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene,
+                  windowScene.activationState == .foregroundActive else { continue }
+            for window in windowScene.windows where window.isKeyWindow {
+                window.endEditing(true)
+            }
+        }
         UIApplication.shared.sendAction(
             #selector(UIResponder.resignFirstResponder),
             to: nil,
@@ -14,6 +22,16 @@ func dismissMajungKeyboard() {
             for: nil
         )
     }
+}
+
+@MainActor
+func dismissMajungKeyboard(_ resetFocus: () -> Void) {
+    var transaction = Transaction()
+    transaction.disablesAnimations = true
+    withTransaction(transaction) {
+        resetFocus()
+    }
+    dismissMajungKeyboard()
 }
 
 @MainActor
@@ -79,10 +97,11 @@ private struct MajungOutsideTapKeyboardDismisser: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: MajungDismisserHostView, context: Context) {
+        let wasActive = context.coordinator.isActive
         context.coordinator.onTapOutsideDismiss = onTapOutsideDismiss
         context.coordinator.onSystemKeyboardHide = onSystemKeyboardHide
         context.coordinator.isActive = isActive
-        context.coordinator.attachIfNeeded(from: uiView)
+        context.coordinator.attachIfNeeded(from: uiView, justActivated: !wasActive && isActive)
     }
 
     static func dismantleUIView(_ uiView: MajungDismisserHostView, coordinator: Coordinator) {
@@ -130,7 +149,7 @@ private struct MajungOutsideTapKeyboardDismisser: UIViewRepresentable {
             super.init()
         }
 
-        func attachIfNeeded(from hostView: UIView) {
+        func attachIfNeeded(from hostView: UIView, justActivated: Bool = false) {
             guard let window = hostView.window else { return }
             if attachedWindow !== window {
                 attachedWindow?.removeGestureRecognizer(tapRecognizer)
@@ -153,9 +172,11 @@ private struct MajungOutsideTapKeyboardDismisser: UIViewRepresentable {
             }
             if isActive {
                 enableImmediateScrollDismiss(from: hostView)
-                Task { @MainActor [weak self, weak hostView] in
-                    guard let self, let hostView, self.isActive else { return }
-                    self.enableImmediateScrollDismiss(from: hostView)
+                if justActivated {
+                    Task { @MainActor [weak self, weak hostView] in
+                        guard let self, let hostView, self.isActive else { return }
+                        self.enableImmediateScrollDismiss(from: hostView)
+                    }
                 }
             }
             tapRecognizer.isEnabled = isActive
@@ -188,13 +209,18 @@ private struct MajungOutsideTapKeyboardDismisser: UIViewRepresentable {
         }
 
         private func applyDragDismissIfNeeded(in view: UIView) {
-            if view is MKMapView {
+            if view is MKMapView || view is UITextInput {
                 return
             }
-            if let scrollView = view as? UIScrollView,
-               scrollView.keyboardDismissMode != .onDrag,
-               (scrollView is UICollectionView || scrollView is UITableView || scrollView.alwaysBounceVertical || scrollView.contentSize.height > scrollView.bounds.height) {
-                scrollView.keyboardDismissMode = .onDrag
+            if let scrollView = view as? UIScrollView {
+                // Deliver quick button taps inside nested scroll views without UIKit's 150ms delay.
+                if scrollView.delaysContentTouches {
+                    scrollView.delaysContentTouches = false
+                }
+                if scrollView.keyboardDismissMode != .onDrag,
+                   (scrollView is UICollectionView || scrollView is UITableView || scrollView.alwaysBounceVertical || scrollView.contentSize.height > scrollView.bounds.height) {
+                    scrollView.keyboardDismissMode = .onDrag
+                }
             }
             for child in view.subviews {
                 applyDragDismissIfNeeded(in: child)
@@ -336,10 +362,14 @@ extension View {
             }
         }
         let performDismiss: @MainActor () -> Void = {
-            clearFocusOnly()
-            dismissMajungKeyboard()
+            dismissMajungKeyboard(dismiss)
         }
         return scrollDismissesKeyboard(.immediately)
+            .onChange(of: isActive) { wasActive, nowActive in
+                if wasActive && !nowActive {
+                    dismissMajungKeyboard()
+                }
+            }
             .background(
                 MajungOutsideTapKeyboardDismisser(
                     isActive: isActive,
@@ -351,25 +381,42 @@ extension View {
                 if isActive {
                     HStack {
                         Spacer()
-                        Button {
-                            performDismiss()
-                        } label: {
-                            Label("키보드 닫기", systemImage: "keyboard.chevron.compact.down")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.primary)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 9)
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .majungGlassCapsule()
-                        .accessibilityLabel("키보드 닫기")
+                        majungKeyboardDismissButton(action: performDismiss)
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
                     .padding(.top, 4)
                 }
             }
+    }
+
+    @ViewBuilder
+    private func majungKeyboardDismissButton(action: @escaping @MainActor () -> Void) -> some View {
+        let label = Label("키보드 닫기", systemImage: "keyboard.chevron.compact.down")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.primary)
+
+        Group {
+            if #available(iOS 26.0, *) {
+                Button(action: action) {
+                    label
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                }
+                .buttonStyle(.glass)
+                .buttonBorderShape(.capsule)
+            } else {
+                Button(action: action) {
+                    label
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .contentShape(Capsule())
+                        .majungGlassCapsule()
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .accessibilityLabel("키보드 닫기")
     }
 }
 

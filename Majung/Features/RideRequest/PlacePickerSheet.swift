@@ -31,8 +31,11 @@ struct PlacePickerSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
-                        .disabled(rideModel.busy)
+                    Button("닫기") {
+                        dismissMajungKeyboard()
+                        dismiss()
+                    }
+                    .disabled(rideModel.busy)
                 }
             }
             .onAppear {

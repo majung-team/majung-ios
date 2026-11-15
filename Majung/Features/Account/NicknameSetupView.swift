@@ -3,6 +3,7 @@ import SwiftUI
 struct NicknameSetupView: View {
     @Bindable var account: AccountViewModel
     @State private var draft = ""
+    @FocusState private var nicknameFocused: Bool
 
     private var normalizedCount: Int {
         draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -35,21 +36,26 @@ struct NicknameSetupView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    TextField("닉네임 (2~20자)", text: $draft)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .submitLabel(.done)
-                        .onSubmit {
-                            if isValid && !account.busy {
-                                Task { _ = await account.saveNickname(draft) }
+                    HStack(spacing: 8) {
+                        TextField("닉네임 (2~20자)", text: $draft)
+                            .focused($nicknameFocused)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.done)
+                            .onSubmit {
+                                nicknameFocused = false
+                                if isValid && !account.busy {
+                                    Task { _ = await account.saveNickname(draft) }
+                                }
                             }
-                        }
-                        .onChange(of: draft) { _, _ in
-                            if account.error != nil { account.error = nil }
-                        }
-                        .padding(12)
-                        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
-                        .accessibilityIdentifier("nickname-setup-field")
+                            .onChange(of: draft) { _, _ in
+                                if account.error != nil { account.error = nil }
+                            }
+                            .accessibilityIdentifier("nickname-setup-field")
+
+                        MajungClearInputButton(text: $draft, accessibilityLabel: "닉네임 지우기")
+                    }
+                    .majungInputSurface()
 
                     HStack {
                         Text("문자·숫자·공백·밑줄·점·하이픈 2~20자")
@@ -71,6 +77,7 @@ struct NicknameSetupView: View {
                 .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
 
                 Button {
+                    nicknameFocused = false
                     Task { _ = await account.saveNickname(draft) }
                 } label: {
                     Text(account.busy ? "저장 중…" : "이 이름으로 시작")
@@ -81,6 +88,7 @@ struct NicknameSetupView: View {
                 .accessibilityIdentifier("nickname-setup-submit")
 
                 Button("다른 계정으로 로그인", role: .destructive) {
+                    nicknameFocused = false
                     Task { await account.logout() }
                 }
                 .disabled(account.busy)
@@ -90,5 +98,6 @@ struct NicknameSetupView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("이름 설정")
         .navigationBarTitleDisplayMode(.inline)
+        .majungKeyboardDismiss(isFocused: $nicknameFocused)
     }
 }

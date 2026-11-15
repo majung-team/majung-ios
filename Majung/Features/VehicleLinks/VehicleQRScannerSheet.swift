@@ -10,6 +10,7 @@ struct VehicleQRScannerSheet: View {
     @State private var validationError: String?
     @State private var cameraPermissionDenied = false
     @State private var cameraAuthorized = AVCaptureDevice.authorizationStatus(for: .video) == .authorized
+    @FocusState private var linkFocused: Bool
 
     let onConnected: () -> Void
 
@@ -33,9 +34,14 @@ struct VehicleQRScannerSheet: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("차량 QR 연결")
             .navigationBarTitleDisplayMode(.inline)
+            .majungKeyboardDismiss(isFocused: $linkFocused)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { dismiss() }
+                    Button("닫기") {
+                        linkFocused = false
+                        dismissMajungKeyboard()
+                        dismiss()
+                    }
                 }
             }
             .task {
@@ -84,15 +90,28 @@ struct VehicleQRScannerSheet: View {
             Text("차량 화면이나 공유 링크(`https://majung.cloud/account#enroll/...`, `#vehicle/...`)를 붙여넣으세요.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            TextField("https://majung.cloud/account#enroll/...", text: $linkDraft)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .keyboardType(.URL)
-                .accessibilityIdentifier("vehicle-qr-link-field")
+            HStack(spacing: 8) {
+                TextField("https://majung.cloud/account#enroll/...", text: $linkDraft)
+                    .focused($linkFocused)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                    .submitLabel(.go)
+                    .onSubmit {
+                        linkFocused = false
+                        if !linkDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !vehicleLinks.busy {
+                            Task { await submitRawText(linkDraft) }
+                        }
+                    }
+                    .accessibilityIdentifier("vehicle-qr-link-field")
+
+                MajungClearInputButton(text: $linkDraft, accessibilityLabel: "연결 링크 지우기")
+            }
+            .majungInputSurface()
 
             HStack(spacing: 10) {
                 Button("붙여넣기") {
+                    linkFocused = false
                     if let pasted = UIPasteboard.general.string {
                         linkDraft = pasted
                         validationError = nil
@@ -102,6 +121,7 @@ struct VehicleQRScannerSheet: View {
                 .accessibilityIdentifier("vehicle-qr-paste-button")
 
                 Button(vehicleLinks.busy ? "요청 중…" : "차량 연결 요청") {
+                    linkFocused = false
                     Task { await submitRawText(linkDraft) }
                 }
                 .buttonStyle(.borderedProminent)

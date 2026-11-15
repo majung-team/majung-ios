@@ -23,7 +23,6 @@ struct LoginEntryView: View {
             .padding(20)
         }
         .background(Color(.systemGroupedBackground))
-        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("마중")
         .navigationBarTitleDisplayMode(.inline)
         .majungGuideToolbar(isPresented: $showingGuide, accessibilityIdentifier: "login-guide-button")
@@ -47,6 +46,7 @@ struct LoginEntryView: View {
     private var kakaoSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
+                inviteFieldFocused = false
                 Task { await account.signInWithKakao() }
             } label: {
                 HStack(spacing: 8) {
@@ -71,6 +71,7 @@ struct LoginEntryView: View {
                     MajungStatusBanner(message: error, tint: .red)
                     HStack(spacing: 8) {
                         Button("다시 시도") {
+                            inviteFieldFocused = false
                             Task { await account.signInWithKakao() }
                         }
                         .buttonStyle(.borderedProminent)
@@ -79,6 +80,7 @@ struct LoginEntryView: View {
                         .accessibilityIdentifier("kakao-login-retry-button")
 
                         Button("닫기") {
+                            inviteFieldFocused = false
                             account.error = nil
                         }
                         .buttonStyle(.bordered)
@@ -91,13 +93,20 @@ struct LoginEntryView: View {
     }
 
     private var divider: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             VStack { Divider() }
+                .frame(maxWidth: .infinity)
             Text("또는 비로그인 초대 참여")
-                .font(.caption)
+                .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .multilineTextAlignment(.center)
+                .layoutPriority(1)
             VStack { Divider() }
+                .frame(maxWidth: .infinity)
         }
+        .accessibilityElement(children: .combine)
     }
 
     private var guestInviteCard: some View {
@@ -135,19 +144,9 @@ struct LoginEntryView: View {
                         }
                     }
 
-                if !inviteLink.isEmpty {
-                    Button {
-                        inviteLink = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("초대 링크 지우기")
-                }
+                MajungClearInputButton(text: $inviteLink, accessibilityLabel: "초대 링크 지우기")
             }
-            .padding(12)
-            .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+            .majungInputSurface()
 
             HStack(spacing: 10) {
                 PasteButton(payloadType: String.self) { values in

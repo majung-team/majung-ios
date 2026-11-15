@@ -74,7 +74,7 @@ struct PickupView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .scrollDismissesKeyboard(.interactively)
+        .majungKeyboardDismiss(isFocused: $messageFocused)
         .refreshable { await tracker.refresh() }
         .navigationTitle("마중 픽업")
         .navigationBarTitleDisplayMode(.inline)
@@ -101,6 +101,7 @@ struct PickupView: View {
         }
         .onChange(of: tracker.snapshot?.status) { _, status in
             if status != .active { editingPlace = false }
+            if status != .active && status != .arrived { messageFocused = false }
             notifications.evaluate(snapshot: tracker.snapshot, vehicle: tracker.currentVehicle())
         }
         .onChange(of: tracker.vehicle?.durationSeconds) { _, _ in
@@ -390,7 +391,10 @@ struct PickupView: View {
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     ForEach(["지금 내려가요", "입구 앞이에요", "곧 도착해요"], id: \.self) { text in
-                        Button(text) { tracker.messageDraft = text }
+                        Button(text) {
+                            messageFocused = false
+                            tracker.messageDraft = text
+                        }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
                             .tint(tracker.messageDraft == text ? .accentColor : .secondary)
@@ -399,13 +403,15 @@ struct PickupView: View {
             }
             .scrollIndicators(.hidden)
             HStack(spacing: 8) {
-                TextField("직접 메시지 입력 (최대 50자)", text: $tracker.messageDraft)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 10))
-                    .submitLabel(.send)
-                    .focused($messageFocused)
-                    .onSubmit { sendMessage() }
+                HStack(spacing: 6) {
+                    TextField("직접 메시지 입력 (최대 50자)", text: $tracker.messageDraft)
+                        .submitLabel(.send)
+                        .focused($messageFocused)
+                        .onSubmit { sendMessage() }
+
+                    MajungClearInputButton(text: $tracker.messageDraft, accessibilityLabel: "메시지 지우기")
+                }
+                .majungInputSurface(cornerRadius: 10)
                 Button("전송") { sendMessage() }
                     .buttonStyle(.borderedProminent)
                     .disabled(

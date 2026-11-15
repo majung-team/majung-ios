@@ -120,7 +120,7 @@ struct MainTabView: View {
             }
         }
         .onChange(of: selectedTab) { _, _ in
-            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            dismissMajungKeyboard()
         }
         .onChange(of: vehicleLinks.navigationEventCount) { _, count in
             if count > 0 { selectedTab = .settings }
@@ -241,19 +241,9 @@ private struct HomeTabView: View {
                                     Task { await pickup.openLink(inviteLink) }
                                 }
                             }
-                        if !inviteLink.isEmpty {
-                            Button {
-                                inviteLink = ""
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("초대 링크 지우기")
-                        }
+                        MajungClearInputButton(text: $inviteLink, accessibilityLabel: "초대 링크 지우기")
                     }
-                    .padding(12)
-                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                    .majungInputSurface()
                     HStack(spacing: 10) {
                         PasteButton(payloadType: String.self) { values in
                             guard let value = values.first else { return }
@@ -282,7 +272,6 @@ private struct HomeTabView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .scrollDismissesKeyboard(.immediately)
         .navigationTitle("홈")
         .majungGuideToolbar(isPresented: $showingGuide, accessibilityIdentifier: "home-guide-button")
         .majungKeyboardDismiss(isFocused: $inviteFieldFocused)
@@ -356,6 +345,7 @@ private struct SettingsTabView: View {
     @State private var showingGuide = false
     @State private var confirmingLogout = false
     @State private var confirmingDeleteAccount = false
+    @FocusState private var nicknameFocused: Bool
 
     private var detachAlertPresented: Binding<Bool> {
         Binding(
@@ -500,16 +490,30 @@ private struct SettingsTabView: View {
 
             if account.member != nil {
                 Section("내 이름(닉네임) 변경") {
-                    TextField("새 닉네임 (2~20자)", text: $nicknameDraft)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .accessibilityIdentifier("settings-nickname-field")
+                    HStack(spacing: 8) {
+                        TextField("새 닉네임 (2~20자)", text: $nicknameDraft)
+                            .focused($nicknameFocused)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .submitLabel(.done)
+                            .onSubmit {
+                                nicknameFocused = false
+                                if canSaveNickname && !account.busy {
+                                    Task { _ = await account.saveNickname(nicknameDraft) }
+                                }
+                            }
+                            .accessibilityIdentifier("settings-nickname-field")
+
+                        MajungClearInputButton(text: $nicknameDraft, accessibilityLabel: "닉네임 지우기")
+                    }
+                    .majungPreserveKeyboardOnTap()
                     HStack {
                         Text("\(normalizedCount)/20자")
                             .font(.footnote)
                             .foregroundStyle(normalizedCount > 20 ? Color.red : Color.secondary)
                         Spacer()
                         Button(account.busy ? "저장 중…" : "닉네임 저장") {
+                            nicknameFocused = false
                             Task { _ = await account.saveNickname(nicknameDraft) }
                         }
                         .buttonStyle(.borderedProminent)
@@ -566,6 +570,7 @@ private struct SettingsTabView: View {
 
             Section("마중 안내") {
                 Button {
+                    nicknameFocused = false
                     showingGuide = true
                 } label: {
                     Label("마중 이용 가이드", systemImage: "questionmark.circle")
@@ -575,12 +580,14 @@ private struct SettingsTabView: View {
 
             Section("계정") {
                 Button("로그아웃", role: .destructive) {
+                    nicknameFocused = false
                     confirmingLogout = true
                 }
                 .disabled(account.busy)
                 .accessibilityIdentifier("settings-logout-button")
 
                 Button("회원 탈퇴", role: .destructive) {
+                    nicknameFocused = false
                     confirmingDeleteAccount = true
                 }
                 .disabled(account.busy)
@@ -588,6 +595,12 @@ private struct SettingsTabView: View {
             }
         }
         .navigationTitle("설정")
+        .majungKeyboardDismiss(isFocused: $nicknameFocused)
+        .onChange(of: showingVehicleScanner) { _, isShowing in
+            if isShowing {
+                nicknameFocused = false
+            }
+        }
         .task {
             await notifications.refreshStatus()
             await vehicleLinks.load(silent: true)

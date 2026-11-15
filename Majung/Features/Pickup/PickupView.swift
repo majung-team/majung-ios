@@ -392,15 +392,18 @@ struct PickupView: View {
                 HStack(spacing: 8) {
                     ForEach(["지금 내려가요", "입구 앞이에요", "곧 도착해요"], id: \.self) { text in
                         Button(text) {
-                            messageFocused = false
+                            dismissMajungKeyboard {
+                                messageFocused = false
+                            }
                             tracker.messageDraft = text
                         }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .tint(tracker.messageDraft == text ? .accentColor : .secondary)
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .tint(tracker.messageDraft == text ? .accentColor : .secondary)
                     }
                 }
             }
+            .scrollBounceBehavior(.basedOnSize)
             .scrollIndicators(.hidden)
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
@@ -434,7 +437,9 @@ struct PickupView: View {
     }
 
     private func sendMessage() {
-        messageFocused = false
+        dismissMajungKeyboard {
+            messageFocused = false
+        }
         Task { await tracker.sendMessage() }
     }
 

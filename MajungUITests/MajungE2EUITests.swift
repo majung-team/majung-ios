@@ -323,15 +323,16 @@ final class MajungE2EUITests: XCTestCase {
     }
 
     private func waitForKeyboardDismissed(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
-        let keyboardGone = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"),
-            object: app.keyboards.firstMatch
+        XCTAssertTrue(
+            app.keyboards.firstMatch.waitForNonExistence(timeout: 8),
+            file: file,
+            line: line
         )
-        let dismissGone = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"),
-            object: app.buttons["키보드 닫기"]
+        XCTAssertTrue(
+            app.buttons["키보드 닫기"].waitForNonExistence(timeout: 5),
+            file: file,
+            line: line
         )
-        XCTAssertEqual(XCTWaiter.wait(for: [keyboardGone, dismissGone], timeout: 5), .completed, file: file, line: line)
     }
 
     private func revealElement(_ element: XCUIElement, in app: XCUIApplication) {

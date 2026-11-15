@@ -728,11 +728,40 @@ final class MajungE2EUITests: XCTestCase {
         line: UInt = #line
     ) -> XCUIElement {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let apertureQuery = springboard.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "마중", expandedStatusLabel))
 
-        func compactApertureIsVisible() -> Bool {
-            apertureQuery.firstMatch.exists
+        func findSnapshotFrame(
+            in snapshot: XCUIElementSnapshot,
+            matching predicate: (XCUIElementSnapshot) -> Bool
+        ) -> CGRect? {
+            var stack: [XCUIElementSnapshot] = [snapshot]
+            while let node = stack.popLast() {
+                if predicate(node) {
+                    return node.frame
+                }
+                stack.append(contentsOf: node.children)
+            }
+            return nil
+        }
+
+        func compactApertureMetrics() -> (frame: CGRect, boardHeight: CGFloat)? {
+            // Read an atomic snapshot so transient home-transition elements never fail index queries.
+            guard let rootSnapshot = try? springboard.snapshot(),
+                  rootSnapshot.frame.height > 0 else {
+                return nil
+            }
+            let maxCompactY = max(rootSnapshot.frame.height * 0.085, 80)
+            guard let frame = findSnapshotFrame(in: rootSnapshot, matching: { node in
+                (node.label.contains("마중") || node.label.contains(expandedStatusLabel))
+                    && node.elementType != .icon
+                    && !node.identifier.hasPrefix("card:")
+                    && !node.frame.isEmpty
+                    && node.frame.minY >= 0
+                    && node.frame.height >= 16
+                    && node.frame.maxY <= maxCompactY
+            }) else {
+                return nil
+            }
+            return (frame, rootSnapshot.frame.height)
         }
 
         // Wait briefly for ActivityKit upsert enqueue and initial transition before backgrounding.
@@ -740,10 +769,12 @@ final class MajungE2EUITests: XCTestCase {
         XCUIDevice.shared.press(.home)
 
         // Wait for cold WidgetRenderer-Activities to present the compact pill before capturing or long-pressing it.
+        var detectedCompactMetrics: (frame: CGRect, boardHeight: CGFloat)?
         let compactDeadline = Date().addingTimeInterval(8)
         let fallbackCompactDelay = Date().addingTimeInterval(6)
         while Date() < compactDeadline {
-            if compactApertureIsVisible() {
+            if let metrics = compactApertureMetrics() {
+                detectedCompactMetrics = metrics
                 break
             }
             if Date() >= fallbackCompactDelay {
@@ -769,7 +800,13 @@ final class MajungE2EUITests: XCTestCase {
                 expanded = true
                 break
             }
-            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.03)).press(forDuration: 0.9)
+            let pressOffsetY: CGFloat
+            if let metrics = detectedCompactMetrics ?? compactApertureMetrics() {
+                pressOffsetY = max(0.025, min(metrics.frame.midY / metrics.boardHeight, 0.05))
+            } else {
+                pressOffsetY = 0.03
+            }
+            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: pressOffsetY)).press(forDuration: 0.9)
             if expandedPlace.waitForExistence(timeout: 3.5) && expandedStatus.waitForExistence(timeout: 1.5) {
                 expanded = true
                 break
@@ -779,8 +816,17 @@ final class MajungE2EUITests: XCTestCase {
         attachScreenshot(named: expandedScreenshotName)
         XCTAssertTrue(expanded, "Dynamic Island expanded view did not appear", file: file, line: line)
 
-        if !expandedPlace.frame.isEmpty {
-            expandedPlace.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        if let rootSnapshot = try? springboard.snapshot(),
+           rootSnapshot.frame.width > 0,
+           rootSnapshot.frame.height > 0,
+           let expandedFrame = findSnapshotFrame(in: rootSnapshot, matching: { node in
+               node.label.contains(expandedPlaceLabel) && !node.frame.isEmpty
+           }) {
+            let tapOffset = CGVector(
+                dx: expandedFrame.midX / rootSnapshot.frame.width,
+                dy: expandedFrame.midY / rootSnapshot.frame.height
+            )
+            springboard.coordinate(withNormalizedOffset: tapOffset).tap()
         } else {
             springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
         }

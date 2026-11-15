@@ -151,7 +151,8 @@ private struct MajungOutsideTapKeyboardDismisser: UIViewRepresentable {
 
         func attachIfNeeded(from hostView: UIView, justActivated: Bool = false) {
             guard let window = hostView.window else { return }
-            if attachedWindow !== window {
+            let windowChanged = attachedWindow !== window
+            if windowChanged {
                 attachedWindow?.removeGestureRecognizer(tapRecognizer)
                 attachedWindow?.removeGestureRecognizer(panRecognizer)
                 window.addGestureRecognizer(tapRecognizer)
@@ -170,11 +171,11 @@ private struct MajungOutsideTapKeyboardDismisser: UIViewRepresentable {
                     }
                 }
             }
-            if isActive {
+            if windowChanged || isActive {
                 enableImmediateScrollDismiss(from: hostView)
-                if justActivated {
+                if windowChanged || justActivated {
                     Task { @MainActor [weak self, weak hostView] in
-                        guard let self, let hostView, self.isActive else { return }
+                        guard let self, let hostView else { return }
                         self.enableImmediateScrollDismiss(from: hostView)
                     }
                 }

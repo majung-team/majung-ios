@@ -93,28 +93,18 @@ final class MajungE2EUITests: XCTestCase {
 
     private func submitInviteLink(_ inviteURL: String, in app: XCUIApplication) {
         let linkField = app.textFields["마중 초대 링크"]
-        XCTAssertTrue(linkField.waitForExistence(timeout: 5))
-        linkField.tap()
+        focusTextField(linkField, in: app)
         linkField.typeText(inviteURL)
         let dismissKeyboard = app.buttons["키보드 닫기"]
         if dismissKeyboard.waitForExistence(timeout: 1.5) && dismissKeyboard.isHittable {
             dismissKeyboard.tap()
-            assertKeyboardIsDismissed(in: app)
+            waitForKeyboardDismissed(in: app)
         }
         let openButton = app.buttons["초대 확인하기"]
         XCTAssertTrue(openButton.waitForExistence(timeout: 3))
         if !openButton.isHittable { app.swipeUp() }
         XCTAssertTrue(openButton.isEnabled)
         openButton.tap()
-    }
-
-    private func assertKeyboardIsDismissed(in app: XCUIApplication) {
-        let hidden = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"),
-            object: app.keyboards.firstMatch
-        )
-        XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
-        XCTAssertFalse(app.buttons["키보드 닫기"].exists)
     }
 
     func test01GuestPickupLifecycleWaitingExitReadinessMessageProposalAndCompletion() throws {
@@ -175,15 +165,11 @@ final class MajungE2EUITests: XCTestCase {
         // 4. Send quick message directly
         let messageField = app.textFields["직접 메시지 입력 (최대 50자)"]
         if !messageField.isHittable { app.swipeUp() }
-        XCTAssertTrue(messageField.waitForExistence(timeout: 5))
-        messageField.tap()
+        focusTextField(messageField, in: app)
         messageField.typeText("파란 우산 들고 있어요")
         app.buttons["pickup-message-send-button"].tap()
         XCTAssertTrue(app.staticTexts["보낸 메시지 · 파란 우산 들고 있어요"].waitForExistence(timeout: 5))
-        let keyboardHidden = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch
-        )
-        XCTAssertEqual(XCTWaiter.wait(for: [keyboardHidden], timeout: 5), .completed)
+        waitForKeyboardDismissed(in: app)
 
         // 5. Recover from SAME_PLACE without dismissing the form or losing the description.
         let proposeButton = app.buttons["pickup-propose-place-button"]
@@ -195,8 +181,7 @@ final class MajungE2EUITests: XCTestCase {
         let descField = app.textViews["proposal-place-label-field"].exists
             ? app.textViews["proposal-place-label-field"]
             : app.textFields["proposal-place-label-field"]
-        XCTAssertTrue(descField.waitForExistence(timeout: 5))
-        descField.tap()
+        focusTextField(descField, in: app)
         descField.typeText("의왕역 2번 출구")
         server.rejectNextProposalAsSamePlace()
         app.buttons["proposal-submit-button"].tap()
@@ -205,7 +190,7 @@ final class MajungE2EUITests: XCTestCase {
         attachScreenshot(named: "proposal-same-place-guidance")
         let searchField = app.textFields["proposal-place-search-field"]
         for _ in 0..<3 where !searchField.isHittable { app.swipeDown() }
-        searchField.tap()
+        focusTextField(searchField, in: app)
         searchField.typeText("강남역")
         app.buttons["proposal-place-search-button"].tap()
         let searchResult = app.buttons["proposal-place-result-0"]
@@ -238,7 +223,7 @@ final class MajungE2EUITests: XCTestCase {
         let app = launchApp(port: server.port)
         let nickField = app.textFields["nickname-setup-field"]
         XCTAssertTrue(nickField.waitForExistence(timeout: 8))
-        nickField.tap()
+        focusTextField(nickField, in: app)
         nickField.typeText("김탑승")
         app.buttons["nickname-setup-submit"].tap()
 
@@ -281,8 +266,7 @@ final class MajungE2EUITests: XCTestCase {
         // People tab: 1-char hint + homonym search + PlacePickerSheet open/close
         app.tabBars.buttons["사람"].tap()
         let searchField = app.textFields["people-search-field"]
-        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
-        searchField.tap()
+        focusTextField(searchField, in: app)
         searchField.typeText("김")
         XCTAssertTrue(app.staticTexts["검색어는 2글자 이상 입력해주세요."].waitForExistence(timeout: 3))
         searchField.typeText("민수")
@@ -293,8 +277,7 @@ final class MajungE2EUITests: XCTestCase {
 
         // Kakao Korean place search & server pagination inside PlacePickerSheet
         let placeSearchField = app.textFields["ride-place-search-field"]
-        XCTAssertTrue(placeSearchField.waitForExistence(timeout: 5))
-        placeSearchField.tap()
+        focusTextField(placeSearchField, in: app)
         placeSearchField.typeText("강남역")
         app.buttons["ride-place-search-button"].tap()
         XCTAssertTrue(app.staticTexts["강남역 2번 출구"].waitForExistence(timeout: 5))
@@ -320,6 +303,22 @@ final class MajungE2EUITests: XCTestCase {
         let closeBtn = app.buttons["guide-close-button"]
         XCTAssertTrue(closeBtn.waitForExistence(timeout: 4))
         closeBtn.tap()
+    }
+
+    private func focusTextField(_ field: XCUIElement, in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(field.waitForExistence(timeout: 5), file: file, line: line)
+        if !field.isHittable {
+            revealElement(field, in: app)
+        }
+        field.tap()
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 3) || !app.buttons["키보드 닫기"].waitForExistence(timeout: 2) {
+            if !field.isHittable {
+                revealElement(field, in: app)
+            }
+            field.tap()
+        }
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 6), file: file, line: line)
+        XCTAssertTrue(app.buttons["키보드 닫기"].waitForExistence(timeout: 4), file: file, line: line)
     }
 
     private func waitForKeyboardDismissed(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
@@ -547,7 +546,7 @@ final class MajungE2EUITests: XCTestCase {
         app.buttons["vehicle-connect-button"].tap()
         XCTAssertTrue(app.navigationBars["차량 QR 연결"].waitForExistence(timeout: 5))
         let qrField = app.textFields["vehicle-qr-link-field"]
-        qrField.tap()
+        focusTextField(qrField, in: app)
         qrField.typeText("https://majung.cloud/#vehicle/\(server.newChallengeId)/\(server.inviteCode)")
         app.buttons["vehicle-qr-submit-button"].tap()
 
@@ -587,8 +586,7 @@ final class MajungE2EUITests: XCTestCase {
         app.tabBars.buttons["설정"].firstMatch.tap()
         app.buttons["vehicle-connect-button"].tap()
         let field = app.textFields["vehicle-qr-link-field"]
-        XCTAssertTrue(field.waitForExistence(timeout: 5))
-        field.tap()
+        focusTextField(field, in: app)
         field.typeText("https://majung.cloud/#vehicle/\(server.newChallengeId)/\(server.inviteCode)")
         app.buttons["vehicle-qr-submit-button"].tap()
 
@@ -646,7 +644,7 @@ final class MajungE2EUITests: XCTestCase {
                 XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
                 if attempt == 0 { attachScreenshot(named: "invite-keyboard-dismiss-\(mode)") }
                 dismiss.tap()
-                assertKeyboardIsDismissed(in: app)
+                waitForKeyboardDismissed(in: app)
             }
             let invite = "https://majung.cloud/#join/\(server.pickupId)/\(server.inviteCode)"
             submitInviteLink(invite, in: app)

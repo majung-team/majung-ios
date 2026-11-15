@@ -163,15 +163,13 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertEqual(server.requestsMatching(method: "PUT", pathPrefix: "/api/v1/pickups/\(server.pickupId)/readiness").count, 2)
 
         // Background to Home Screen so Dynamic Island Live Activity renders (compact + expanded), then tap Dynamic Island to return to app
-        XCUIDevice.shared.press(.home)
-        sleep(2)
-        attachScreenshot(named: "pickup-dynamic-island-compact")
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.025)).press(forDuration: 0.9)
-        sleep(1)
-        attachScreenshot(named: "pickup-dynamic-island-expanded")
-        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 6), "Dynamic Island tap must open the app")
+        openPickupFromDynamicIsland(
+            in: app,
+            expandedPlaceLabel: "의왕역 1호선 1번 출구 앞",
+            expandedStatusLabel: "이동 중",
+            compactScreenshotName: "pickup-dynamic-island-compact",
+            expandedScreenshotName: "pickup-dynamic-island-expanded"
+        )
         XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
 
         // 4. Send quick message directly
@@ -676,17 +674,12 @@ final class MajungE2EUITests: XCTestCase {
         server.setVehicleStale(true)
         XCTAssertTrue(app.buttons["pickup-retry-vehicle-button"].waitForExistence(timeout: 8))
 
-        XCUIDevice.shared.press(.home)
-        sleep(2)
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.025)).press(forDuration: 0.9)
-        let refreshHint = springboard.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS %@", "갱신 필요")).firstMatch
-        let staleVisible = refreshHint.waitForExistence(timeout: 15)
-        attachScreenshot(named: "pickup-live-activity-stale")
-        XCTAssertTrue(staleVisible)
-        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 6))
+        let refreshHint = openPickupFromDynamicIsland(
+            in: app,
+            expandedPlaceLabel: "의왕역 1호선 1번 출구 앞",
+            expandedStatusLabel: "갱신 필요",
+            expandedScreenshotName: "pickup-live-activity-stale"
+        )
         XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
         server.setGuestPhase(.completed)
         XCTAssertTrue(app.staticTexts["잘 만났어요!"].waitForExistence(timeout: 8))
@@ -709,24 +702,119 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["pickup-retry-vehicle-button"].waitForExistence(timeout: 8))
 
-        sleep(3)
-        XCUIDevice.shared.press(.home)
-        sleep(2)
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.025)).press(forDuration: 0.9)
-        let refreshHint = springboard.descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS %@", "갱신 필요")).firstMatch
-        let staleVisible = refreshHint.waitForExistence(timeout: 15)
-        attachScreenshot(named: "pickup-live-activity-initial-stale")
-        XCTAssertTrue(staleVisible)
-        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 6))
+        let refreshHint = openPickupFromDynamicIsland(
+            in: app,
+            expandedPlaceLabel: "의왕역 1호선 1번 출구 앞",
+            expandedStatusLabel: "갱신 필요",
+            expandedScreenshotName: "pickup-live-activity-initial-stale"
+        )
         XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
         server.setGuestPhase(.completed)
         XCTAssertTrue(app.staticTexts["잘 만났어요!"].waitForExistence(timeout: 8))
         XCUIDevice.shared.press(.home)
         let removed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: refreshHint)
         XCTAssertEqual(XCTWaiter.wait(for: [removed], timeout: 8), .completed)
+    }
+
+    @discardableResult
+    private func openPickupFromDynamicIsland(
+        in app: XCUIApplication,
+        expandedPlaceLabel: String,
+        expandedStatusLabel: String,
+        compactScreenshotName: String? = nil,
+        expandedScreenshotName: String,
+        timeout: TimeInterval = 20,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> XCUIElement {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let apertureQuery = springboard.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "마중", expandedStatusLabel))
+
+        func compactApertureElement() -> XCUIElement? {
+            let maxCompactY = max(springboard.frame.height * 0.085, 80)
+            return apertureQuery.allElementsBoundByIndex.first { element in
+                element.exists
+                    && element.elementType != .icon
+                    && !element.identifier.hasPrefix("card:")
+                    && !element.frame.isEmpty
+                    && element.frame.minY >= 0
+                    && element.frame.height >= 16
+                    && element.frame.maxY <= maxCompactY
+            }
+        }
+
+        // Wait briefly for ActivityKit upsert enqueue and initial transition before backgrounding.
+        RunLoop.current.run(until: Date().addingTimeInterval(1.0))
+        XCUIDevice.shared.press(.home)
+
+        // Wait for cold WidgetRenderer-Activities to present the compact pill before capturing or long-pressing it.
+        var detectedCompact: XCUIElement?
+        let compactDeadline = Date().addingTimeInterval(8)
+        let fallbackCompactDelay = Date().addingTimeInterval(6)
+        while Date() < compactDeadline {
+            if let element = compactApertureElement() {
+                detectedCompact = element
+                break
+            }
+            if Date() >= fallbackCompactDelay {
+                // Stop waiting early if this OS build does not expose compact remote labels in AX.
+                break
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        }
+
+        if let compactScreenshotName {
+            attachScreenshot(named: compactScreenshotName)
+        }
+
+        let expandedPlace = springboard.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", expandedPlaceLabel)).firstMatch
+        let expandedStatus = springboard.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", expandedStatusLabel)).firstMatch
+
+        let expandDeadline = Date().addingTimeInterval(timeout)
+        var expanded = false
+        while Date() < expandDeadline {
+            if expandedPlace.exists && expandedStatus.exists {
+                expanded = true
+                break
+            }
+            let pressOffsetY: CGFloat
+            if let compact = detectedCompact ?? compactApertureElement(),
+               !compact.frame.isEmpty,
+               springboard.frame.height > 0 {
+                pressOffsetY = max(0.025, min(compact.frame.midY / springboard.frame.height, 0.05))
+            } else {
+                pressOffsetY = 0.03
+            }
+            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: pressOffsetY)).press(forDuration: 0.9)
+            if expandedPlace.waitForExistence(timeout: 3.5) && expandedStatus.waitForExistence(timeout: 1.5) {
+                expanded = true
+                break
+            }
+        }
+
+        attachScreenshot(named: expandedScreenshotName)
+        XCTAssertTrue(expanded, "Dynamic Island expanded view did not appear", file: file, line: line)
+
+        if !expandedPlace.frame.isEmpty {
+            expandedPlace.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        } else {
+            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+        }
+
+        if !app.wait(for: .runningForeground, timeout: 8) {
+            springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
+            XCTAssertTrue(
+                app.wait(for: .runningForeground, timeout: 8),
+                "Dynamic Island tap must open the app",
+                file: file,
+                line: line
+            )
+        }
+
+        return expandedStatus
     }
 
     /// Explicit production rehearsal only. CI uses the local-server scenarios above.

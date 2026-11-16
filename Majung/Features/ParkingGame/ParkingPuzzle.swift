@@ -308,14 +308,20 @@ struct ParkingAwards: OptionSet, Codable, Equatable {
 }
 
 enum ParkingCarStyle: String, CaseIterable, Codable, Identifiable {
-    case blue, taxi, mintVan, coral
+    case blue, taxi, mintVan, pickup, suv, coral, camper, classic, roadster, deliveryVan
     var id: String { rawValue }
     var requiredStars: Int {
         switch self {
         case .blue: 0
         case .taxi: 3
         case .mintVan: 12
+        case .pickup: 18
+        case .suv: 24
         case .coral: 30
+        case .camper: 48
+        case .classic: 60
+        case .roadster: 90
+        case .deliveryVan: 120
         }
     }
     var title: String {
@@ -323,7 +329,27 @@ enum ParkingCarStyle: String, CaseIterable, Codable, Identifiable {
         case .blue: "파란 경차"
         case .taxi: "노란 택시"
         case .mintVan: "민트 미니밴"
+        case .pickup: "초록 픽업트럭"
+        case .suv: "보라 SUV"
         case .coral: "산호빛 쿠페"
+        case .camper: "작은 캠핑카"
+        case .classic: "크림 클래식카"
+        case .roadster: "빨간 로드스터"
+        case .deliveryVan: "주황 배송밴"
+        }
+    }
+    var detail: String {
+        switch self {
+        case .blue: "작고 둥근 기본 경차"
+        case .taxi: "지붕 위 택시등이 포인트"
+        case .mintVan: "긴 창이 있는 미니밴"
+        case .pickup: "뒤에 짐칸을 실은 픽업트럭"
+        case .suv: "루프 레일을 얹은 SUV"
+        case .coral: "낮은 지붕의 두 문짜리 쿠페"
+        case .camper: "지붕 환기창과 줄무늬 캠핑카"
+        case .classic: "크롬 범퍼가 있는 클래식카"
+        case .roadster: "지붕을 연 두 자리 로드스터"
+        case .deliveryVan: "작은 상자를 실은 배송밴"
         }
     }
 }

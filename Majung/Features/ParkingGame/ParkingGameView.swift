@@ -39,10 +39,10 @@ final class ParkingGame {
         self.car = store.selectedCar
     }
 
-    func toggleSound() {
-        soundEnabled.toggle()
-        store.soundEnabled = soundEnabled
-        if !soundEnabled { effects.stop() }
+    func setSoundEnabled(_ enabled: Bool) {
+        soundEnabled = enabled
+        store.soundEnabled = enabled
+        if !enabled { effects.stop() }
     }
 
     func draw(start: ParkingPoint, point: ParkingPoint) {
@@ -421,43 +421,7 @@ struct ParkingGameView: View {
             }.accessibilityIdentifier("parking-chapters-close") } }
     }
 
-    private var garage: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    Label("모은 별 \(game.totalStars)개", systemImage: "star.fill").font(.title2.bold())
-                    Text("일반 주차장에서 별을 모으면 차가 열려요. 별은 줄어들지 않고, 차마다 주차 판정은 같아요.")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                        ForEach(ParkingCarStyle.allCases) { car in
-                            let unlocked = game.totalStars >= car.requiredStars
-                            Button { game.select(car: car) } label: {
-                                VStack(spacing: 12) {
-                                    ParkingCar(style: car, unit: 6, foldedMirrors: false, celebrating: false, reduceMotion: true)
-                                        .frame(height: 100).opacity(unlocked ? 1 : 0.35)
-                                    Text(car.title).font(.subheadline.bold())
-                                    Label(game.car == car ? "타고 있어요" : unlocked ? "타기" : "별 \(car.requiredStars)개에 열려요",
-                                          systemImage: game.car == car ? "checkmark.circle.fill" : unlocked ? "car.side" : "lock.fill")
-                                        .font(.caption)
-                                }.frame(maxWidth: .infinity).padding(16)
-                                    .foregroundStyle(ink)
-                                    .background(game.car == car ? blue.opacity(0.12) : .white, in: RoundedRectangle(cornerRadius: 20))
-                            }.buttonStyle(.plain).disabled(!unlocked)
-                                .accessibilityIdentifier("parking-car-\(car.rawValue)")
-                        }
-                    }
-                    Toggle(isOn: Binding(get: { game.soundEnabled }, set: { _ in game.toggleSound() })) {
-                        Label("효과음", systemImage: game.soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    }.padding(16).background(.white, in: RoundedRectangle(cornerRadius: 16))
-                        .accessibilityIdentifier("parking-sound")
-                    Text("효과음은 처음엔 꺼져 있어요. 켜도 iPhone의 무음 설정을 따라요.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }.padding(20)
-            }.background(Color(.systemGroupedBackground))
-                .navigationTitle("내 차 꾸미기").navigationBarTitleDisplayMode(.inline)
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { showingGarage = false }.accessibilityIdentifier("parking-garage-close") } }
-        }.presentationDragIndicator(.visible)
-    }
+    private var garage: some View { ParkingGarageView(game: game) }
 
     private func point(_ point: CGPoint, in size: CGSize) -> ParkingPoint {
         .init(x: Double(point.x / size.width) * 100, y: Double(point.y / size.height) * 120)

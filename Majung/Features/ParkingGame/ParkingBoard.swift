@@ -111,16 +111,17 @@ struct ParkingCar: View {
                 Capsule().frame(width: unit * 1.5, height: unit * 1.4)
             }.foregroundStyle(style.color).frame(width: unit * (foldedMirrors ? 7 : 9))
                 .offset(y: -unit * 1.5)
-            RoundedRectangle(cornerRadius: unit * (style == .mintVan ? 1 : 2.4)).fill(style.color)
+            RoundedRectangle(cornerRadius: unit * bodyRadius).fill(style.color)
+                .frame(width: unit * bodyWidth)
                 .shadow(color: .black.opacity(0.25), radius: unit, y: unit)
-            RoundedRectangle(cornerRadius: unit).fill(.white.opacity(0.75))
-                .frame(width: unit * 5.8, height: unit * 3).offset(y: -unit * 2.8)
-            RoundedRectangle(cornerRadius: unit).fill(.black.opacity(0.22))
-                .frame(width: unit * 5.8, height: unit * (style == .mintVan ? 4.8 : 2.4))
-                .offset(y: unit * (style == .mintVan ? 2.6 : 3.9))
+            RoundedRectangle(cornerRadius: unit * 0.7).fill(.white.opacity(0.78))
+                .frame(width: unit * 5.8, height: unit * (style == .pickup ? 2.2 : 3))
+                .offset(y: -unit * (style == .pickup ? 3.6 : 2.8))
+            rearDetail
             if style == .taxi {
                 Text("TAXI").font(.system(size: unit * 1.6, weight: .black, design: .rounded))
-                    .foregroundStyle(.black).padding(unit * 0.25).background(.white, in: RoundedRectangle(cornerRadius: unit * 0.3))
+                    .foregroundStyle(.black).padding(unit * 0.25)
+                    .background(.white, in: RoundedRectangle(cornerRadius: unit * 0.3))
             }
             HStack {
                 Capsule().frame(width: unit * 1.6, height: unit)
@@ -135,15 +136,89 @@ struct ParkingCar: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: foldedMirrors)
         .accessibilityHidden(true)
     }
+
+    private var bodyWidth: Double {
+        switch style {
+        case .blue, .coral: 7.5
+        case .classic: 7.7
+        case .roadster: 7.1
+        default: 8
+        }
+    }
+    private var bodyRadius: Double {
+        switch style {
+        case .mintVan, .camper, .deliveryVan: 0.8
+        case .suv, .pickup: 1.4
+        case .classic: 3
+        default: 2.4
+        }
+    }
+
+    @ViewBuilder private var rearDetail: some View {
+        switch style {
+        case .pickup:
+            RoundedRectangle(cornerRadius: unit * 0.4).fill(.black.opacity(0.28))
+                .frame(width: unit * 6, height: unit * 6).offset(y: unit * 2.5)
+                .overlay {
+                    VStack(spacing: unit) {
+                        ForEach(0..<3) { _ in Rectangle().fill(.white.opacity(0.25)).frame(height: unit * 0.25) }
+                    }.frame(width: unit * 4.8).offset(y: unit * 2.5)
+                }
+        case .suv:
+            rearWindow(height: 3.5, offset: 3)
+            HStack { Capsule(); Spacer(); Capsule() }
+                .foregroundStyle(.white.opacity(0.65)).frame(width: unit * 6.5, height: unit * 5)
+                .offset(y: unit * 0.5)
+                .overlay(Rectangle().fill(style.color).frame(width: unit * 5.6, height: unit * 5).offset(y: unit * 0.5))
+        case .camper:
+            RoundedRectangle(cornerRadius: unit * 0.5).fill(.white.opacity(0.9))
+                .frame(width: unit * 6.7, height: unit * 6).offset(y: unit * 2.6)
+            RoundedRectangle(cornerRadius: unit * 0.3).fill(.gray.opacity(0.4))
+                .frame(width: unit * 2.5, height: unit * 2).offset(y: unit * 1.5)
+            Rectangle().fill(.teal).frame(width: unit * 6.5, height: unit * 0.7).offset(y: unit * 4.5)
+        case .classic:
+            rearWindow(height: 2.3, offset: 3.4)
+            HStack { Capsule(); Spacer(); Capsule() }
+                .foregroundStyle(.white.opacity(0.8)).frame(width: unit * 6.4, height: unit * 0.7)
+                .offset(y: unit * 6)
+            Capsule().fill(.white.opacity(0.85)).frame(width: unit * 1, height: unit * 2.6)
+        case .roadster:
+            RoundedRectangle(cornerRadius: unit).fill(.black.opacity(0.7))
+                .frame(width: unit * 5.7, height: unit * 4.8).offset(y: unit * 1)
+            HStack(spacing: unit) {
+                Capsule().fill(.white.opacity(0.65)); Capsule().fill(.white.opacity(0.65))
+            }.frame(width: unit * 4.2, height: unit * 2.3).offset(y: unit * 1.2)
+            Capsule().fill(.black.opacity(0.8)).frame(width: unit * 7.5, height: unit * 0.6).offset(y: unit * 5.3)
+        case .deliveryVan:
+            RoundedRectangle(cornerRadius: unit * 0.3).fill(.white.opacity(0.85))
+                .frame(width: unit * 6.8, height: unit * 6.8).offset(y: unit * 2)
+            Image(systemName: "shippingbox.fill").font(.system(size: unit * 3))
+                .foregroundStyle(.brown).offset(y: unit * 2)
+        default:
+            rearWindow(height: style == .mintVan ? 4.8 : 2.4, offset: style == .mintVan ? 2.6 : 3.9)
+        }
+    }
+
+    private func rearWindow(height: Double, offset: Double) -> some View {
+        RoundedRectangle(cornerRadius: unit).fill(.black.opacity(0.22))
+            .frame(width: unit * 5.8, height: unit * height).offset(y: unit * offset)
+    }
+
 }
 
-private extension ParkingCarStyle {
+extension ParkingCarStyle {
     var color: Color {
         switch self {
         case .blue: Color(red: 0.29, green: 0.54, blue: 1)
         case .taxi: Color(red: 1, green: 0.77, blue: 0.19)
         case .mintVan: Color(red: 0.31, green: 0.79, blue: 0.66)
         case .coral: Color(red: 0.98, green: 0.43, blue: 0.39)
+        case .pickup: Color(red: 0.26, green: 0.53, blue: 0.39)
+        case .suv: Color(red: 0.57, green: 0.43, blue: 0.79)
+        case .camper: Color(red: 0.83, green: 0.87, blue: 0.79)
+        case .classic: Color(red: 0.93, green: 0.82, blue: 0.56)
+        case .roadster: Color(red: 0.86, green: 0.22, blue: 0.27)
+        case .deliveryVan: Color(red: 0.96, green: 0.51, blue: 0.19)
         }
     }
 }

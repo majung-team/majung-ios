@@ -78,6 +78,11 @@ struct PickupView: View {
         .refreshable { await tracker.refresh() }
         .navigationTitle("마중 픽업")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                ParkingGameEntry(tracker: tracker, compact: true)
+            }
+        }
         .sheet(isPresented: $editingPlace) {
             if let place = tracker.snapshot?.place {
                 PlaceProposalView(

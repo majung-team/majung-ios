@@ -19,6 +19,7 @@ struct LoginEntryView: View {
                 kakaoSection
                 divider
                 guestInviteCard
+                ParkingGameEntry()
             }
             .padding(20)
         }

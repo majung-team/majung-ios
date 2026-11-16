@@ -20,6 +20,14 @@ final class LocalE2EServer {
         case active
         case arrived
         case completed
+        case cancelled
+    }
+
+    enum MemberPickupPhase: String {
+        case active = "ACTIVE"
+        case arrived = "ARRIVED"
+        case completed = "COMPLETED"
+        case cancelled = "CANCELLED"
     }
 
     struct RequestItemModel {
@@ -227,11 +235,13 @@ final class LocalE2EServer {
         pushSSEChanged()
     }
 
-    func completeMemberRide() {
+    func completeMemberRide() { setMemberPickupPhase(.completed) }
+
+    func setMemberPickupPhase(_ phase: MemberPickupPhase) {
         lock.lock()
-        memberPickupStatus = "COMPLETED"
+        memberPickupStatus = phase.rawValue
         if let idx = rideRequests.firstIndex(where: { $0.id == activeRequestId }) {
-            rideRequests[idx].status = "COMPLETED"
+            rideRequests[idx].status = phase == .arrived ? "ACTIVE" : phase.rawValue
         }
         lock.unlock()
         pushSSEChanged()
@@ -480,7 +490,7 @@ final class LocalE2EServer {
             return (200, "{\"requests\":[\(encoded)]}", nil)
 
         case ("GET", "/api/v1/ride-requests/\(activeRequestId)/tracking"):
-            if memberPickupStatus != "ACTIVE" {
+            if memberPickupStatus != "ACTIVE" && memberPickupStatus != "ARRIVED" {
                 return (403, #"{"code":"PICKUP_NOT_STARTED","message":"내 픽업이 시작된 뒤 확인할 수 있어요."}"#, nil)
             }
             return (200, "{\"pickup\":\(memberSnapshotJSON()),\"vehicle\":\(vehicleJSON())}", nil)
@@ -567,8 +577,9 @@ final class LocalE2EServer {
         case .active: "ACTIVE"
         case .arrived: "ARRIVED"
         case .completed: "COMPLETED"
+        case .cancelled: "CANCELLED"
         }
-        let completed = guestPhase == .completed
+        let completed = guestPhase == .completed || guestPhase == .cancelled
         let placeJSON = completed ? "null" : #"{"label":"의왕역 1호선 1번 출구 앞","latitude":37.3208,"longitude":126.9482}"#
         let vehicleNameJSON = completed ? "null" : #""흰색 아이오닉 5 · 12가 3456""#
         let proposalJSON = (!completed && guestPhase == .active && guestProposal != nil)

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E10000000000000000000006 /* ParkingEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000016 /* ParkingEffects.swift */; };
+		E10000000000000000000005 /* ParkingBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000015 /* ParkingBoard.swift */; };
 		E10000000000000000000004 /* ParkingGameUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000014 /* ParkingGameUITests.swift */; };
 		E10000000000000000000003 /* ParkingPuzzleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000013 /* ParkingPuzzleTests.swift */; };
 		E10000000000000000000002 /* ParkingGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000012 /* ParkingGameView.swift */; };
@@ -99,6 +101,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E10000000000000000000016 /* ParkingEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingEffects.swift; sourceTree = "<group>"; };
+		E10000000000000000000015 /* ParkingBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingBoard.swift; sourceTree = "<group>"; };
 		E10000000000000000000014 /* ParkingGameUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingGameUITests.swift; sourceTree = "<group>"; };
 		E10000000000000000000013 /* ParkingPuzzleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingPuzzleTests.swift; sourceTree = "<group>"; };
 		E10000000000000000000012 /* ParkingGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingGameView.swift; sourceTree = "<group>"; };
@@ -161,6 +165,8 @@
             children = (
                 E10000000000000000000011 /* ParkingPuzzle.swift */,
                 E10000000000000000000012 /* ParkingGameView.swift */,
+                E10000000000000000000016 /* ParkingEffects.swift */,
+                E10000000000000000000015 /* ParkingBoard.swift */,
             );
             path = ParkingGame;
             sourceTree = "<group>";
@@ -476,6 +482,8 @@
 				A10000000000000000000001 /* MajungApp.swift in Sources */,
                 E10000000000000000000001 /* ParkingPuzzle.swift in Sources */,
                 E10000000000000000000002 /* ParkingGameView.swift in Sources */,
+                E10000000000000000000006 /* ParkingEffects.swift in Sources */,
+                E10000000000000000000005 /* ParkingBoard.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 				A10000000000000000000022 /* PickupModels.swift in Sources */,
 				A10000000000000000000023 /* PickupSessionStore.swift in Sources */,

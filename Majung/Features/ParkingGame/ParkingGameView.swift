@@ -6,18 +6,41 @@ import UIKit
 @Observable
 final class ParkingGame {
     private(set) var run = ParkingRun(stage: ParkingStage.all[0])
-    private(set) var completed: Set<Int>
+    private(set) var totalStars: Int
+    private(set) var car: ParkingCarStyle
+    private(set) var soundEnabled: Bool
+    private(set) var newCars: [ParkingCarStyle] = []
     private let store: ParkingProgressStore
+    private let effects = ParkingEffects()
     private var driveTask: Task<Void, Never>?
+    private var nearFeedbackSent = false
 
     init(store: ParkingProgressStore = ParkingProgressStore()) {
         self.store = store
-        completed = store.load()
+        totalStars = store.totalStars
+        car = store.selectedCar
+        soundEnabled = store.soundEnabled
     }
+
+    func awards(for stage: ParkingStage) -> ParkingAwards { store.awards(for: stage) }
 
     func select(_ stage: ParkingStage) {
         pause()
         run = ParkingRun(stage: stage)
+        newCars = []
+    }
+
+    func selectDaily(on date: Date = Date()) { select(ParkingDaily.stage(on: date)) }
+
+    func select(car: ParkingCarStyle) {
+        store.select(car: car)
+        self.car = store.selectedCar
+    }
+
+    func toggleSound() {
+        soundEnabled.toggle()
+        store.soundEnabled = soundEnabled
+        if !soundEnabled { effects.stop() }
     }
 
     func draw(start: ParkingPoint, point: ParkingPoint) {
@@ -29,18 +52,29 @@ final class ParkingGame {
         guard driveTask == nil else { return }
         run.drive()
         guard run.phase == .driving else { return }
+        nearFeedbackSent = false
         driveTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 do { try await Task.sleep(for: .milliseconds(20)) } catch { break }
                 guard !Task.isCancelled, let self else { break }
                 self.run.step()
+                if self.run.isNearObstacle && !self.nearFeedbackSent {
+                    self.nearFeedbackSent = true
+                    UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.4)
+                }
                 if self.run.phase != .driving {
                     if self.run.phase == .parked {
-                        self.store.complete(stageId: self.run.stage.id)
-                        self.completed = self.store.load()
+                        let previousStars = self.totalStars
+                        self.store.save(self.run.awards, for: self.run.stage)
+                        self.totalStars = self.store.totalStars
+                        self.newCars = ParkingCarStyle.allCases.filter {
+                            $0.requiredStars > previousStars && $0.requiredStars <= self.totalStars
+                        }
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        if self.soundEnabled { self.effects.play(success: true) }
                     } else if self.run.phase == .collision {
                         UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                        if self.soundEnabled { self.effects.play(success: false) }
                     }
                     self.driveTask = nil
                     return
@@ -52,6 +86,7 @@ final class ParkingGame {
     func pause() {
         driveTask?.cancel()
         driveTask = nil
+        effects.stop()
         run.pause()
     }
 }
@@ -84,7 +119,7 @@ struct ParkingGameEntry: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier("parking-game-open")
         .sheet(isPresented: $isPresented) {
-            NavigationStack { ParkingGameView() }
+            ParkingGameView()
                 .preferredColorScheme(.light)
                 .presentationDragIndicator(.visible)
         }
@@ -96,7 +131,9 @@ struct ParkingGameView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var game = ParkingGame()
+    @State private var hasStarted = false
     @State private var showingStages = false
+    @State private var showingGarage = false
 
     private let ink = Color(red: 0.12, green: 0.20, blue: 0.29)
     private let blue = Color(red: 0.23, green: 0.43, blue: 0.91)
@@ -104,20 +141,27 @@ struct ParkingGameView: View {
     private var message: String {
         switch game.run.phase {
         case .drawing: "좋아요. 손을 떼면 출발해요."
-        case .driving: "주차 중…"
-        case .collision: "앗, 닿았어요. 파란 차에서 다시 그려보세요."
-        case .parked: "빈자리에 쏙! 잘 주차했어요."
+        case .driving: game.run.isNearObstacle ? "사이드미러 접고, 살짝 지나가요." : "주차 중…"
+        case .collision: "앗, 닿았어요. 차에서 다시 그려보세요."
+        case .parked: "빈자리에 쏙! 이번엔 별 \(game.run.awards.count)개예요."
         case .ready: game.run.strokes == 0 ? game.run.stage.hint : "차에서 선을 이어서 그릴 수 있어요."
         }
     }
 
     var body: some View {
+        Group {
+            if hasStarted { NavigationStack { play } }
+            else { chapters }
+        }
+    }
+
+    private var play: some View {
         GeometryReader { layout in
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 14) {
                     header
                     GeometryReader { board in
-                        ParkingBoard(run: game.run, reduceMotion: reduceMotion)
+                        ParkingBoard(run: game.run, car: game.car, reduceMotion: reduceMotion)
                             .contentShape(Rectangle())
                             .highPriorityGesture(DragGesture(minimumDistance: 0, coordinateSpace: .local)
                                 .onChanged { value in
@@ -126,21 +170,26 @@ struct ParkingGameView: View {
                                 }
                                 .onEnded { _ in game.drive() })
                             .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("주차장. 파란 차에서 주차 칸까지 이동 경로를 그리세요.")
+                            .accessibilityLabel("주차장. 차에서 주차 칸까지 이동 경로를 그리세요.")
                             .accessibilityIdentifier("parking-board")
                     }
                     .aspectRatio(5.0 / 6, contentMode: .fit)
-                    .frame(maxWidth: min(480, max(230, layout.size.height * 0.53)))
+                    .frame(maxWidth: min(440, max(230, layout.size.height * 0.43)))
                     .frame(maxWidth: .infinity)
+                    awardRow(game.run.phase == .parked ? game.run.awards : game.awards(for: game.run.stage))
                     feedback
+                    if !game.newCars.isEmpty {
+                        Button { showingGarage = true } label: {
+                            Label("\(game.newCars.map(\.title).joined(separator: ", ")) 열렸어요!", systemImage: "gift.fill")
+                                .font(.subheadline.bold()).frame(maxWidth: .infinity)
+                        }.buttonStyle(.bordered).tint(blue)
+                        .accessibilityIdentifier("parking-car-unlocked")
+                    }
                     controls
                     Text("가상의 주차 퍼즐이에요. 실제 운전 방법과는 달라요.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
+                        .font(.caption2).foregroundStyle(.secondary).frame(maxWidth: .infinity)
                 }
-                .padding(20)
-                .frame(maxWidth: 560)
-                .frame(maxWidth: .infinity)
+                .padding(20).frame(maxWidth: 560).frame(maxWidth: .infinity)
             }
             .scrollBounceBehavior(.basedOnSize)
             .background(Color(red: 0.96, green: 0.96, blue: 0.93))
@@ -150,39 +199,53 @@ struct ParkingGameView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("닫기") { game.pause(); dismiss() }
-                    .accessibilityIdentifier("parking-game-close")
+                Button("닫기") { game.pause(); dismiss() }.accessibilityIdentifier("parking-game-close")
             }
-            ToolbarItem(placement: .primaryAction) {
-                Button { game.pause(); showingStages = true } label: {
-                    Image(systemName: "square.grid.2x2")
-                }
-                .accessibilityLabel("스테이지 선택")
-                .accessibilityIdentifier("parking-stage-picker")
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button { game.pause(); showingGarage = true } label: { Image(systemName: "car.side.fill") }
+                    .accessibilityLabel("내 차 꾸미기").accessibilityIdentifier("parking-garage")
+                Button { game.pause(); showingStages = true } label: { Image(systemName: "square.grid.2x2") }
+                    .accessibilityLabel("챕터 선택").accessibilityIdentifier("parking-stage-picker")
             }
         }
-        .sheet(isPresented: $showingStages) { stages }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { game.pause() }
-        }
+        .sheet(isPresented: $showingStages) { chapters }
+        .sheet(isPresented: $showingGarage) { garage }
+        .onChange(of: scenePhase) { _, phase in if phase != .active { game.pause() } }
         .onDisappear { game.pause() }
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(String(format: "STAGE %02d", game.run.stage.id))
-                    .font(.caption.monospaced().weight(.bold))
-                    .tracking(2).foregroundStyle(blue)
+                Text(game.run.stage.dailyKey.map { "DAILY · \($0)" } ?? String(format: "STAGE %02d", game.run.stage.id))
+                    .font(.caption.monospaced().weight(.bold)).tracking(1).foregroundStyle(blue)
                 Spacer()
-                Label("\(game.completed.count) / 8", systemImage: "checkmark.circle.fill")
-                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                    .accessibilityLabel("8개 중 \(game.completed.count)개 완료")
+                Label("\(game.totalStars) / \(ParkingStage.all.count * 3)", systemImage: "star.fill")
+                    .font(.caption.bold()).foregroundStyle(ink)
+                    .accessibilityIdentifier("parking-total-stars")
             }
-            Text(game.run.stage.title).font(.system(.title, design: .rounded, weight: .bold))
-            Text("차에서 선을 그리고, 손을 떼면 출발!")
-                .font(.subheadline).foregroundStyle(.secondary)
+            Text(game.run.stage.title).font(.system(.title2, design: .rounded, weight: .bold))
+            Label(game.run.stage.theme.title, systemImage: game.run.stage.theme.symbol)
+                .font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private func awardRow(_ awards: ParkingAwards) -> some View {
+        HStack(spacing: 8) {
+            award("주차 완료", .parked, awards)
+            award("한 번에", .oneLine, awards)
+            award("무충돌", .noCollision, awards)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("도전 별 \(awards.count)개. 주차 완료, 한 번에 그리기, 부딪히지 않기")
+        .accessibilityIdentifier("parking-awards")
+    }
+
+    private func award(_ title: String, _ flag: ParkingAwards, _ awards: ParkingAwards) -> some View {
+        Label(title, systemImage: awards.contains(flag) ? "star.fill" : "star")
+            .font(.caption.weight(.semibold)).foregroundStyle(awards.contains(flag) ? Color.brown : ink.opacity(0.6))
+            .frame(maxWidth: .infinity).padding(.vertical, 9)
+            .background(awards.contains(flag) ? Color.yellow.opacity(0.22) : .white.opacity(0.7), in: Capsule())
     }
 
     private var feedback: some View {
@@ -193,80 +256,150 @@ struct ParkingGameView: View {
             Text(message).font(.subheadline.weight(.medium)).fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("parking-game-message")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading).padding(14)
         .background(.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.updatesFrequently)
     }
 
     private var controls: some View {
         HStack(spacing: 12) {
             Button { game.select(game.run.stage) } label: {
-                Label("다시 하기", systemImage: "arrow.counterclockwise")
-                    .frame(maxWidth: .infinity, minHeight: 40)
-            }
-            .buttonStyle(.bordered).tint(blue)
-            .accessibilityIdentifier("parking-restart")
+                Label("다시 하기", systemImage: "arrow.counterclockwise").frame(maxWidth: .infinity, minHeight: 40)
+            }.buttonStyle(.bordered).tint(blue).accessibilityIdentifier("parking-restart")
             if game.run.phase == .parked {
                 Button {
-                    if game.run.stage.id < ParkingStage.all.count {
+                    if game.run.stage.dailyKey == nil && game.run.stage.id < ParkingStage.all.count {
                         game.select(ParkingStage.all[game.run.stage.id])
-                    } else {
-                        showingStages = true
-                    }
+                    } else { showingStages = true }
                 } label: {
-                    Text(game.run.stage.id < 8 ? "다음 주차장" : "주차장 고르기")
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                }
-                .buttonStyle(.borderedProminent).tint(blue)
-                .accessibilityIdentifier("parking-next-stage")
+                    Text(game.run.stage.dailyKey == nil && game.run.stage.id < ParkingStage.all.count ? "다음 주차장" : "챕터 고르기")
+                        .foregroundStyle(.white).frame(maxWidth: .infinity, minHeight: 40)
+                }.buttonStyle(.borderedProminent).tint(blue).accessibilityIdentifier("parking-next-stage")
             } else if game.run.phase == .driving {
-                Button("멈추기") { game.pause() }
-                    .buttonStyle(.bordered).tint(blue)
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("parking-pause")
+                Button("멈추기") { game.pause() }.buttonStyle(.bordered).tint(blue)
+                    .frame(minHeight: 44).accessibilityIdentifier("parking-pause")
             }
         }
     }
 
-    private var stages: some View {
+    private var chapters: some View {
         NavigationStack {
             ScrollView {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
-                    ForEach(ParkingStage.all) { stage in
-                        Button {
-                            game.select(stage)
-                            showingStages = false
-                        } label: {
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack {
-                                    Text(String(format: "%02d", stage.id))
-                                        .font(.title2.monospaced().bold())
-                                    Spacer()
-                                    Image(systemName: game.completed.contains(stage.id) ? "checkmark.circle.fill" : "parkingsign.circle")
-                                }
-                                Text(stage.title).font(.subheadline.weight(.semibold))
+                VStack(alignment: .leading, spacing: 16) {
+                    Button {
+                        game.selectDaily()
+                        hasStarted = true
+                        showingStages = false
+                    } label: {
+                        HStack {
+                            Image(systemName: "calendar").font(.title2)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("오늘의 주차").font(.headline)
+                                Text("날짜마다 새로운 길, 오늘도 한 판").font(.caption)
                             }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(18)
-                            .foregroundStyle(stage.id == game.run.stage.id ? .white : ink)
-                            .background(stage.id == game.run.stage.id ? blue : Color(.secondarySystemGroupedBackground),
-                                        in: RoundedRectangle(cornerRadius: 20))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("parking-stage-\(stage.id)")
+                            Spacer()
+                            StarMarks(awards: game.awards(for: ParkingDaily.stage(on: Date())))
+                        }.padding(18).foregroundStyle(.white)
+                            .background(blue, in: RoundedRectangle(cornerRadius: 20))
+                    }.buttonStyle(.plain).accessibilityIdentifier("parking-daily")
+                    Text("주차 완료 · 한 번에 그리기 · 무충돌, 한 판에 별 세 개")
+                        .font(.caption).foregroundStyle(.secondary)
+                    ForEach(ParkingChapter.all) { chapter in
+                        NavigationLink { stageList(chapter) } label: {
+                            HStack(spacing: 16) {
+                                Image(systemName: chapter.theme.symbol).font(.title)
+                                    .frame(width: 56, height: 64)
+                                    .foregroundStyle(chapter.theme.accent)
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(String(format: "CHAPTER %02d", chapter.id + 1))
+                                        .font(.caption2.monospaced().bold()).foregroundStyle(.secondary)
+                                    Text(chapter.theme.title).font(.headline).foregroundStyle(ink)
+                                    Text(chapter.subtitle).font(.caption).foregroundStyle(.secondary)
+                                    let stars = chapter.stages.reduce(0) { $0 + game.awards(for: $1).count }
+                                    Label("\(stars) / 36 · 스테이지 12개", systemImage: "star.fill")
+                                        .font(.caption.bold()).foregroundStyle(chapter.theme.accent)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                            }.padding(16).background(.white, in: RoundedRectangle(cornerRadius: 20))
+                        }.buttonStyle(.plain).accessibilityIdentifier("parking-chapter-\(chapter.id)")
                     }
                 }.padding(20)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("주차장 고르기")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { showingStages = false } } }
+            .navigationTitle("챕터 고르기").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") {
+                if hasStarted { showingStages = false } else { dismiss() }
+            }.accessibilityIdentifier("parking-chapters-close") } }
         }
-        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private func stageList(_ chapter: ParkingChapter) -> some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(chapter.stages) { stage in
+                    let selected = game.run.stage.dailyKey == nil && stage.id == game.run.stage.id
+                    Button {
+                        game.select(stage)
+                        hasStarted = true
+                        showingStages = false
+                    } label: {
+                        VStack(spacing: 10) {
+                            Text(String(format: "%02d", stage.id)).font(.title2.monospaced().bold())
+                            StarMarks(awards: game.awards(for: stage))
+                            Text(stage.title).font(.caption2).lineLimit(2).frame(minHeight: 28)
+                        }
+                        .frame(maxWidth: .infinity).padding(.vertical, 18)
+                        .foregroundStyle(selected ? .white : ink)
+                        .background(selected ? blue : .white, in: RoundedRectangle(cornerRadius: 18))
+                    }.buttonStyle(.plain).accessibilityIdentifier("parking-stage-\(stage.id)")
+                }
+            }.padding(20)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle(chapter.theme.title)
+        .toolbar { ToolbarItem(placement: .primaryAction) { Button("닫기") {
+                if hasStarted { showingStages = false } else { dismiss() }
+            }.accessibilityIdentifier("parking-chapters-close") } }
+    }
+
+    private var garage: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Label("모은 별 \(game.totalStars)개", systemImage: "star.fill").font(.title2.bold())
+                    Text("일반 주차장에서 별을 모으면 차가 열려요. 별은 줄어들지 않고, 차마다 주차 판정은 같아요.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+                        ForEach(ParkingCarStyle.allCases) { car in
+                            let unlocked = game.totalStars >= car.requiredStars
+                            Button { game.select(car: car) } label: {
+                                VStack(spacing: 12) {
+                                    ParkingCar(style: car, unit: 6, foldedMirrors: false, celebrating: false, reduceMotion: true)
+                                        .frame(height: 100).opacity(unlocked ? 1 : 0.35)
+                                    Text(car.title).font(.subheadline.bold())
+                                    Label(game.car == car ? "타고 있어요" : unlocked ? "타기" : "별 \(car.requiredStars)개에 열려요",
+                                          systemImage: game.car == car ? "checkmark.circle.fill" : unlocked ? "car.side" : "lock.fill")
+                                        .font(.caption)
+                                }.frame(maxWidth: .infinity).padding(16)
+                                    .foregroundStyle(ink)
+                                    .background(game.car == car ? blue.opacity(0.12) : .white, in: RoundedRectangle(cornerRadius: 20))
+                            }.buttonStyle(.plain).disabled(!unlocked)
+                                .accessibilityIdentifier("parking-car-\(car.rawValue)")
+                        }
+                    }
+                    Toggle(isOn: Binding(get: { game.soundEnabled }, set: { _ in game.toggleSound() })) {
+                        Label("효과음", systemImage: game.soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                    }.padding(16).background(.white, in: RoundedRectangle(cornerRadius: 16))
+                        .accessibilityIdentifier("parking-sound")
+                    Text("효과음은 처음엔 꺼져 있어요. 켜도 iPhone의 무음 설정을 따라요.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }.padding(20)
+            }.background(Color(.systemGroupedBackground))
+                .navigationTitle("내 차 꾸미기").navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("닫기") { showingGarage = false }.accessibilityIdentifier("parking-garage-close") } }
+        }.presentationDragIndicator(.visible)
     }
 
     private func point(_ point: CGPoint, in size: CGSize) -> ParkingPoint {
@@ -274,114 +407,13 @@ struct ParkingGameView: View {
     }
 }
 
-private struct ParkingBoard: View {
-    let run: ParkingRun
-    let reduceMotion: Bool
-    private let road = Color(red: 0.19, green: 0.25, blue: 0.31)
-    private let blue = Color(red: 0.29, green: 0.54, blue: 1)
-
+private struct StarMarks: View {
+    let awards: ParkingAwards
     var body: some View {
-        GeometryReader { geometry in
-            let unit = geometry.size.width / 100
-            ZStack {
-                RoundedRectangle(cornerRadius: 25).fill(Color(red: 0.80, green: 0.84, blue: 0.80))
-                RoundedRectangle(cornerRadius: 20).fill(road).padding(unit * 3)
-                // Quiet lane markings, not a moving background.
-                Path { path in
-                    path.move(to: CGPoint(x: 8 * unit, y: 110 * unit))
-                    path.addLine(to: CGPoint(x: 92 * unit, y: 110 * unit))
-                }.stroke(.white.opacity(0.20), style: StrokeStyle(lineWidth: 1, dash: [5, 6]))
-                ForEach(run.stage.obstacles) { obstacle in
-                    obstacleView(obstacle, unit: unit)
-                }
-                let bay = run.stage.bay
-                RoundedRectangle(cornerRadius: unit * 1.6)
-                    .fill(Color(red: 0.56, green: 0.87, blue: 0.69).opacity(0.17))
-                    .overlay(RoundedRectangle(cornerRadius: unit * 1.6)
-                        .stroke(Color(red: 0.65, green: 0.95, blue: 0.77), style: StrokeStyle(lineWidth: 2, dash: [5, 4])))
-                    .overlay {
-                        VStack(spacing: 2) {
-                            Image(systemName: "arrow.up").font(.system(size: unit * 3, weight: .bold))
-                            Text("P").font(.system(size: unit * 5, weight: .bold, design: .rounded))
-                        }.foregroundStyle(Color(red: 0.70, green: 0.98, blue: 0.80))
-                    }
-                    .frame(width: bay.width * unit, height: bay.height * unit)
-                    .position(x: run.stage.destination.x * unit, y: run.stage.destination.y * unit)
-                if run.route.count > 1 {
-                    Path { path in
-                        path.move(to: CGPoint(x: run.route[0].x * unit, y: run.route[0].y * unit))
-                        for point in run.route.dropFirst() {
-                            path.addLine(to: CGPoint(x: point.x * unit, y: point.y * unit))
-                        }
-                    }
-                    .stroke(run.phase == .collision ? Color.orange.opacity(0.7) : blue.opacity(0.65),
-                            style: StrokeStyle(lineWidth: unit * 1.0, lineCap: .round, lineJoin: .round, dash: [3, 4]))
-                }
-                ParkingCar(color: blue, unit: unit)
-                    .rotationEffect(.radians(run.pose.heading + .pi / 2))
-                    .position(x: run.pose.center.x * unit, y: run.pose.center.y * unit)
-                if run.phase == .ready && run.strokes == 0 {
-                    Image(systemName: "hand.draw")
-                        .font(.system(size: unit * 6)).foregroundStyle(.white.opacity(0.65))
-                        .position(x: (run.pose.center.x + 14) * unit, y: run.pose.center.y * unit)
-                        .allowsHitTesting(false)
-                }
-                if run.phase == .parked {
-                    Label("주차 완료", systemImage: "checkmark.circle.fill")
-                        .font(.subheadline.bold()).foregroundStyle(.white)
-                        .padding(.horizontal, 16).padding(.vertical, 10)
-                        .background(.green, in: Capsule())
-                        .position(x: 50 * unit, y: 104 * unit)
-                }
+        HStack(spacing: 3) {
+            ForEach([ParkingAwards.parked, .oneLine, .noCollision], id: \.rawValue) { flag in
+                Image(systemName: awards.contains(flag) ? "star.fill" : "star")
             }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: run.phase)
-            .clipped()
-        }
-    }
-
-    private func obstacleView(_ obstacle: ParkingObstacle, unit: Double) -> some View {
-        let rect = obstacle.rect
-        return Group {
-            if obstacle.kind == .car {
-                RoundedRectangle(cornerRadius: unit * 2)
-                    .fill(Color(red: 0.75, green: 0.52, blue: 0.36))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: unit)
-                            .fill(.black.opacity(0.30))
-                            .padding(.horizontal, unit * 2).padding(.vertical, unit * 5)
-                    }
-            } else {
-                RoundedRectangle(cornerRadius: unit * 2)
-                    .fill(Color(red: 0.44, green: 0.59, blue: 0.46))
-                    .overlay(RoundedRectangle(cornerRadius: unit * 2).stroke(.white.opacity(0.20), lineWidth: 2))
-            }
-        }
-        .frame(width: rect.width * unit, height: rect.height * unit)
-        .position(x: (rect.x + rect.width / 2) * unit, y: (rect.y + rect.height / 2) * unit)
-    }
-}
-
-private struct ParkingCar: View {
-    let color: Color
-    let unit: Double
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: unit * 2).fill(color)
-                .shadow(color: .black.opacity(0.25), radius: unit, y: unit)
-            RoundedRectangle(cornerRadius: unit).fill(.white.opacity(0.75))
-                .frame(width: unit * 5.8, height: unit * 3)
-                .offset(y: -unit * 2.8)
-            RoundedRectangle(cornerRadius: unit).fill(.black.opacity(0.22))
-                .frame(width: unit * 5.8, height: unit * 2.4)
-                .offset(y: unit * 3.9)
-            HStack {
-                Capsule().fill(.yellow.opacity(0.95)).frame(width: unit * 1.6, height: unit)
-                Spacer(minLength: 0)
-                Capsule().fill(.yellow.opacity(0.95)).frame(width: unit * 1.6, height: unit)
-            }.padding(.horizontal, unit).offset(y: -unit * 6)
-        }
-        .frame(width: unit * 8, height: unit * 14)
-        .accessibilityHidden(true)
+        }.font(.caption2).accessibilityLabel("별 \(awards.count)개")
     }
 }

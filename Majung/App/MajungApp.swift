@@ -14,6 +14,11 @@ struct MajungApp: App {
             AccountSessionStore.clear()
             PickupSessionStore.clear()
         }
+        if args.contains("-UITestResetParking") {
+            for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix("majung.parking.") {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
         #endif
         UNUserNotificationCenter.current().delegate = notificationDelegate
     }

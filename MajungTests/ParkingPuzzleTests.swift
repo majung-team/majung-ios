@@ -278,4 +278,36 @@ final class ParkingPuzzleTests: XCTestCase {
         XCTAssertEqual(game.pickupInterruption, .cancelled)
     }
 
+
+    func testTenCarsHaveReachableUnlocksAndKeepOriginalRequirements() {
+        XCTAssertEqual(ParkingCarStyle.allCases.count, 10)
+        XCTAssertEqual(Set(ParkingCarStyle.allCases.map(\.rawValue)).count, 10)
+        XCTAssertEqual(ParkingCarStyle.allCases.map(\.requiredStars), [0, 3, 12, 18, 24, 30, 48, 60, 90, 120])
+        XCTAssertLessThanOrEqual(ParkingCarStyle.allCases.map(\.requiredStars).max() ?? 0, ParkingStage.all.count * 3)
+        XCTAssertEqual(ParkingCarStyle.mintVan.requiredStars, 12)
+        XCTAssertEqual(ParkingCarStyle.coral.requiredStars, 30)
+    }
+
+    func testEveryCarUnlocksExactlyAtItsThresholdAndRestoresSelection() throws {
+        for car in ParkingCarStyle.allCases {
+            for stars in Set([max(0, car.requiredStars - 1), car.requiredStars]) {
+                let suite = "ParkingCarThreshold.\(UUID())"
+                let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+                defer { defaults.removePersistentDomain(forName: suite) }
+                let store = ParkingProgressStore(defaults: defaults)
+                for (index, stage) in ParkingStage.all.enumerated() {
+                    let remaining = stars - index * 3
+                    if remaining >= 3 { store.save(.all, for: stage) }
+                    else if remaining == 2 { store.save([.parked, .noCollision], for: stage) }
+                    else if remaining == 1 { store.save([.parked], for: stage) }
+                }
+                XCTAssertEqual(store.totalStars, stars)
+                store.select(car: car)
+                let expected: ParkingCarStyle = stars >= car.requiredStars ? car : .blue
+                XCTAssertEqual(ParkingProgressStore(defaults: defaults).selectedCar, expected, car.rawValue)
+                XCTAssertEqual(store.totalStars, stars, "Choosing a car must not spend stars")
+            }
+        }
+    }
+
 }

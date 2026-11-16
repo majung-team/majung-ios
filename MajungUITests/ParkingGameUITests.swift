@@ -29,8 +29,13 @@ final class ParkingGameUITests: XCTestCase {
         app.buttons["parking-chapter-0"].tap()
         app.buttons["parking-stage-1"].tap()
         app.buttons["parking-garage"].tap()
-        XCTAssertFalse(app.buttons["parking-car-taxi"].isEnabled)
-        app.switches["parking-sound"].tap()
+        app.buttons["parking-car-taxi"].tap()
+        assertCarPreview("노란 택시")
+        XCTAssertFalse(app.buttons["parking-car-apply"].isEnabled)
+        let sound = app.switches["parking-sound"]
+        sound.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        expectation(for: NSPredicate(format: "value == %@", "1"), evaluatedWith: sound)
+        waitForExpectations(timeout: 3)
         app.buttons["parking-garage-close"].tap()
         let board = app.descendants(matching: .any)["parking-board"].firstMatch
         XCTAssertTrue(board.waitForExistence(timeout: 5))
@@ -50,12 +55,17 @@ final class ParkingGameUITests: XCTestCase {
         XCTAssertTrue(awards.label.contains("3"))
         app.buttons["parking-garage"].tap()
         XCTAssertTrue(app.buttons["parking-car-taxi"].isEnabled)
-        XCTAssertFalse(app.buttons["parking-car-mintVan"].isEnabled)
+        app.buttons["parking-car-mintVan"].tap()
+        XCTAssertFalse(app.buttons["parking-car-apply"].isEnabled)
         app.buttons["parking-car-taxi"].tap()
+        XCTAssertTrue(app.staticTexts["parking-current-car"].label.contains("파란 경차"))
+        app.buttons["parking-car-apply"].tap()
         let selectedTaxi = app.buttons.matching(identifier: "parking-car-taxi")
             .matching(NSPredicate(format: "label CONTAINS %@", "타고 있어요")).firstMatch
         XCTAssertTrue(selectedTaxi.waitForExistence(timeout: 3))
         saveScreenshot("parking-garage-unlocked")
+        app.buttons["parking-car-blue"].tap()
+        XCTAssertTrue(app.buttons["parking-car-apply"].isEnabled)
         app.buttons["parking-garage-close"].tap()
         if !next.isHittable { app.swipeUp() }
         next.tap()
@@ -71,6 +81,7 @@ final class ParkingGameUITests: XCTestCase {
         openGame()
         app.buttons["parking-garage"].tap()
         XCTAssertTrue(app.buttons["parking-car-taxi"].label.contains("타고 있어요"))
+        XCTAssertEqual(app.staticTexts["parking-car-preview-title"].label, "노란 택시")
         XCTAssertEqual(app.switches["parking-sound"].value as? String, "1")
     }
     func testHomeEntryObstacleCollisionAndRestart() throws {
@@ -123,6 +134,33 @@ final class ParkingGameUITests: XCTestCase {
         app.buttons["parking-restart"].tap()
         XCTAssertEqual(daily.label, dateLabel)
         saveScreenshot("parking-daily")
+    }
+
+    func testGarageShowsTenPreviewsWithoutChangingTheCurrentCar() throws {
+        openGame()
+        app.buttons["parking-garage"].tap()
+        let list = app.scrollViews["parking-car-list"]
+        XCTAssertTrue(list.waitForExistence(timeout: 3))
+        let cars = [("blue", "파란 경차"), ("taxi", "노란 택시"), ("mintVan", "민트 미니밴"),
+                    ("pickup", "초록 픽업트럭"), ("suv", "보라 SUV"), ("coral", "산호빛 쿠페"),
+                    ("camper", "작은 캠핑카"), ("classic", "크림 클래식카"),
+                    ("roadster", "빨간 로드스터"), ("deliveryVan", "주황 배송밴")]
+        for (id, title) in cars {
+            let card = app.buttons["parking-car-\(id)"]
+            for _ in 0..<5 where !card.isHittable { list.swipeUp() }
+            XCTAssertTrue(card.isHittable)
+            card.tap()
+            assertCarPreview(title)
+            XCTAssertFalse(app.buttons["parking-car-apply"].isEnabled)
+            XCTAssertTrue(app.staticTexts["parking-current-car"].label.contains("파란 경차"))
+            if id == "camper" { saveScreenshot("parking-garage-camper-preview") }
+        }
+        saveScreenshot("parking-garage-locked-preview")
+        app.buttons["parking-garage-close"].tap()
+        app.buttons["parking-garage"].tap()
+        XCTAssertEqual(app.staticTexts["parking-car-preview-title"].label, "파란 경차")
+        XCTAssertTrue(app.buttons["parking-car-blue"].isHittable)
+        saveScreenshot("parking-garage-ten-cars")
     }
 
     func testMemberPickupGameKeepsTrackingAndArrivalClosesGarage() throws {
@@ -179,6 +217,12 @@ final class ParkingGameUITests: XCTestCase {
         saveScreenshot("parking-pickup-cancelled")
         app.buttons["parking-return-to-pickup"].tap()
         XCTAssertTrue(app.staticTexts["픽업이 취소됐어요"].waitForExistence(timeout: 3))
+    }
+
+    private func assertCarPreview(_ title: String) {
+        let preview = app.staticTexts.matching(identifier: "parking-car-preview-title")
+            .matching(NSPredicate(format: "label == %@", title)).firstMatch
+        XCTAssertTrue(preview.waitForExistence(timeout: 3))
     }
 
     private func openGame(chooseFirstStage: Bool = true) {

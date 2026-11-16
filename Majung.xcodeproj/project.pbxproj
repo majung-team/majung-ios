@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E10000000000000000000004 /* ParkingGameUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000014 /* ParkingGameUITests.swift */; };
+		E10000000000000000000003 /* ParkingPuzzleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000013 /* ParkingPuzzleTests.swift */; };
+		E10000000000000000000002 /* ParkingGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000012 /* ParkingGameView.swift */; };
+		E10000000000000000000001 /* ParkingPuzzle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000011 /* ParkingPuzzle.swift */; };
 		A10000000000000000000001 /* MajungApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* MajungApp.swift */; };
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* ContentView.swift */; };
 		A10000000000000000000022 /* PickupModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* PickupModels.swift */; };
@@ -95,6 +99,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E10000000000000000000014 /* ParkingGameUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingGameUITests.swift; sourceTree = "<group>"; };
+		E10000000000000000000013 /* ParkingPuzzleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingPuzzleTests.swift; sourceTree = "<group>"; };
+		E10000000000000000000012 /* ParkingGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingGameView.swift; sourceTree = "<group>"; };
+		E10000000000000000000011 /* ParkingPuzzle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingPuzzle.swift; sourceTree = "<group>"; };
 		A10000000000000000000003 /* MajungApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungApp.swift; sourceTree = "<group>"; };
 		A10000000000000000000004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A10000000000000000000005 /* Majung.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Majung.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -148,6 +156,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
+        E10000000000000000000020 /* ParkingGame */ = {
+            isa = PBXGroup;
+            children = (
+                E10000000000000000000011 /* ParkingPuzzle.swift */,
+                E10000000000000000000012 /* ParkingGameView.swift */,
+            );
+            path = ParkingGame;
+            sourceTree = "<group>";
+        };
 		A10000000000000000000006 = {
 			isa = PBXGroup;
 			children = (
@@ -221,6 +238,7 @@
 		A1000000000000000000001B /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				E10000000000000000000020 /* ParkingGame */,
 				A10000000000000000000050 /* Account */,
 				A100000000000000000000A9 /* Onboarding */,
 				A1000000000000000000001C /* Pickup */,
@@ -319,6 +337,7 @@
 			children = (
 				B10000000000000000000003 /* MajungCoreTests.swift */,
 				B10000000000000000000004 /* PickupTrackerTests.swift */,
+                E10000000000000000000013 /* ParkingPuzzleTests.swift */,
 			);
 			path = MajungTests;
 			sourceTree = "<group>";
@@ -328,6 +347,7 @@
 			children = (
 				C10000000000000000000003 /* LocalE2EServer.swift */,
 				C10000000000000000000004 /* MajungE2EUITests.swift */,
+                E10000000000000000000014 /* ParkingGameUITests.swift */,
 			);
 			path = MajungUITests;
 			sourceTree = "<group>";
@@ -454,6 +474,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* MajungApp.swift in Sources */,
+                E10000000000000000000001 /* ParkingPuzzle.swift in Sources */,
+                E10000000000000000000002 /* ParkingGameView.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 				A10000000000000000000022 /* PickupModels.swift in Sources */,
 				A10000000000000000000023 /* PickupSessionStore.swift in Sources */,
@@ -510,6 +532,7 @@
 			files = (
 				B10000000000000000000001 /* MajungCoreTests.swift in Sources */,
 				B10000000000000000000002 /* PickupTrackerTests.swift in Sources */,
+                E10000000000000000000003 /* ParkingPuzzleTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -519,6 +542,7 @@
 			files = (
 				C10000000000000000000001 /* LocalE2EServer.swift in Sources */,
 				C10000000000000000000002 /* MajungE2EUITests.swift in Sources */,
+                E10000000000000000000004 /* ParkingGameUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

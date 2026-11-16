@@ -268,6 +268,8 @@ private struct HomeTabView: View {
                             .foregroundStyle(.red)
                     }
                 }
+
+                ParkingGameEntry()
             }
             .padding(16)
         }

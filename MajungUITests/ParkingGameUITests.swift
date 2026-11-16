@@ -125,6 +125,62 @@ final class ParkingGameUITests: XCTestCase {
         saveScreenshot("parking-daily")
     }
 
+    func testMemberPickupGameKeepsTrackingAndArrivalClosesGarage() throws {
+        server.setAccountMode(.ready)
+        app.terminate()
+        app.launch()
+        let tracking = app.buttons["home-open-tracking-button"]
+        XCTAssertTrue(tracking.waitForExistence(timeout: 10))
+        tracking.tap()
+        let play = app.buttons["pickup-parking-open"]
+        XCTAssertTrue(play.waitForExistence(timeout: 5))
+        play.tap()
+        app.buttons["parking-chapter-0"].tap()
+        app.buttons["parking-stage-1"].tap()
+        app.buttons["parking-game-close"].tap()
+        XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 3))
+        play.tap()
+        app.buttons["parking-chapter-0"].tap()
+        app.buttons["parking-stage-1"].tap()
+        app.buttons["parking-garage"].tap()
+        let path = "/api/v1/ride-requests/\(server.activeRequestId)/tracking"
+        let reads = server.requestsMatching(method: "GET", pathPrefix: path).count
+        server.setMemberPickupPhase(.arrived)
+        let notice = app.staticTexts["parking-pickup-notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 10))
+        XCTAssertEqual(notice.label, "차가 도착했어요")
+        XCTAssertFalse(app.buttons["parking-garage-close"].exists)
+        XCTAssertFalse(app.descendants(matching: .any)["parking-board"].firstMatch.exists)
+        XCTAssertGreaterThan(server.requestsMatching(method: "GET", pathPrefix: path).count, reads)
+        saveScreenshot("parking-pickup-arrival")
+        app.buttons["parking-return-to-pickup"].tap()
+        XCTAssertTrue(app.staticTexts["마중 차량이 도착했어요"].waitForExistence(timeout: 3))
+        XCTAssertTrue(server.requestsMatching(method: "POST", pathPrefix: "/api/v1/ride-requests/\(server.activeRequestId)/cancel").isEmpty)
+    }
+
+    func testGuestPickupCancellationInterruptsChapterSelection() throws {
+        let field = app.textFields["마중 초대 링크"]
+        XCTAssertTrue(field.waitForExistence(timeout: 10))
+        for _ in 0..<3 where !field.isHittable { app.swipeUp() }
+        field.tap()
+        field.typeText("https://majung.cloud/#join/\(server.pickupId)/\(server.inviteCode)\n")
+        let join = app.buttons["약속에 참여하기"]
+        XCTAssertTrue(join.waitForExistence(timeout: 8))
+        join.tap()
+        XCTAssertTrue(app.buttons["pickup-waiting-refresh-button"].waitForExistence(timeout: 8))
+        server.setGuestPhase(.active)
+        XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
+        app.buttons["pickup-parking-open"].tap()
+        XCTAssertTrue(app.buttons["parking-chapter-0"].waitForExistence(timeout: 3))
+        server.setGuestPhase(.cancelled)
+        let notice = app.staticTexts["parking-pickup-notice"]
+        XCTAssertTrue(notice.waitForExistence(timeout: 10))
+        XCTAssertEqual(notice.label, "픽업 요청이 취소됐어요")
+        saveScreenshot("parking-pickup-cancelled")
+        app.buttons["parking-return-to-pickup"].tap()
+        XCTAssertTrue(app.staticTexts["픽업이 취소됐어요"].waitForExistence(timeout: 3))
+    }
+
     private func openGame(chooseFirstStage: Bool = true) {
         let entry = app.buttons["parking-game-open"]
         XCTAssertTrue(entry.waitForExistence(timeout: 10))

@@ -10,6 +10,7 @@ final class ParkingGame {
     private(set) var car: ParkingCarStyle
     private(set) var soundEnabled: Bool
     private(set) var newCars: [ParkingCarStyle] = []
+    private(set) var pickupInterruption: ParkingPickupNotice?
     private let store: ParkingProgressStore
     private let effects = ParkingEffects()
     private var driveTask: Task<Void, Never>?
@@ -25,6 +26,7 @@ final class ParkingGame {
     func awards(for stage: ParkingStage) -> ParkingAwards { store.awards(for: stage) }
 
     func select(_ stage: ParkingStage) {
+        guard pickupInterruption == nil else { return }
         pause()
         run = ParkingRun(stage: stage)
         newCars = []
@@ -44,12 +46,13 @@ final class ParkingGame {
     }
 
     func draw(start: ParkingPoint, point: ParkingPoint) {
+        guard pickupInterruption == nil else { return }
         if run.phase != .drawing { run.begin(at: start) }
         run.extend(to: point)
     }
 
     func drive() {
-        guard driveTask == nil else { return }
+        guard pickupInterruption == nil, driveTask == nil else { return }
         run.drive()
         guard run.phase == .driving else { return }
         nearFeedbackSent = false
@@ -83,6 +86,13 @@ final class ParkingGame {
         }
     }
 
+    func interrupt(for notice: ParkingPickupNotice?) {
+        guard let notice else { return }
+        pause()
+        if let current = pickupInterruption, current.priority > notice.priority { return }
+        pickupInterruption = notice
+    }
+
     func pause() {
         driveTask?.cancel()
         driveTask = nil
@@ -92,6 +102,8 @@ final class ParkingGame {
 }
 
 struct ParkingGameEntry: View {
+    var tracker: PickupTracker? = nil
+    var compact = false
     @State private var isPresented = false
 
     var body: some View {
@@ -99,34 +111,51 @@ struct ParkingGameEntry: View {
             dismissMajungKeyboard()
             isPresented = true
         } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "steeringwheel")
-                    .font(.title2)
-                    .foregroundStyle(.white)
-                    .frame(width: 48, height: 48)
-                    .background(Color(red: 0.23, green: 0.43, blue: 0.91), in: RoundedRectangle(cornerRadius: 15))
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("잠깐 주차").font(.headline).foregroundStyle(.primary)
-                    Text("선을 그려 빈자리에 쏙. 언제든 한 판!")
-                        .font(.caption).foregroundStyle(.secondary)
+            if compact {
+                Label("잠깐 주차", systemImage: "steeringwheel").font(.subheadline)
+            } else {
+                HStack(spacing: 14) {
+                    Image(systemName: "steeringwheel")
+                        .font(.title2)
+                        .foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background(Color(red: 0.23, green: 0.43, blue: 0.91), in: RoundedRectangle(cornerRadius: 15))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("잠깐 주차").font(.headline).foregroundStyle(.primary)
+                        Text("선을 그려 빈자리에 쏙. 언제든 한 판!")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.secondary)
                 }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.secondary)
+                .padding(16)
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
             }
-            .padding(16)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier("parking-game-open")
+        .disabled(!isPresented && tracker.map {
+            ParkingPickupNotice(status: $0.snapshot?.status, connectionProblem: $0.connectionProblem) != nil
+        } == true)
+        .accessibilityIdentifier(compact ? "pickup-parking-open" : "parking-game-open")
         .sheet(isPresented: $isPresented) {
-            ParkingGameView()
+            ParkingGamePresentation(tracker: tracker)
                 .preferredColorScheme(.light)
                 .presentationDragIndicator(.visible)
         }
     }
 }
 
+private struct ParkingGamePresentation: View {
+    var tracker: PickupTracker?
+    var body: some View {
+        ParkingGameView(pickupNotice: tracker.flatMap {
+            ParkingPickupNotice(status: $0.snapshot?.status, connectionProblem: $0.connectionProblem)
+        })
+    }
+}
+
 struct ParkingGameView: View {
+    var pickupNotice: ParkingPickupNotice? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -150,9 +179,37 @@ struct ParkingGameView: View {
 
     var body: some View {
         Group {
-            if hasStarted { NavigationStack { play } }
+            if let notice = game.pickupInterruption ?? pickupNotice {
+                pickupNoticeScreen(notice)
+            } else if hasStarted { NavigationStack { play } }
             else { chapters }
         }
+        .onChange(of: pickupNotice, initial: true) { _, notice in
+            guard notice != nil else { return }
+            game.interrupt(for: notice)
+            showingStages = false
+            showingGarage = false
+        }
+        .onDisappear { game.pause() }
+    }
+
+    private func pickupNoticeScreen(_ notice: ParkingPickupNotice) -> some View {
+        NavigationStack {
+            VStack(spacing: 22) {
+                Spacer()
+                Image(systemName: notice.symbol).font(.system(size: 52)).foregroundStyle(blue)
+                Text(notice.title).font(.title2.bold()).multilineTextAlignment(.center)
+                    .accessibilityIdentifier("parking-pickup-notice")
+                Text(notice.message).font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Button { dismiss() } label: {
+                    Text("픽업 확인").frame(maxWidth: .infinity, minHeight: 44)
+                }.buttonStyle(.borderedProminent).tint(blue)
+                    .accessibilityIdentifier("parking-return-to-pickup")
+                Spacer()
+            }.padding(28).frame(maxWidth: 500).frame(maxWidth: .infinity)
+                .background(Color(.systemGroupedBackground))
+                .navigationTitle("마중 픽업").navigationBarTitleDisplayMode(.inline)
+        }.accessibilityAddTraits(.updatesFrequently)
     }
 
     private var play: some View {
@@ -415,5 +472,55 @@ private struct StarMarks: View {
                 Image(systemName: awards.contains(flag) ? "star.fill" : "star")
             }
         }.font(.caption2).accessibilityLabel("별 \(awards.count)개")
+    }
+}
+
+// Shared by guest invitations and signed-in ride tracking; no pickup mutation from the game.
+enum ParkingPickupNotice: Equatable {
+    case arrived, completed, cancelled, expired, unavailable
+
+    init?(status: PickupSnapshot.Status?, connectionProblem: Bool = false) {
+        switch status {
+        case .arrived: self = .arrived
+        case .completed: self = .completed
+        case .cancelled: self = .cancelled
+        case .expired, .inviteExpired: self = .expired
+        case nil: self = .unavailable
+        case .inviting, .waiting, .active:
+            if connectionProblem { self = .unavailable } else { return nil }
+        }
+    }
+
+    var priority: Int {
+        switch self {
+        case .unavailable: 0
+        case .arrived: 1
+        case .completed, .cancelled, .expired: 2
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .arrived: "차가 도착했어요"
+        case .completed: "픽업이 끝났어요"
+        case .cancelled: "픽업 요청이 취소됐어요"
+        case .expired: "초대를 더 이상 사용할 수 없어요"
+        case .unavailable: "픽업 상태를 확인해주세요"
+        }
+    }
+    var message: String {
+        switch self {
+        case .arrived: "게임은 잠깐 멈췄어요. 픽업 화면에서 차량 위치를 확인해주세요."
+        case .completed, .cancelled, .expired: "게임을 멈췄어요. 픽업 화면에서 바뀐 내용을 확인해주세요."
+        case .unavailable: "픽업 상태를 확인하지 못해 게임을 멈췄어요. 픽업 화면에서 연결 상태를 확인해주세요."
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .arrived: "car.side.fill"
+        case .completed: "checkmark.circle.fill"
+        case .cancelled, .expired: "xmark.circle.fill"
+        case .unavailable: "wifi.exclamationmark"
+        }
     }
 }

@@ -241,4 +241,41 @@ final class ParkingPuzzleTests: XCTestCase {
         XCTAssertEqual(run.collisions, 0)
     }
 
+
+    func testPickupNoticeOnlyInterruptsArrivalEndAndLostConnection() {
+        for status in [PickupSnapshot.Status.inviting, .waiting, .active] {
+            XCTAssertNil(ParkingPickupNotice(status: status))
+        }
+        XCTAssertEqual(ParkingPickupNotice(status: .arrived), .arrived)
+        XCTAssertEqual(ParkingPickupNotice(status: .completed), .completed)
+        XCTAssertEqual(ParkingPickupNotice(status: .cancelled), .cancelled)
+        XCTAssertEqual(ParkingPickupNotice(status: .expired), .expired)
+        XCTAssertEqual(ParkingPickupNotice(status: .inviteExpired), .expired)
+        XCTAssertEqual(ParkingPickupNotice(status: nil), .unavailable)
+        XCTAssertEqual(ParkingPickupNotice(status: .active, connectionProblem: true), .unavailable)
+        XCTAssertEqual(ParkingPickupNotice(status: .cancelled, connectionProblem: true), .cancelled)
+    }
+
+    @MainActor
+    func testPickupInterruptionCancelsMovementAndCannotAutoResume() async {
+        let game = ParkingGame()
+        game.draw(start: game.run.stage.start, point: game.run.stage.destination)
+        game.drive()
+        XCTAssertEqual(game.run.phase, .driving)
+        game.interrupt(for: .arrived)
+        let position = game.run.pose
+        game.interrupt(for: nil)
+        game.draw(start: position.center, point: game.run.stage.destination)
+        game.drive()
+        game.select(ParkingStage.all[1])
+        try? await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(game.run.pose, position)
+        XCTAssertEqual(game.run.phase, .ready)
+        XCTAssertEqual(game.run.stage.id, 1)
+        XCTAssertEqual(game.pickupInterruption, .arrived)
+        game.interrupt(for: .cancelled)
+        game.interrupt(for: .unavailable)
+        XCTAssertEqual(game.pickupInterruption, .cancelled)
+    }
+
 }

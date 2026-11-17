@@ -223,6 +223,40 @@ final class PickupTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.error, "세션이 종료되었어요")
     }
 
+    func testRefreshFailureRetainsLastCheckAndRecoveryResetsWithSession() async {
+        let tracker = PickupTracker()
+        var failing = false
+        tracker.configure(PickupTracker.Backend(
+            refresh: {
+                if failing { throw StubError.networkDown }
+                return (self.makeSnapshot(), self.makeVehicle())
+            },
+            setReady: { _, _ in self.makeSnapshot() },
+            propose: { _ in self.makeSnapshot() },
+            withdraw: { self.makeSnapshot() },
+            sendMessage: { _ in self.makeSnapshot() },
+            isSessionLost: { _ in false }, onSessionLost: {}, onTerminal: {},
+            formatError: { _ in "network" }, lostMessage: "expired"
+        ))
+        await tracker.refresh()
+        let checked = tracker.lastRefreshedAt
+        XCTAssertNotNil(checked)
+        XCTAssertNil(tracker.reconnectedAt)
+        failing = true
+        await tracker.refresh()
+        XCTAssertTrue(tracker.connectionProblem)
+        XCTAssertNil(tracker.currentVehicle())
+        XCTAssertEqual(tracker.lastRefreshedAt, checked)
+        failing = false
+        await tracker.refresh()
+        XCTAssertFalse(tracker.connectionProblem)
+        XCTAssertNotNil(tracker.reconnectedAt)
+        XCTAssertNotNil(tracker.currentVehicle())
+        tracker.resetState()
+        XCTAssertNil(tracker.lastRefreshedAt)
+        XCTAssertNil(tracker.reconnectedAt)
+    }
+
     func testSuggestAndWithdrawProposalUpdateSnapshot() async {
         let tracker = PickupTracker()
         var proposedPlaces: [PickupPlace] = []

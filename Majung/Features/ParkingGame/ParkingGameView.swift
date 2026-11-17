@@ -163,12 +163,14 @@ struct ParkingGameView: View {
     @State private var hasStarted = false
     @State private var showingStages = false
     @State private var showingGarage = false
+    @State private var showingHelp = false
 
     private let ink = Color(red: 0.12, green: 0.20, blue: 0.29)
     private let blue = Color(red: 0.23, green: 0.43, blue: 0.91)
 
     private var message: String {
-        switch game.run.phase {
+        if let feedback = game.run.feedback { return feedback.message }
+        return switch game.run.phase {
         case .drawing: "좋아요. 손을 떼면 출발해요."
         case .driving: game.run.isNearObstacle ? "사이드미러 접고, 살짝 지나가요." : "주차 중…"
         case .collision: "앗, 닿았어요. 차에서 다시 그려보세요."
@@ -189,6 +191,7 @@ struct ParkingGameView: View {
             game.interrupt(for: notice)
             showingStages = false
             showingGarage = false
+            showingHelp = false
         }
         .onDisappear { game.pause() }
     }
@@ -259,6 +262,8 @@ struct ParkingGameView: View {
                 Button("닫기") { game.pause(); dismiss() }.accessibilityIdentifier("parking-game-close")
             }
             ToolbarItemGroup(placement: .primaryAction) {
+                Button { game.pause(); showingHelp = true } label: { Image(systemName: "questionmark.circle") }
+                    .accessibilityLabel("주차 방법").accessibilityIdentifier("parking-help")
                 Button { game.pause(); showingGarage = true } label: { Image(systemName: "car.side.fill") }
                     .accessibilityLabel("내 차 꾸미기").accessibilityIdentifier("parking-garage")
                 Button { game.pause(); showingStages = true } label: { Image(systemName: "square.grid.2x2") }
@@ -267,6 +272,23 @@ struct ParkingGameView: View {
         }
         .sheet(isPresented: $showingStages) { chapters }
         .sheet(isPresented: $showingGarage) { garage }
+        .sheet(isPresented: $showingHelp) {
+            NavigationStack {
+                VStack(alignment: .leading, spacing: 24) {
+                    Label("차 위에서 시작해요", systemImage: "hand.draw.fill").font(.headline)
+                    Text("차에서 주차 칸까지 손가락으로 선을 그려주세요. 손을 떼면 차가 선을 따라가요.")
+                    Label("장애물과 테두리를 피해요", systemImage: "exclamationmark.triangle").font(.headline)
+                    Text("부딪히면 차는 출발점으로 돌아가요. 표시된 위치를 보고 다른 길로 그려보세요.")
+                    Label("차 전체를 칸 안에 넣어요", systemImage: "parkingsign.circle").font(.headline)
+                    Text("마지막 선을 칸의 위쪽 화살표 방향으로 그리면 주차할 수 있어요. 짧게 나눠 그려도 괜찮아요.")
+                    Spacer()
+                }
+                .padding(24)
+                .navigationTitle("주차 방법")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("알겠어요") { showingHelp = false } } }
+            }
+        }
         .onChange(of: scenePhase) { _, phase in if phase != .active { game.pause() } }
         .onDisappear { game.pause() }
     }

@@ -173,7 +173,7 @@ final class MajungE2EUITests: XCTestCase {
 
         // 5. Recover from SAME_PLACE without dismissing the form or losing the description.
         let proposeButton = app.buttons["pickup-propose-place-button"]
-        for _ in 0..<3 where !proposeButton.isHittable { app.swipeDown() }
+        for _ in 0..<3 where !proposeButton.isHittable { app.swipeUp() }
         XCTAssertTrue(proposeButton.isHittable)
         proposeButton.tap()
         XCTAssertTrue(app.navigationBars["다른 장소 제안"].waitForExistence(timeout: 5))
@@ -214,6 +214,41 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["흰색 아이오닉 5 · 12가 3456"].exists)
         app.buttons["처음으로"].tap()
         XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 5))
+    }
+
+    func test12GuestConnectionFailureAndRecoveryKeepLastState() throws {
+        let server = try startServer()
+        server.setAccountMode(.unauthenticated)
+        let app = launchApp(port: server.port)
+        submitInviteLink("https://majung.cloud/#join/\(server.pickupId)/\(server.inviteCode)", in: app)
+        XCTAssertTrue(app.buttons["약속에 참여하기"].waitForExistence(timeout: 8))
+        app.buttons["약속에 참여하기"].tap()
+        XCTAssertTrue(app.buttons["pickup-waiting-refresh-button"].waitForExistence(timeout: 8))
+        server.setGuestPhase(.active)
+        let ready = app.buttons["pickup-readiness-ready-button"]
+        XCTAssertTrue(ready.waitForExistence(timeout: 10))
+        XCTAssertTrue(ready.isHittable)
+        let active = XCTAttachment(screenshot: app.screenshot())
+        active.name = "pickup-priority-overview"
+        active.lifetime = .keepAlways
+        add(active)
+        server.setPickupReadsFailing(true)
+        let retry = app.buttons["pickup-reconnect-button"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 12))
+        XCTAssertFalse(ready.isEnabled)
+        XCTAssertTrue(app.staticTexts["pickup-eta-summary"].label.contains("확인 중"))
+        let disconnected = XCTAttachment(screenshot: app.screenshot())
+        disconnected.name = "pickup-connection-retry"
+        disconnected.lifetime = .keepAlways
+        add(disconnected)
+        retry.tap()
+        XCTAssertTrue(retry.exists)
+        XCTAssertFalse(ready.isEnabled)
+        server.setPickupReadsFailing(false)
+        expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: ready)
+        waitForExpectations(timeout: 12)
+        XCTAssertTrue(app.descendants(matching: .any)["pickup-reconnected-status"].firstMatch.exists)
+        XCTAssertFalse(app.staticTexts["pickup-eta-summary"].label.contains("확인 중"))
     }
 
     func test02MemberNicknameRequestsDeduplicationPeopleSearchAndCompletedSummary() throws {
@@ -365,7 +400,7 @@ final class MajungE2EUITests: XCTestCase {
         XCTAssertTrue(loginApp.buttons["키보드 닫기"].waitForExistence(timeout: 5))
         attachScreenshot(named: "07-login-keyboard-glass-dismiss")
 
-        loginApp.staticTexts["전달받은 마중 초대 링크가 있나요?"].tap()
+        loginApp.staticTexts["login-invite-heading"].tap()
         waitForKeyboardDismissed(in: loginApp)
 
         loginInviteField.tap()

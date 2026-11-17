@@ -51,14 +51,16 @@ struct ParkingBoard: View {
                     .rotationEffect(.radians(run.pose.heading + .pi / 2))
                     .position(x: run.pose.center.x * unit, y: run.pose.center.y * unit)
                 if run.phase == .ready && run.strokes == 0 {
-                    Image(systemName: "hand.draw")
-                        .font(.system(size: unit * 6)).foregroundStyle(.white.opacity(0.65))
-                        .position(x: (run.pose.center.x + 14) * unit, y: run.pose.center.y * unit)
+                    Label("차에서 시작", systemImage: "hand.draw")
+                        .font(.system(size: unit * 3, weight: .semibold)).foregroundStyle(.white)
+                        .padding(6).background(.black.opacity(0.45), in: Capsule())
+                        .position(x: min(78, max(22, run.pose.center.x)) * unit, y: min(111, run.pose.center.y + 12) * unit)
                         .allowsHitTesting(false)
                 }
-                if run.phase == .collision {
-                    Image(systemName: "sparkle").font(.title).foregroundStyle(.orange)
-                        .position(x: run.pose.center.x * unit, y: (run.pose.center.y - 12) * unit)
+                if let collision = run.collisionPose {
+                    Image(systemName: "xmark.circle.fill").font(.title).foregroundStyle(.orange)
+                        .position(x: min(94, max(6, collision.center.x)) * unit,
+                                  y: min(114, max(6, collision.center.y)) * unit)
                         .accessibilityHidden(true)
                 }
                 if run.phase == .parked {

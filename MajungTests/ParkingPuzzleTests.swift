@@ -12,6 +12,38 @@ final class ParkingPuzzleTests: XCTestCase {
         return run
     }
 
+    func testDrawingMustStartAtCarAndHaveLength() {
+        var run = ParkingRun(stage: ParkingStage.all[0])
+        run.begin(at: .init(x: 10, y: 10))
+        XCTAssertEqual(run.feedback, .startAtCar)
+        XCTAssertEqual(run.strokes, 0)
+        run.begin(at: run.stage.start)
+        XCTAssertNil(run.feedback)
+        run.drive()
+        XCTAssertEqual(run.feedback, .shortRoute)
+        XCTAssertEqual(run.strokes, 0)
+    }
+
+    func testParkingFeedbackDistinguishesDirectionBodyAndUnfinishedRoute() {
+        let stage = ParkingStage.all[0]
+        XCTAssertEqual(finish(stage, via: [.init(x: 40, y: 22), .init(x: 50, y: 22)]).feedback, .wrongDirection)
+        XCTAssertEqual(finish(stage, via: [.init(x: 57, y: 40), .init(x: 57, y: 22)]).feedback, .outsideBay)
+        XCTAssertEqual(finish(stage, via: [.init(x: 50, y: 60)]).feedback, .partialRoute)
+        XCTAssertNil(finish(stage, via: [.init(x: 50, y: 22)]).feedback)
+    }
+
+    func testCollisionKeepsImpactLocationAndRetryClearsIt() {
+        let stage = ParkingStage.all[3]
+        var run = finish(stage, via: [.init(x: 23, y: 22)])
+        XCTAssertEqual(run.feedback, .collision)
+        XCTAssertNotNil(run.collisionPose)
+        XCTAssertNotEqual(run.collisionPose?.center, stage.start)
+        XCTAssertEqual(run.pose.center, stage.start)
+        run.begin(at: stage.start)
+        XCTAssertNil(run.collisionPose)
+        XCTAssertNil(run.feedback)
+    }
+
     private func solution(for stage: ParkingStage) -> [ParkingPoint] {
         let original: [[ParkingPoint]] = [
             [.init(x: 50, y: 22)],

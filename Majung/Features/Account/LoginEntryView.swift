@@ -38,7 +38,7 @@ struct LoginEntryView: View {
                 .font(.title.bold())
                 .accessibilityAddTraits(.isHeader)
 
-            Text("차량의 도착 예정 시간과 만날 약속 장소를 한 화면에서 함께 확인해요.")
+            Text("초대를 받았다면 링크로 참여하고, 직접 마중을 요청하려면 카카오로 시작해요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -62,6 +62,8 @@ struct LoginEntryView: View {
             .disabled(account.busy || account.restoring || !account.loginEnabled)
             .accessibilityIdentifier("kakao-login-button")
 
+            Text("로그인하면 운전자를 찾아 마중을 요청하거나 차량을 연결할 수 있어요.")
+                .font(.footnote).foregroundStyle(.secondary)
             if !account.loginEnabled {
                 Text("현재 서버 로그인 설정을 준비하고 있어요. 아래 초대 링크로 바로 참여할 수 있어요.")
                     .font(.footnote)
@@ -120,14 +122,15 @@ struct LoginEntryView: View {
                     .padding(.vertical, 4)
                     .background(.green.opacity(0.14), in: Capsule())
                 Spacer()
-                Text("게스트 세션 지원")
+                Text("가입 없이 참여")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.green)
             }
 
-            Text("전달받은 마중 초대 링크가 있나요?")
+            Text("초대 링크를 받았어요")
                 .font(.headline)
-            Text("계정 로그인 없이 만날 장소를 확인하고 바로 픽업에 참여할 수 있어요.")
+                .accessibilityIdentifier("login-invite-heading")
+            Text("운전자가 보내준 링크를 붙여넣어 만날 장소를 확인해주세요. 차량 연결용 QR과는 달라요.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
 

@@ -194,6 +194,22 @@ enum ParkingGeometry {
     }
 }
 
+enum ParkingRouteFeedback: Equatable {
+    case startAtCar, shortRoute, collision, boundary, outsideBay, wrongDirection, partialRoute
+
+    var message: String {
+        switch self {
+        case .startAtCar: "차 위에서 손가락을 대고 선을 그려주세요."
+        case .shortRoute: "선을 조금 더 길게 그린 뒤 손을 떼주세요."
+        case .collision: "앗, 닿았어요. 표시된 장애물을 피해 차에서 다시 그려보세요."
+        case .boundary: "주차장 밖으로 나갔어요. 테두리 안쪽으로 그려주세요."
+        case .outsideBay: "차가 주차 칸에 걸쳐 있어요. 차 전체를 칸 안에 넣어주세요."
+        case .wrongDirection: "칸에는 들어왔어요! 마지막 선을 위쪽 화살표 방향으로 그려주세요."
+        case .partialRoute: "아직 주차 칸에 도착하지 않았어요. 지금 차 위치에서 선을 이어주세요."
+        }
+    }
+}
+
 struct ParkingRun {
     enum Phase: Equatable { case ready, drawing, driving, collision, parked }
     let stage: ParkingStage
@@ -202,6 +218,8 @@ struct ParkingRun {
     private(set) var phase: Phase = .ready
     private(set) var strokes = 0
     private(set) var collisions = 0
+    private(set) var feedback: ParkingRouteFeedback?
+    private(set) var collisionPose: ParkingPose?
     private var cursor = 0
 
     var awards: ParkingAwards {
@@ -228,8 +246,13 @@ struct ParkingRun {
     }
 
     mutating func begin(at point: ParkingPoint) {
-        guard phase != .driving, phase != .parked,
-              point.distance(to: pose.center) <= 14 else { return }
+        guard phase != .driving, phase != .parked else { return }
+        guard point.distance(to: pose.center) <= 14 else {
+            feedback = .startAtCar
+            return
+        }
+        feedback = nil
+        collisionPose = nil
         route = [pose.center]
         phase = .drawing
     }
@@ -245,7 +268,7 @@ struct ParkingRun {
 
     mutating func drive() {
         guard phase == .drawing else { return }
-        guard route.count > 2 else { phase = .ready; route = []; return }
+        guard route.count > 2 else { phase = .ready; route = []; feedback = .shortRoute; return }
         strokes += 1
         cursor = 1
         phase = .driving
@@ -258,6 +281,8 @@ struct ParkingRun {
                                    heading: atan2(next.y - pose.center.y, next.x - pose.center.x))
         if ParkingGeometry.collides(proposed, in: stage) {
             collisions += 1
+            collisionPose = proposed
+            feedback = proposed.corners.allSatisfy(ParkingGeometry.bounds.contains) ? .collision : .boundary
             phase = .collision
             pose = ParkingPose(center: stage.start)
             return
@@ -266,6 +291,10 @@ struct ParkingRun {
         cursor += 1
         if cursor == route.count {
             phase = ParkingGeometry.isParked(pose, in: stage) ? .parked : .ready
+            if phase == .parked { feedback = nil }
+            else if pose.corners.allSatisfy(stage.bay.contains) { feedback = .wrongDirection }
+            else if stage.bay.contains(pose.center) { feedback = .outsideBay }
+            else { feedback = .partialRoute }
         }
     }
 

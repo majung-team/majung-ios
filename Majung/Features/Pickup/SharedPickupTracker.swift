@@ -31,6 +31,9 @@ final class PickupTracker {
     private(set) var lastVehicleName: String?
     private(set) var busy = false
     private(set) var connectionProblem = false
+    private(set) var lastRefreshedAt: Date?
+    private(set) var reconnectedAt: Date?
+    var isRefreshing: Bool { refreshing }
     private(set) var messageSent = false
     var messageDraft = "" {
         didSet { if messageDraft != oldValue { messageSent = false } }
@@ -67,7 +70,7 @@ final class PickupTracker {
             let (current, position) = try await backend.refresh()
             guard !Task.isCancelled, revision == revisionAtStart else { return }
             apply(current)
-            connectionProblem = false
+            recordSuccessfulRefresh()
             guard current.status == .active || current.status == .arrived else { return }
             applyVehicle(position, for: current, startedAt: started)
         } catch is CancellationError {
@@ -82,7 +85,7 @@ final class PickupTracker {
 
     func applyExternal(_ current: PickupSnapshot, vehicle position: PickupVehicle?, startedAt: ContinuousClock.Instant = .now) {
         apply(current)
-        connectionProblem = false
+        recordSuccessfulRefresh()
         if current.status == .active || current.status == .arrived {
             applyVehicle(position, for: current, startedAt: startedAt)
         }
@@ -146,11 +149,20 @@ final class PickupTracker {
         clearVehicle()
         error = nil
         connectionProblem = false
+        lastRefreshedAt = nil
+        reconnectedAt = nil
         messageDraft = ""
         messageSent = false
         if let previousKey {
             liveActivity.end(pickupKey: previousKey)
         }
+    }
+
+    private func recordSuccessfulRefresh() {
+        let now = Date()
+        if connectionProblem { reconnectedAt = now }
+        lastRefreshedAt = now
+        connectionProblem = false
     }
 
     private func applyVehicle(_ position: PickupVehicle?, for current: PickupSnapshot, startedAt: ContinuousClock.Instant) {

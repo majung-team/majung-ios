@@ -21,6 +21,26 @@ final class ParkingGameUITests: XCTestCase {
         try super.tearDownWithError()
     }
 
+    func testParkingHelpAndDrawingStartFeedback() throws {
+        let entry = app.buttons["parking-game-open"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10))
+        for _ in 0..<3 where !entry.isHittable { app.swipeUp() }
+        entry.tap()
+        app.buttons["parking-chapter-0"].tap()
+        app.buttons["parking-stage-1"].tap()
+        app.buttons["parking-help"].tap()
+        XCTAssertTrue(app.staticTexts["차 위에서 시작해요"].waitForExistence(timeout: 3))
+        let help = XCTAttachment(screenshot: app.screenshot())
+        help.name = "parking-how-to-play"
+        help.lifetime = .keepAlways
+        add(help)
+        app.buttons["알겠어요"].tap()
+        let board = app.descendants(matching: .any)["parking-board"].firstMatch
+        let start = board.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.2))
+        start.press(forDuration: 0.1, thenDragTo: board.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.3)))
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "차 위에서 손가락")).firstMatch.waitForExistence(timeout: 3))
+    }
+
     func testPlayWithoutLoginCompleteAndSelectStage() throws {
         let entry = app.buttons["parking-game-open"]
         XCTAssertTrue(entry.waitForExistence(timeout: 10))
@@ -194,6 +214,23 @@ final class ParkingGameUITests: XCTestCase {
         app.buttons["parking-return-to-pickup"].tap()
         XCTAssertTrue(app.staticTexts["마중 차량이 도착했어요"].waitForExistence(timeout: 3))
         XCTAssertTrue(server.requestsMatching(method: "POST", pathPrefix: "/api/v1/ride-requests/\(server.activeRequestId)/cancel").isEmpty)
+    }
+
+    func testArrivalClosesParkingHelp() throws {
+        server.setAccountMode(.ready)
+        app.terminate()
+        app.launch()
+        let tracking = app.buttons["home-open-tracking-button"]
+        XCTAssertTrue(tracking.waitForExistence(timeout: 10))
+        tracking.tap()
+        app.buttons["pickup-parking-open"].tap()
+        app.buttons["parking-chapter-0"].tap()
+        app.buttons["parking-stage-1"].tap()
+        app.buttons["parking-help"].tap()
+        XCTAssertTrue(app.buttons["알겠어요"].waitForExistence(timeout: 3))
+        server.setMemberPickupPhase(.arrived)
+        XCTAssertTrue(app.staticTexts["parking-pickup-notice"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["알겠어요"].exists)
     }
 
     func testGuestPickupCancellationInterruptsChapterSelection() throws {

@@ -211,7 +211,7 @@ private struct HomeTabView: View {
                 MajungCard {
                     Label("운전자에게 마중 요청하기", systemImage: "person.badge.plus")
                         .font(.headline)
-                    Text("사람 탭에서 닉네임·마중 ID로 지인을 찾고 만날 장소를 지정해 마중을 요청할 수 있어요.")
+                    Text("먼저 사람 탭에서 운전자를 연결한 뒤, 만날 장소를 골라 요청해요.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Button("사람 찾아 마중 요청") {
@@ -220,6 +220,8 @@ private struct HomeTabView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .accessibilityIdentifier("home-open-people-button")
+                    Text("운전자라면 설정의 차량 연결에서 차량 화면의 QR을 연결해주세요. 초대받은 탑승자는 아래 링크로 참여하면 돼요.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
 
                 MajungCard {

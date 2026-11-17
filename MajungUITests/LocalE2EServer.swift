@@ -70,6 +70,7 @@ final class LocalE2EServer {
     private var guestProposal: (label: String, lat: Double, lng: Double)?
     private var guestQuickMessage: String?
     private var staleVehicle = false
+    private var failingPickupReads = false
     private var rejectNextGuestProposal = false
 
     private var rideRequests: [RequestItemModel] = []
@@ -228,6 +229,13 @@ final class LocalE2EServer {
         pushSSEChanged()
     }
 
+    func setPickupReadsFailing(_ failing: Bool) {
+        lock.lock()
+        failingPickupReads = failing
+        lock.unlock()
+        pushSSEChanged()
+    }
+
     func setVehicleStale(_ stale: Bool) {
         lock.lock()
         staleVehicle = stale
@@ -370,6 +378,10 @@ final class LocalE2EServer {
     }
 
     private func buildResponse(method: String, path: String, query: String, body: Data) -> (Int, String, String?) {
+        if failingPickupReads, method == "GET",
+           path == "/api/v1/pickups/\(pickupId)" || path == "/api/v1/pickups/\(pickupId)/vehicle-state" {
+            return (503, #"{"message":"temporarily unavailable"}"#, nil)
+        }
         switch (method, path) {
         case ("GET", "/api/v1/auth/session"):
             switch accountMode {

@@ -28,10 +28,7 @@ struct PickupView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 if let error = tracker.error { Text(error).foregroundStyle(.red) }
-                if tracker.connectionProblem {
-                    Label("연결이 끊겼어요. 다시 연결하고 있어요.", systemImage: "wifi.slash")
-                        .foregroundStyle(.secondary)
-                }
+                if let snapshot = tracker.snapshot, !snapshot.status.ended { connectionStatus }
 
                 if let snapshot = tracker.snapshot {
                     switch snapshot.status {
@@ -116,103 +113,7 @@ struct PickupView: View {
 
     private func active(_ snapshot: PickupSnapshot, place: PickupPlace) -> some View {
         Group {
-            MajungCard {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let vehicle = tracker.currentVehicle()
-                    let freshness = MajungFormatting.freshnessText(
-                        for: vehicle,
-                        updatedAt: tracker.vehicleUpdatedAt,
-                        now: context.date
-                    )
-                    let distance = MajungFormatting.distanceText(from: vehicle, to: place)
-                    VStack(alignment: .leading, spacing: 12) {
-                        if freshness != nil || distance != nil {
-                            HStack(spacing: 8) {
-                                if let freshness {
-                                    MajungStatusPill(text: freshness, tint: .green)
-                                }
-                                if let distance {
-                                    MajungStatusPill(text: distance, tint: .accentColor)
-                                }
-                            }
-                        }
-                        Text(MajungFormatting.etaText(vehicle)).font(.title2.bold()).accessibilityAddTraits(.isHeader)
-                        if let name = snapshot.vehicleName, !name.isEmpty {
-                            Label(name, systemImage: "car.fill").foregroundStyle(.secondary)
-                        }
-                        if vehicle == nil {
-                            HStack(spacing: 10) {
-                                Text("차량 위치 응답을 기다리고 있어요.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Button("다시 확인") {
-                                    Task { await tracker.refresh() }
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                                .accessibilityIdentifier("pickup-retry-vehicle-button")
-                            }
-                        }
-                        PickupMapView(place: place, vehicle: vehicle)
-                    }
-                }
-            }
-            MajungCard {
-                HStack {
-                    Text("현재 확정된 만날 장소")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    if snapshot.placeProposal?.isPassenger != true {
-                        Button("다른 장소 제안") {
-                            messageFocused = false
-                            editingPlace = true
-                        }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(tracker.busy)
-                            .accessibilityIdentifier("pickup-propose-place-button")
-                    }
-                }
-                Label(place.label, systemImage: "mappin.circle.fill").font(.headline)
-                if let proposal = snapshot.placeProposal {
-                    Divider()
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(proposal.isPassenger ? "내가 제안한 장소" : "운전자가 제안한 장소")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            MajungStatusPill(
-                                text: proposal.isPassenger ? "운전자 확인 대기" : "운전자 제안",
-                                tint: proposal.isPassenger ? .orange : .accentColor
-                            )
-                        }
-                        Text(proposal.place.label).font(.headline)
-                        Text("새 장소가 확정될 때까지 위에 표시된 장소에서 만나요.")
-                            .font(.footnote).foregroundStyle(.secondary)
-                        if proposal.isPassenger {
-                            HStack {
-                                Button("제안 취소", role: .destructive) {
-                                    Task { await tracker.withdrawProposal() }
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(.red)
-                                .controlSize(.small)
-                                .disabled(tracker.busy)
-                                .accessibilityIdentifier("pickup-withdraw-proposal-button")
-                                Spacer()
-                            }
-                        }
-                    }
-                    .padding(10)
-                    .background(
-                        (proposal.isPassenger ? Color.orange : Color.accentColor).opacity(0.08),
-                        in: RoundedRectangle(cornerRadius: 12)
-                    )
-                }
-            }
+            pickupOverview(snapshot)
             if let participant = snapshot.participant {
                 MajungCard {
                     HStack {
@@ -220,7 +121,7 @@ struct PickupView: View {
                         Spacer()
                         if participant.ready && participant.readinessReceivedSequence >= participant.readinessSequence {
                             Label(
-                                "차량 전달됨 · #\(participant.readinessReceivedSequence)",
+                                "차량에 전달됐어요",
                                 systemImage: "checkmark.circle.fill"
                             )
                             .font(.caption.weight(.semibold))
@@ -239,7 +140,7 @@ struct PickupView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(participant.ready ? Color(.tertiarySystemFill) : Color.accentColor)
                         .foregroundStyle(participant.ready ? Color.secondary : Color.white)
-                        .disabled(tracker.busy)
+                        .disabled(tracker.busy || tracker.connectionProblem)
                         .accessibilityIdentifier("pickup-readiness-preparing-button")
 
                         Button {
@@ -252,7 +153,7 @@ struct PickupView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(participant.ready ? .green : Color(.tertiarySystemFill))
                         .foregroundStyle(participant.ready ? Color.white : Color.secondary)
-                        .disabled(tracker.busy)
+                        .disabled(tracker.busy || tracker.connectionProblem)
                         .accessibilityIdentifier("pickup-readiness-ready-button")
                     }
 
@@ -267,14 +168,154 @@ struct PickupView: View {
                             }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
-                            .disabled(tracker.busy)
+                            .disabled(tracker.busy || tracker.connectionProblem)
                             .accessibilityIdentifier("pickup-resend-readiness-button")
                         }
                     }
                 }
             }
-            notificationCard
             messages(snapshot)
+            meetingPlace(snapshot, place: place)
+            MajungCard {
+                DisclosureGroup("지도에서 만날 장소와 차량 보기") {
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        PickupMapView(place: place, vehicle: tracker.currentVehicle())
+                    }
+                }
+                .font(.subheadline.weight(.medium))
+                .accessibilityIdentifier("pickup-map-disclosure")
+            }
+            notificationCard
+        }
+    }
+
+    private func meetingPlace(_ snapshot: PickupSnapshot, place: PickupPlace) -> some View {
+        MajungCard {
+            HStack {
+                Text("현재 확정된 만날 장소")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if snapshot.placeProposal?.isPassenger != true {
+                    Button("다른 장소 제안") {
+                        messageFocused = false
+                        editingPlace = true
+                    }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .disabled(tracker.busy || tracker.connectionProblem)
+                        .accessibilityIdentifier("pickup-propose-place-button")
+                }
+            }
+            Label(place.label, systemImage: "mappin.circle.fill").font(.headline)
+            if let proposal = snapshot.placeProposal {
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text(proposal.isPassenger ? "내가 제안한 장소" : "운전자가 제안한 장소")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        MajungStatusPill(
+                            text: proposal.isPassenger ? "운전자 확인 대기" : "운전자 제안",
+                            tint: proposal.isPassenger ? .orange : .accentColor
+                        )
+                    }
+                    Text(proposal.place.label).font(.headline)
+                    Text("새 장소가 확정될 때까지 위에 표시된 장소에서 만나요.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    if proposal.isPassenger {
+                        HStack {
+                            Button("제안 취소", role: .destructive) {
+                                Task { await tracker.withdrawProposal() }
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(.red)
+                            .controlSize(.small)
+                            .disabled(tracker.busy || tracker.connectionProblem)
+                            .accessibilityIdentifier("pickup-withdraw-proposal-button")
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(10)
+                .background(
+                    (proposal.isPassenger ? Color.orange : Color.accentColor).opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: 12)
+                )
+            }
+        }
+    }
+
+    private func pickupOverview(_ snapshot: PickupSnapshot) -> some View {
+        MajungCard {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let vehicle = tracker.currentVehicle()
+                VStack(alignment: .leading, spacing: 12) {
+                    MajungStatusPill(text: vehicle == nil ? "차량 정보 갱신 대기" : "픽업 진행 중", tint: vehicle == nil ? .orange : .accentColor)
+                    Text(MajungFormatting.etaText(vehicle))
+                        .font(.title.bold())
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityIdentifier("pickup-eta-summary")
+                    if let name = snapshot.vehicleName, !name.isEmpty {
+                        Label(name, systemImage: "car.fill").foregroundStyle(.secondary)
+                    }
+                    if let place = snapshot.place {
+                        Label(place.label, systemImage: "mappin.circle.fill").font(.subheadline.weight(.medium))
+                    }
+                    Text(nextAction(for: snapshot, hasVehicle: vehicle != nil))
+                        .font(.subheadline)
+                        .accessibilityIdentifier("pickup-next-action")
+                    if let place = snapshot.place, let distance = MajungFormatting.distanceText(from: vehicle, to: place) {
+                        Text(distance).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let freshness = MajungFormatting.freshnessText(for: vehicle, updatedAt: tracker.vehicleUpdatedAt, now: context.date) {
+                        Text(freshness).font(.caption).foregroundStyle(.secondary)
+                    }
+                    if vehicle == nil && !tracker.connectionProblem {
+                        Button("차량 정보 다시 확인") { Task { await tracker.refresh() } }
+                            .buttonStyle(.bordered).controlSize(.small)
+                            .disabled(tracker.isRefreshing)
+                            .accessibilityIdentifier("pickup-retry-vehicle-button")
+                    }
+                }
+            }
+        }
+    }
+
+    private func nextAction(for snapshot: PickupSnapshot, hasVehicle: Bool) -> String {
+        guard hasVehicle else { return "도착 시간이 확인되면 여기에 표시돼요. 만날 장소와 차량을 먼저 확인해주세요." }
+        guard let participant = snapshot.participant, participant.ready else {
+            return "탑승 준비를 마치면 아래에서 ‘탑승 준비 완료’를 눌러주세요."
+        }
+        return participant.readinessReceivedSequence >= participant.readinessSequence
+            ? "준비 완료가 차량에 전달됐어요. 약속 장소를 확인하며 기다려주세요."
+            : "준비 완료를 보냈어요. 차량에 전달됐는지 확인하고 있어요."
+    }
+
+    private var connectionStatus: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            if tracker.connectionProblem {
+                MajungCard {
+                    Label("최신 정보를 확인하지 못했어요", systemImage: "wifi.slash")
+                        .font(.headline).foregroundStyle(.orange)
+                    Text("자동으로 다시 확인하고 있어요. 아래 내용은 마지막으로 확인한 픽업 상태예요.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    if let date = tracker.lastRefreshedAt {
+                        Text("픽업 상태 마지막 확인 · \(MajungFormatting.shortTime(date))")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Button(tracker.isRefreshing ? "확인 중…" : "지금 다시 확인") {
+                        Task { await tracker.refresh() }
+                    }
+                    .buttonStyle(.bordered).disabled(tracker.isRefreshing)
+                    .accessibilityIdentifier("pickup-reconnect-button")
+                }
+            } else if let recovered = tracker.reconnectedAt, context.date.timeIntervalSince(recovered) < 5 {
+                Label("다시 연결됐어요. 최신 픽업 상태를 확인했어요.", systemImage: "checkmark.circle.fill")
+                    .font(.footnote).foregroundStyle(.green)
+                    .accessibilityIdentifier("pickup-reconnected-status")
+            }
         }
     }
 
@@ -331,7 +372,7 @@ struct PickupView: View {
                         .frame(maxWidth: .infinity, minHeight: 36)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(tracker.busy)
+                .disabled(tracker.busy || tracker.isRefreshing)
                 .accessibilityIdentifier("pickup-waiting-refresh-button")
 
                 if onLeaveWaiting != nil {
@@ -340,7 +381,7 @@ struct PickupView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
-                    .disabled(tracker.busy)
+                    .disabled(tracker.busy || tracker.connectionProblem)
                     .accessibilityIdentifier("pickup-waiting-leave-button")
                 }
             }
@@ -423,7 +464,7 @@ struct PickupView: View {
                 Button("전송") { sendMessage() }
                     .buttonStyle(.borderedProminent)
                     .disabled(
-                        tracker.busy ||
+                        tracker.busy || tracker.connectionProblem ||
                         tracker.messageDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
                         tracker.messageDraft.utf16.count > 50
                     )
@@ -442,6 +483,7 @@ struct PickupView: View {
     }
 
     private func sendMessage() {
+        guard !tracker.busy, !tracker.connectionProblem else { return }
         dismissMajungKeyboard {
             messageFocused = false
         }

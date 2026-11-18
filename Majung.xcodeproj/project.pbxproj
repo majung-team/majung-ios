@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F1000000000000000000000B /* PickupStatusCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000010B /* PickupStatusCards.swift */; };
+		F1000000000000000000000C /* SoloDemoModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000010C /* SoloDemoModels.swift */; };
+		F1000000000000000000000D /* SoloDemoServerResponses.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000010D /* SoloDemoServerResponses.swift */; };
 		F10000000000000000000008 /* ParkingStages.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000108 /* ParkingStages.swift */; };
 		F10000000000000000000009 /* ParkingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000109 /* ParkingProgressStore.swift */; };
 		F1000000000000000000000A /* ParkingGameModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000010A /* ParkingGameModel.swift */; };
@@ -112,6 +115,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F1000000000000000000010B /* PickupStatusCards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupStatusCards.swift; sourceTree = "<group>"; };
+		F1000000000000000000010C /* SoloDemoModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoloDemoModels.swift; sourceTree = "<group>"; };
+		F1000000000000000000010D /* SoloDemoServerResponses.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoloDemoServerResponses.swift; sourceTree = "<group>"; };
 		F10000000000000000000108 /* ParkingStages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingStages.swift; sourceTree = "<group>"; };
 		F10000000000000000000109 /* ParkingProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingProgressStore.swift; sourceTree = "<group>"; };
 		F1000000000000000000010A /* ParkingGameModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingGameModel.swift; sourceTree = "<group>"; };
@@ -253,6 +259,8 @@
 			isa = PBXGroup;
 			children = (
 				A100000000000000000000B0 /* SoloDemoServer.swift */,
+				F1000000000000000000010D /* SoloDemoServerResponses.swift */,
+				F1000000000000000000010C /* SoloDemoModels.swift */,
 			);
 			path = Demo;
 			sourceTree = "<group>";
@@ -322,6 +330,7 @@
 				A10000000000000000000063 /* SharedPickupTracker.swift */,
 				A10000000000000000000085 /* PickupNotificationService.swift */,
 				A10000000000000000000015 /* PickupView.swift */,
+				F1000000000000000000010B /* PickupStatusCards.swift */,
 				F10000000000000000000105 /* PickupMapView.swift */,
 				A10000000000000000000016 /* PlaceProposalView.swift */,
 			);
@@ -526,6 +535,7 @@
 				A10000000000000000000023 /* PickupSessionStore.swift in Sources */,
 				A10000000000000000000024 /* PickupViewModel.swift in Sources */,
 				A10000000000000000000025 /* PickupView.swift in Sources */,
+				F1000000000000000000000B /* PickupStatusCards.swift in Sources */,
 				A10000000000000000000026 /* PlaceProposalView.swift in Sources */,
 				A10000000000000000000027 /* PickupAPI.swift in Sources */,
 				A10000000000000000000031 /* APIBaseURL.swift in Sources */,
@@ -564,6 +574,8 @@
 				A100000000000000000000A7 /* SplashView.swift in Sources */,
 				A100000000000000000000A8 /* OnboardingView.swift in Sources */,
 				A100000000000000000000B1 /* SoloDemoServer.swift in Sources */,
+				F1000000000000000000000D /* SoloDemoServerResponses.swift in Sources */,
+				F1000000000000000000000C /* SoloDemoModels.swift in Sources */,
 				A100000000000000000000B2 /* PickupLiveActivityAttributes.swift in Sources */,
 				A100000000000000000000B3 /* PickupLiveActivityService.swift in Sources */,
 			);

@@ -46,6 +46,20 @@ final class MajungE2EUITests: XCTestCase {
         add(attachment)
     }
 
+    func testHomePickupSummaryWaitsForFreshVehicle() throws {
+        let server = try startServer()
+        server.setAccountMode(.ready)
+        server.setVehicleStale(true)
+        let app = launchApp(port: server.port)
+        XCTAssertTrue(app.buttons["home-open-tracking-button"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["차량 위치 확인 중"].exists)
+        attachScreenshot(named: "home-waiting-for-vehicle")
+        server.setVehicleStale(false)
+        let fresh = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "실시간 갱신 중")).firstMatch
+        XCTAssertTrue(fresh.waitForExistence(timeout: 15))
+        XCTAssertFalse(app.staticTexts["차량 위치 확인 중"].exists)
+    }
+
     func test00SplashLandsDirectlyOnLoginAndGuideIsOnDemand() throws {
         let server = try startServer()
         server.setAccountMode(.unauthenticated)

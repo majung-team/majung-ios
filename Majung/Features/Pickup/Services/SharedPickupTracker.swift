@@ -188,7 +188,10 @@ final class PickupTracker {
            position.validForMillis > 0 {
             vehicle = position
             vehicleExpiresAt = startedAt.advanced(by: .milliseconds(position.validForMillis))
-            vehicleUpdatedAt = Date()
+            // Anchor both the in-app deadline and the Live Activity to the request start.
+            let elapsed = startedAt.duration(to: .now).components
+            let seconds = Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18
+            vehicleUpdatedAt = Date().addingTimeInterval(-seconds)
         } else {
             clearVehicle()
         }
@@ -230,6 +233,9 @@ final class PickupTracker {
         }
         if snapshot?.placeVersion != current.placeVersion {
             clearVehicle()
+        }
+        if snapshot?.status != current.status {
+            error = nil
         }
         snapshot = current
         if let place = current.place {

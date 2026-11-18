@@ -53,10 +53,11 @@ struct ContentView: View {
                             onReset: {
                                 pickupModel.reset()
                             },
+                            isLeavingWaiting: pickupModel.busy,
                             onLeaveWaiting: {
                                 Task {
                                     await pickupModel.leaveWaiting()
-                                    link = ""
+                                    if pickupModel.session == nil { link = "" }
                                 }
                             }
                         )

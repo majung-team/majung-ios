@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F10000000000000000000001 /* MajungKeyboardDismiss.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000101 /* MajungKeyboardDismiss.swift */; };
+		F10000000000000000000002 /* MajungFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000102 /* MajungFormatting.swift */; };
+		F10000000000000000000003 /* MajungCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000103 /* MajungCodec.swift */; };
+		F10000000000000000000004 /* PlaceSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000104 /* PlaceSearchService.swift */; };
+		F10000000000000000000005 /* PickupMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000105 /* PickupMapView.swift */; };
 		E10000000000000000000007 /* ParkingGarageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000017 /* ParkingGarageView.swift */; };
 		E10000000000000000000006 /* ParkingEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000016 /* ParkingEffects.swift */; };
 		E10000000000000000000005 /* ParkingBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E10000000000000000000015 /* ParkingBoard.swift */; };
@@ -102,6 +107,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F10000000000000000000101 /* MajungKeyboardDismiss.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungKeyboardDismiss.swift; sourceTree = "<group>"; };
+		F10000000000000000000102 /* MajungFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungFormatting.swift; sourceTree = "<group>"; };
+		F10000000000000000000103 /* MajungCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungCodec.swift; sourceTree = "<group>"; };
+		F10000000000000000000104 /* PlaceSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceSearchService.swift; sourceTree = "<group>"; };
+		F10000000000000000000105 /* PickupMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PickupMapView.swift; sourceTree = "<group>"; };
 		E10000000000000000000017 /* ParkingGarageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingGarageView.swift; sourceTree = "<group>"; };
 		E10000000000000000000016 /* ParkingEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingEffects.swift; sourceTree = "<group>"; };
 		E10000000000000000000015 /* ParkingBoard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingBoard.swift; sourceTree = "<group>"; };
@@ -201,6 +211,8 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000061 /* MajungComponents.swift */,
+				F10000000000000000000102 /* MajungFormatting.swift */,
+				F10000000000000000000101 /* MajungKeyboardDismiss.swift */,
 				A100000000000000000000A1 /* MajungBrandMark.swift */,
 			);
 			path = DesignSystem;
@@ -236,10 +248,12 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000041 /* APIBaseURL.swift */,
+				F10000000000000000000103 /* MajungCodec.swift */,
 				A10000000000000000000042 /* AccountAPI.swift */,
 				A10000000000000000000017 /* PickupAPI.swift */,
 				A10000000000000000000062 /* RideRequestAPI.swift */,
 				A10000000000000000000081 /* VehicleLinkAPI.swift */,
+				F10000000000000000000104 /* PlaceSearchService.swift */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -293,6 +307,7 @@
 				A10000000000000000000063 /* SharedPickupTracker.swift */,
 				A10000000000000000000085 /* PickupNotificationService.swift */,
 				A10000000000000000000015 /* PickupView.swift */,
+				F10000000000000000000105 /* PickupMapView.swift */,
 				A10000000000000000000016 /* PlaceProposalView.swift */,
 			);
 			path = Pickup;
@@ -507,6 +522,11 @@
 				A1000000000000000000003A /* PeopleViewModel.swift in Sources */,
 				A1000000000000000000003B /* PeopleTabView.swift in Sources */,
 				A10000000000000000000051 /* MajungComponents.swift in Sources */,
+				F10000000000000000000001 /* MajungKeyboardDismiss.swift in Sources */,
+				F10000000000000000000002 /* MajungFormatting.swift in Sources */,
+				F10000000000000000000003 /* MajungCodec.swift in Sources */,
+				F10000000000000000000004 /* PlaceSearchService.swift in Sources */,
+				F10000000000000000000005 /* PickupMapView.swift in Sources */,
 				A10000000000000000000052 /* RideRequestAPI.swift in Sources */,
 				A10000000000000000000053 /* SharedPickupTracker.swift in Sources */,
 				A10000000000000000000054 /* RideRequestModels.swift in Sources */,

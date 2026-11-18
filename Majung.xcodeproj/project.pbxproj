@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F10000000000000000000008 /* ParkingStages.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000108 /* ParkingStages.swift */; };
+		F10000000000000000000009 /* ParkingProgressStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000109 /* ParkingProgressStore.swift */; };
+		F1000000000000000000000A /* ParkingGameModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000010A /* ParkingGameModel.swift */; };
 		F10000000000000000000006 /* HomeTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000106 /* HomeTabView.swift */; };
 		F10000000000000000000007 /* SettingsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000107 /* SettingsTabView.swift */; };
 		F10000000000000000000001 /* MajungKeyboardDismiss.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000101 /* MajungKeyboardDismiss.swift */; };
@@ -109,6 +112,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F10000000000000000000108 /* ParkingStages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingStages.swift; sourceTree = "<group>"; };
+		F10000000000000000000109 /* ParkingProgressStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingProgressStore.swift; sourceTree = "<group>"; };
+		F1000000000000000000010A /* ParkingGameModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParkingGameModel.swift; sourceTree = "<group>"; };
 		F10000000000000000000106 /* HomeTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTabView.swift; sourceTree = "<group>"; };
 		F10000000000000000000107 /* SettingsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTabView.swift; sourceTree = "<group>"; };
 		F10000000000000000000101 /* MajungKeyboardDismiss.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MajungKeyboardDismiss.swift; sourceTree = "<group>"; };
@@ -180,6 +186,9 @@
             isa = PBXGroup;
             children = (
                 E10000000000000000000011 /* ParkingPuzzle.swift */,
+                F10000000000000000000108 /* ParkingStages.swift */,
+                F10000000000000000000109 /* ParkingProgressStore.swift */,
+                F1000000000000000000010A /* ParkingGameModel.swift */,
                 E10000000000000000000012 /* ParkingGameView.swift */,
                 E10000000000000000000017 /* ParkingGarageView.swift */,
                 E10000000000000000000016 /* ParkingEffects.swift */,
@@ -505,6 +514,9 @@
 			files = (
 				A10000000000000000000001 /* MajungApp.swift in Sources */,
                 E10000000000000000000001 /* ParkingPuzzle.swift in Sources */,
+                F10000000000000000000008 /* ParkingStages.swift in Sources */,
+                F10000000000000000000009 /* ParkingProgressStore.swift in Sources */,
+                F1000000000000000000000A /* ParkingGameModel.swift in Sources */,
                 E10000000000000000000002 /* ParkingGameView.swift in Sources */,
                 E10000000000000000000007 /* ParkingGarageView.swift in Sources */,
                 E10000000000000000000006 /* ParkingEffects.swift in Sources */,

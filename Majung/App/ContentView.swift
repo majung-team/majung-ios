@@ -60,6 +60,15 @@ struct ContentView: View {
                                 }
                             }
                         )
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button(accountModel.isReady ? "홈으로" : "첫 화면") {
+                                    dismissMajungKeyboard()
+                                    pickupModel.minimizePickup()
+                                }
+                                .accessibilityIdentifier("pickup-minimize-button")
+                            }
+                        }
                     case .entry:
                         EmptyView()
                     }
@@ -212,6 +221,9 @@ struct ContentView: View {
         if url.scheme?.lowercased() == "majung", url.host?.lowercased() == "auth" { return }
         if url.scheme?.lowercased() == "majung", url.host?.lowercased() == "pickup" {
             pickupNavigationEventCount += 1
+            if pickupModel.hasActivePickupScreen {
+                pickupModel.reopenPickup()
+            }
             Task {
                 if pickupModel.session != nil {
                     await pickupModel.refresh()

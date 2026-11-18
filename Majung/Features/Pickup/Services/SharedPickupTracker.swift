@@ -34,6 +34,7 @@ final class PickupTracker {
     private(set) var lastRefreshedAt: Date?
     private(set) var reconnectedAt: Date?
     var isRefreshing: Bool { refreshing }
+    private(set) var arrivalBoardingNotified = false
     private(set) var messageSent = false
     var messageDraft = "" {
         didSet { if messageDraft != oldValue { messageSent = false } }
@@ -80,6 +81,15 @@ final class PickupTracker {
             if handleLostSession(error) { return }
             clearVehicle()
             connectionProblem = true
+            if let snapshot, !snapshot.status.ended {
+                liveActivity.sync(
+                    snapshot: snapshot,
+                    vehicle: nil,
+                    vehicleUpdatedAt: nil,
+                    connectionProblem: true,
+                    lastCheckedAt: lastRefreshedAt
+                )
+            }
         }
     }
 
@@ -139,6 +149,13 @@ final class PickupTracker {
         }
     }
 
+    func notifyArrivalBoarding() async {
+        guard let backend, !busy, !connectionProblem else { return }
+        if await update({ try await backend.sendMessage("차량 확인했어요, 지금 탑승해요") }) {
+            arrivalBoardingNotified = true
+        }
+    }
+
     func resetState() {
         let previousKey = snapshot.map(PickupLiveActivityService.pickupKey(for:))
         revision += 1
@@ -151,6 +168,7 @@ final class PickupTracker {
         connectionProblem = false
         lastRefreshedAt = nil
         reconnectedAt = nil
+        arrivalBoardingNotified = false
         messageDraft = ""
         messageSent = false
         if let previousKey {
@@ -174,7 +192,13 @@ final class PickupTracker {
         } else {
             clearVehicle()
         }
-        liveActivity.sync(snapshot: current, vehicle: position, vehicleUpdatedAt: vehicleUpdatedAt)
+        liveActivity.sync(
+            snapshot: current,
+            vehicle: position,
+            vehicleUpdatedAt: vehicleUpdatedAt,
+            connectionProblem: connectionProblem,
+            lastCheckedAt: vehicleUpdatedAt ?? lastRefreshedAt
+        )
     }
 
     private func update(_ operation: () async throws -> PickupSnapshot) async -> Bool {
@@ -201,6 +225,9 @@ final class PickupTracker {
     }
 
     private func apply(_ current: PickupSnapshot) {
+        if snapshot?.pickupId != current.pickupId {
+            arrivalBoardingNotified = false
+        }
         if snapshot?.placeVersion != current.placeVersion {
             clearVehicle()
         }
@@ -217,7 +244,13 @@ final class PickupTracker {
             liveActivity.end(pickupKey: PickupLiveActivityService.pickupKey(for: current))
             backend?.onTerminal()
         } else {
-            liveActivity.sync(snapshot: current, vehicle: vehicle, vehicleUpdatedAt: vehicleUpdatedAt)
+            liveActivity.sync(
+                snapshot: current,
+                vehicle: vehicle,
+                vehicleUpdatedAt: vehicleUpdatedAt,
+                connectionProblem: connectionProblem,
+                lastCheckedAt: vehicleUpdatedAt ?? lastRefreshedAt
+            )
         }
     }
 

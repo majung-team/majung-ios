@@ -68,8 +68,11 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `ParkingPuzzle.swift` | 챕터·스테이지·오늘의 판, 차체 충돌·주차·별 판정, 기록·차량·설정 저장 |
-| `ParkingGameView.swift` | 진입 카드·챕터·게임·차고 화면, 이동 작업과 화면 이탈 처리 |
+| `ParkingPuzzle.swift` | 좌표·차체 충돌·주차 판정과 주행 시뮬레이션 엔진 |
+| `ParkingStages.swift` | 챕터·스테이지 48개·테마·오늘의 주차 생성 |
+| `ParkingProgressStore.swift` | 별 보상·차량 10종 정의·로컬 기록 및 설정 저장소 |
+| `ParkingGameModel.swift` | 게임 상태 관리·이동 작업·픽업 중단 안내 모델 |
+| `ParkingGameView.swift` | 진입 카드·챕터·게임 화면과 화면 이탈 처리 |
 | `ParkingGarageView.swift` | 큰 미리보기·스크롤 가능한 차량 목록·명시적 탑승·효과음 설정 |
 | `ParkingBoard.swift` | 주차장 테마·차량 외형·근접과 성공 시각 효과 |
 | `ParkingEffects.swift` | 짧은 효과음 생성·오디오 세션 종료 |

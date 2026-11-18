@@ -313,10 +313,15 @@ final class AccountViewModel {
             return SoloDemoServer.shared.sampleGuestInviteString
         }
         guard DevServerConfig.shared.mode == .local else { return nil }
-        struct GuestInviteRes: Decodable { let link: String }
+        struct DevGuestInviteResponse: Decodable {
+            let link: String
+        }
         do {
-            let (res, _): (GuestInviteRes, HTTPURLResponse) = try await api.requestWithResponse("dev/simulate/guest-invite", method: "POST")
-            return res.link
+            let (response, _): (DevGuestInviteResponse, HTTPURLResponse) = try await api.requestWithResponse(
+                "dev/simulate/guest-invite",
+                method: "POST"
+            )
+            return response.link
         } catch {
             self.error = displayError(error)
             return nil
@@ -354,11 +359,14 @@ final class AccountViewModel {
             if let action {
                 var targetPickupId: UUID? = nil
                 if DevServerConfig.shared.mode == .local, path == "dev/simulate/vehicle-tick" {
-                    struct DevStateRes: Decodable {
-                        struct P: Decodable { let pickupId: UUID; let status: String }
-                        let pickups: [P]
+                    struct DevSimulationStateResponse: Decodable {
+                        struct DevPickupSummary: Decodable {
+                            let pickupId: UUID
+                            let status: String
+                        }
+                        let pickups: [DevPickupSummary]
                     }
-                    if let (state, _): (DevStateRes, HTTPURLResponse) = try? await api.requestWithResponse("dev/state"),
+                    if let (state, _): (DevSimulationStateResponse, HTTPURLResponse) = try? await api.requestWithResponse("dev/state"),
                        let active = state.pickups.first(where: { $0.status == "ACTIVE" || $0.status == "ARRIVED" }) {
                         targetPickupId = active.pickupId
                     }

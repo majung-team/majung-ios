@@ -33,7 +33,8 @@ struct ParkingGameEntry: View {
         }
         .buttonStyle(.plain)
         .disabled(!isPresented && tracker.map {
-            ParkingPickupNotice(status: $0.snapshot?.status, connectionProblem: $0.connectionProblem) != nil
+            let status = $0.snapshot?.status
+            return status == nil || status == .arrived || $0.connectionProblem
         } == true)
         .accessibilityIdentifier(compact ? "pickup-parking-open" : "parking-game-open")
         .sheet(isPresented: $isPresented) {
@@ -46,14 +47,25 @@ struct ParkingGameEntry: View {
 
 private struct ParkingGamePresentation: View {
     var tracker: PickupTracker?
+    @State private var ignoreEndedNoticeOnOpen: Bool
+
+    init(tracker: PickupTracker?) {
+        self.tracker = tracker
+        _ignoreEndedNoticeOnOpen = State(initialValue: tracker?.snapshot?.status.ended == true)
+    }
+
     var body: some View {
-        ParkingGameView(pickupNotice: tracker.flatMap {
-            ParkingPickupNotice(status: $0.snapshot?.status, connectionProblem: $0.connectionProblem)
-        })
+        let currentStatus = tracker?.snapshot?.status
+        let effectiveNotice: ParkingPickupNotice? = tracker.flatMap {
+            if ignoreEndedNoticeOnOpen && currentStatus?.ended == true { return nil }
+            return ParkingPickupNotice(status: currentStatus, connectionProblem: $0.connectionProblem)
+        }
+        ParkingGameView(tracker: tracker, pickupNotice: effectiveNotice)
     }
 }
 
 struct ParkingGameView: View {
+    var tracker: PickupTracker? = nil
     var pickupNotice: ParkingPickupNotice? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -103,6 +115,13 @@ struct ParkingGameView: View {
                 Text(notice.title).font(.title2.bold()).multilineTextAlignment(.center)
                     .accessibilityIdentifier("parking-pickup-notice")
                 Text(notice.message).font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                if game.savedSession != nil {
+                    Text("진행 중이던 스테이지(\(game.run.stage.title)) 위치를 저장했어요. 픽업 후 이어서 플레이할 수 있어요.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .accessibilityIdentifier("parking-saved-session-note")
+                }
                 Button { dismiss() } label: {
                     Text("픽업 확인").frame(maxWidth: .infinity, minHeight: 44)
                 }.buttonStyle(.borderedProminent).tint(blue)
@@ -118,6 +137,7 @@ struct ParkingGameView: View {
         GeometryReader { layout in
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    pickupStatusBar
                     header
                     GeometryReader { board in
                         ParkingBoard(run: game.run, car: game.car, reduceMotion: reduceMotion)
@@ -264,6 +284,36 @@ struct ParkingGameView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    pickupStatusBar
+                    if let session = game.savedSession {
+                        Button {
+                            if game.resumeSavedSession() {
+                                hasStarted = true
+                                showingStages = false
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: "play.circle.fill").font(.title2)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(session.interruptedByPickup ? "픽업으로 멈춘 판 이어하기" : "중단했던 판 이어하기")
+                                        .font(.headline)
+                                    Text(
+                                        session.dailyKey != nil
+                                            ? "오늘의 주차 · 멈춘 위치에서 이어서 출발"
+                                            : String(format: "STAGE %02d · 멈춘 위치에서 이어서 출발", session.stageId)
+                                    )
+                                    .font(.caption)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption.bold())
+                            }
+                            .padding(16)
+                            .foregroundStyle(.white)
+                            .background(Color.green, in: RoundedRectangle(cornerRadius: 20))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("parking-resume-button")
+                    }
                     Button {
                         game.selectDaily()
                         hasStarted = true
@@ -343,6 +393,49 @@ struct ParkingGameView: View {
     }
 
     private var garage: some View { ParkingGarageView(game: game) }
+
+    @ViewBuilder
+    private var pickupStatusBar: some View {
+        if let tracker,
+           let snapshot = tracker.snapshot,
+           snapshot.status == .active,
+           pickupNotice == nil {
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                HStack(spacing: 10) {
+                    Image(systemName: "car.fill")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(blue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(MajungFormatting.etaText(tracker.currentVehicle()))
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(ink)
+                            .lineLimit(1)
+                        if let place = snapshot.place {
+                            Text(place.label)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                    Spacer(minLength: 4)
+                    Button("픽업 보기") {
+                        game.saveCurrentSession(interruptedByPickup: false)
+                        game.pause()
+                        dismiss()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    .tint(blue)
+                    .accessibilityIdentifier("parking-pickup-status-return")
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 14))
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("parking-pickup-status-bar")
+            }
+        }
+    }
 
     private func point(_ point: CGPoint, in size: CGSize) -> ParkingPoint {
         .init(x: Double(point.x / size.width) * 100, y: Double(point.y / size.height) * 120)

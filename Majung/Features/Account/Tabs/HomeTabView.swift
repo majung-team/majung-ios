@@ -15,6 +15,9 @@ struct HomeTabView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
+                if pickup.hasActivePickupScreen {
+                    ActiveGuestPickupReturnCard(pickup: pickup)
+                }
                 if rideRequests.invitedCount > 0 {
                     Button(action: onOpenRequests) {
                         HStack {

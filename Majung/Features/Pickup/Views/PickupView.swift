@@ -264,17 +264,45 @@ struct PickupView: View {
         MajungCard {
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let vehicle = tracker.currentVehicle()
+                let approachingSoon = MajungFormatting.isApproachingSoon(vehicle)
+                let resolvedVehicleName = (snapshot.vehicleName?.isEmpty == false ? snapshot.vehicleName : nil) ?? tracker.lastVehicleName
+                let checkedText = MajungFormatting.lastCheckedText(
+                    updatedAt: tracker.vehicleUpdatedAt,
+                    refreshedAt: tracker.lastRefreshedAt,
+                    now: context.date
+                )
                 VStack(alignment: .leading, spacing: 12) {
-                    MajungStatusPill(text: vehicle == nil ? "차량 정보 갱신 대기" : "픽업 진행 중", tint: vehicle == nil ? .orange : .accentColor)
+                    MajungStatusPill(
+                        text: vehicle == nil ? "차량 정보 갱신 대기" : (approachingSoon ? "도착 직전 · 차량·장소 확인" : "픽업 진행 중"),
+                        tint: vehicle == nil ? .orange : (approachingSoon ? .green : .accentColor)
+                    )
                     Text(MajungFormatting.etaText(vehicle))
                         .font(.title.bold())
                         .accessibilityAddTraits(.isHeader)
                         .accessibilityIdentifier("pickup-eta-summary")
-                    if let name = snapshot.vehicleName, !name.isEmpty {
-                        Label(name, systemImage: "car.fill").foregroundStyle(.secondary)
-                    }
-                    if let place = snapshot.place {
-                        Label(place.label, systemImage: "mappin.circle.fill").font(.subheadline.weight(.medium))
+                    if approachingSoon, let place = snapshot.place {
+                        PickupPlaceSummaryBox(
+                            caption: "곧 만날 장소 · 탑승할 차량",
+                            placeName: place.label,
+                            vehicleName: resolvedVehicleName ?? "연결된 마중 차량",
+                            prominent: true,
+                            lastCheckedText: checkedText
+                        )
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("pickup-approaching-card")
+                    } else {
+                        if let name = resolvedVehicleName, !name.isEmpty {
+                            Label(name, systemImage: "car.fill").foregroundStyle(.secondary)
+                        }
+                        if let place = snapshot.place {
+                            Label(place.label, systemImage: "mappin.circle.fill").font(.subheadline.weight(.medium))
+                        }
+                        if let checkedText {
+                            Label(checkedText, systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .accessibilityIdentifier("pickup-last-checked-time")
+                        }
                     }
                     Text(nextAction(for: snapshot, hasVehicle: vehicle != nil))
                         .font(.subheadline)
@@ -371,11 +399,40 @@ struct PickupView: View {
                 subtitle: "약속 장소에서 차량 번호와 차종을 확인하고 탑승해주세요."
             )
 
+            let resolvedVehicleName = (snapshot.vehicleName?.isEmpty == false ? snapshot.vehicleName : nil) ?? tracker.lastVehicleName
             PickupPlaceSummaryBox(
                 caption: "만날 약속 장소",
                 placeName: place.label,
-                vehicleName: snapshot.vehicleName
+                vehicleName: resolvedVehicleName ?? "연결된 마중 차량",
+                prominent: true,
+                lastCheckedText: MajungFormatting.lastCheckedText(
+                    updatedAt: tracker.vehicleUpdatedAt,
+                    refreshedAt: tracker.lastRefreshedAt
+                )
             )
+
+            if tracker.arrivalBoardingNotified || snapshot.quickMessage?.text == "차량 확인했어요, 지금 탑승해요" {
+                Label("차량 확인을 운전자에게 알렸어요. 탑승 후 차량에서 완료하면 위치 공유가 바로 종료돼요.", systemImage: "checkmark.circle.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.green)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(Color.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                    .accessibilityIdentifier("pickup-arrival-boarded-note")
+            } else {
+                Button {
+                    messageFocused = false
+                    Task { await tracker.notifyArrivalBoarding() }
+                } label: {
+                    Label("차량 확인 · 지금 탑승할게요", systemImage: "checkmark.circle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 42)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .disabled(tracker.busy || tracker.connectionProblem)
+                .accessibilityIdentifier("pickup-arrival-board-button")
+            }
 
             Button {
                 showArrivalMap.toggle()
@@ -383,7 +440,7 @@ struct PickupView: View {
                 Text(showArrivalMap ? "지도 닫기" : "지도에서 차량 보기")
                     .frame(maxWidth: .infinity, minHeight: 38)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bordered)
 
             if showArrivalMap {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in

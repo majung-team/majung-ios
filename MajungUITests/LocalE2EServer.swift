@@ -70,6 +70,7 @@ final class LocalE2EServer {
     private var guestProposal: (label: String, lat: Double, lng: Double)?
     private var guestQuickMessage: String?
     private var staleVehicle = false
+    private var vehicleDurationSeconds = 240
     private var failingPickupReads = false
     private var rejectNextGuestProposal = false
 
@@ -130,6 +131,7 @@ final class LocalE2EServer {
         guestProposal = nil
         guestQuickMessage = nil
         staleVehicle = false
+        vehicleDurationSeconds = 240
         rejectNextGuestProposal = false
 
         memberPickupStatus = "ACTIVE"
@@ -239,6 +241,13 @@ final class LocalE2EServer {
     func setVehicleStale(_ stale: Bool) {
         lock.lock()
         staleVehicle = stale
+        lock.unlock()
+        pushSSEChanged()
+    }
+
+    func setVehicleDurationSeconds(_ seconds: Int) {
+        lock.lock()
+        vehicleDurationSeconds = seconds
         lock.unlock()
         pushSSEChanged()
     }
@@ -507,6 +516,13 @@ final class LocalE2EServer {
             }
             return (200, "{\"pickup\":\(memberSnapshotJSON()),\"vehicle\":\(vehicleJSON())}", nil)
 
+        case ("POST", "/api/v1/ride-requests/\(activeRequestId)/quick-message"):
+            if let obj = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+               let message = obj["message"] as? String {
+                memberQuickMessage = message
+            }
+            return (200, memberSnapshotJSON(), nil)
+
         case ("POST", "/api/v1/ride-requests/\(invitedRequestId)/accept-invitation"):
             if let idx = rideRequests.firstIndex(where: { $0.id == invitedRequestId }) {
                 rideRequests[idx] = RequestItemModel(
@@ -643,7 +659,7 @@ final class LocalE2EServer {
           "freshness": "\(staleVehicle ? "STALE" : "FRESH")",
           "latitude": 37.3120,
           "longitude": 126.9410,
-          "durationSeconds": 240,
+          "durationSeconds": \(vehicleDurationSeconds),
           "validForMillis": \(staleVehicle ? 0 : 15000),
           "ageMillis": 2000,
           "placeVersion": 1

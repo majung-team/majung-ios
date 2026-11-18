@@ -11,6 +11,7 @@ final class ParkingGame {
     private(set) var soundEnabled: Bool
     private(set) var newCars: [ParkingCarStyle] = []
     private(set) var pickupInterruption: ParkingPickupNotice?
+    private(set) var savedSession: ParkingSavedSession?
     private let store: ParkingProgressStore
     private let effects = ParkingEffects()
     private var driveTask: Task<Void, Never>?
@@ -21,6 +22,7 @@ final class ParkingGame {
         totalStars = store.totalStars
         car = store.selectedCar
         soundEnabled = store.soundEnabled
+        savedSession = store.savedSession
     }
 
     func awards(for stage: ParkingStage) -> ParkingAwards { store.awards(for: stage) }
@@ -69,6 +71,8 @@ final class ParkingGame {
                     if self.run.phase == .parked {
                         let previousStars = self.totalStars
                         self.store.save(self.run.awards, for: self.run.stage)
+                        self.store.clearSession()
+                        self.savedSession = nil
                         self.totalStars = self.store.totalStars
                         self.newCars = ParkingCarStyle.allCases.filter {
                             $0.requiredStars > previousStars && $0.requiredStars <= self.totalStars
@@ -86,9 +90,50 @@ final class ParkingGame {
         }
     }
 
+    func saveCurrentSession(interruptedByPickup: Bool = false) {
+        guard run.phase != .parked else { return }
+        guard run.strokes > 0 || run.pose.center != run.stage.start || interruptedByPickup else { return }
+        let session = ParkingSavedSession(
+            stageId: run.stage.id,
+            dailyKey: run.stage.dailyKey,
+            pose: run.pose,
+            strokes: run.strokes,
+            collisions: run.collisions,
+            interruptedByPickup: interruptedByPickup
+        )
+        store.saveSession(session)
+        savedSession = session
+    }
+
+    @discardableResult
+    func resumeSavedSession(on date: Date = Date()) -> Bool {
+        guard let session = savedSession else { return false }
+        let stage: ParkingStage
+        if session.dailyKey != nil {
+            stage = ParkingDaily.stage(on: date)
+        } else if let found = ParkingStage.all.first(where: { $0.id == session.stageId }) {
+            stage = found
+        } else {
+            return false
+        }
+        driveTask?.cancel()
+        driveTask = nil
+        effects.stop()
+        pickupInterruption = nil
+        newCars = []
+        run = ParkingRun(
+            stage: stage,
+            pose: session.pose,
+            strokes: session.strokes,
+            collisions: session.collisions
+        )
+        return true
+    }
+
     func interrupt(for notice: ParkingPickupNotice?) {
         guard let notice else { return }
         pause()
+        saveCurrentSession(interruptedByPickup: true)
         if let current = pickupInterruption, current.priority > notice.priority { return }
         pickupInterruption = notice
     }
@@ -98,6 +143,9 @@ final class ParkingGame {
         driveTask = nil
         effects.stop()
         run.pause()
+        if run.strokes > 0 && run.phase != .parked {
+            saveCurrentSession(interruptedByPickup: savedSession?.interruptedByPickup ?? false)
+        }
     }
 }
 

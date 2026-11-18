@@ -56,6 +56,15 @@ enum ParkingCarStyle: String, CaseIterable, Codable, Identifiable {
     }
 }
 
+struct ParkingSavedSession: Codable, Equatable {
+    let stageId: Int
+    let dailyKey: String?
+    let pose: ParkingPose
+    let strokes: Int
+    let collisions: Int
+    let interruptedByPickup: Bool
+}
+
 struct ParkingProgressStore {
     private let defaults: UserDefaults
     private let key = "majung.parking.completed.v1"
@@ -63,6 +72,7 @@ struct ParkingProgressStore {
     private let dailyKey = "majung.parking.daily.v1"
     private let carKey = "majung.parking.car.v1"
     private let soundKey = "majung.parking.sound.v1"
+    private let sessionKey = "majung.parking.savedSession.v1"
 
     init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
@@ -117,5 +127,19 @@ struct ParkingProgressStore {
     var soundEnabled: Bool {
         get { defaults.bool(forKey: soundKey) }
         nonmutating set { defaults.set(newValue, forKey: soundKey) }
+    }
+
+    var savedSession: ParkingSavedSession? {
+        guard let data = defaults.data(forKey: sessionKey) else { return nil }
+        return try? JSONDecoder().decode(ParkingSavedSession.self, from: data)
+    }
+
+    func saveSession(_ session: ParkingSavedSession) {
+        guard let data = try? JSONEncoder().encode(session) else { return }
+        defaults.set(data, forKey: sessionKey)
+    }
+
+    func clearSession() {
+        defaults.removeObject(forKey: sessionKey)
     }
 }

@@ -24,7 +24,7 @@ struct ParkingRect: Equatable {
     }
 }
 
-struct ParkingPose: Equatable {
+struct ParkingPose: Equatable, Codable {
     var center: ParkingPoint
     var heading: Double = -.pi / 2
 
@@ -132,6 +132,14 @@ struct ParkingRun {
     init(stage: ParkingStage) {
         self.stage = stage
         pose = ParkingPose(center: stage.start)
+    }
+
+    init(stage: ParkingStage, pose: ParkingPose, strokes: Int, collisions: Int) {
+        self.stage = stage
+        self.pose = pose
+        self.strokes = max(0, strokes)
+        self.collisions = max(0, collisions)
+        self.phase = .ready
     }
 
     mutating func begin(at point: ParkingPoint) {

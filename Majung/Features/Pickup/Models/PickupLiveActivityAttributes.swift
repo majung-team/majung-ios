@@ -32,6 +32,8 @@ struct PickupLiveActivityAttributes: ActivityAttributes {
         let vehicleFreshUntil: Date?
         let passengerReady: Bool
         let updatedAt: Date
+        var isReconnecting: Bool = false
+        var lastCheckedAt: Date? = nil
 
         var etaSummaryText: String {
             switch phase {
@@ -57,8 +59,19 @@ struct PickupLiveActivityAttributes: ActivityAttributes {
             }
         }
 
+        func reliabilityText(isStale: Bool = false, now: Date = Date()) -> String {
+            let referenceDate = lastCheckedAt ?? updatedAt
+            let elapsed = max(0, Int(now.timeIntervalSince(referenceDate)))
+            let relative = elapsed < 15 ? "방금 전" : (elapsed < 60 ? "\(elapsed)초 전" : "\(max(1, elapsed / 60))분 전")
+            if isStale || isReconnecting || (phase == .approaching && vehicleFreshUntil == nil) {
+                return "연결 확인 중 · 마지막 확인 \(relative)"
+            }
+            return "마지막 확인 \(relative)"
+        }
+
         func activeTimerRange(at now: Date = Date()) -> ClosedRange<Date>? {
             guard phase == .approaching,
+                  !isReconnecting,
                   let start = countdownStartDate,
                   let end = estimatedArrivalDate,
                   let freshUntil = vehicleFreshUntil,

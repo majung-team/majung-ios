@@ -245,6 +245,14 @@ final class ParkingGameUITests: XCTestCase {
         XCTAssertTrue(app.buttons["pickup-waiting-refresh-button"].waitForExistence(timeout: 8))
         server.setGuestPhase(.active)
         XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 8))
+
+        app.buttons["pickup-minimize-button"].tap()
+        XCTAssertTrue(app.buttons["kakao-login-button"].waitForExistence(timeout: 5))
+        let reopenButton = app.buttons["reopen-guest-pickup-button"]
+        XCTAssertTrue(reopenButton.waitForExistence(timeout: 5))
+        reopenButton.tap()
+        XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 5))
+
         app.buttons["pickup-parking-open"].tap()
         XCTAssertTrue(app.buttons["parking-chapter-0"].waitForExistence(timeout: 3))
         server.setGuestPhase(.cancelled)
@@ -254,6 +262,68 @@ final class ParkingGameUITests: XCTestCase {
         saveScreenshot("parking-pickup-cancelled")
         app.buttons["parking-return-to-pickup"].tap()
         XCTAssertTrue(app.staticTexts["픽업이 취소됐어요"].waitForExistence(timeout: 3))
+    }
+
+    func testPickupStatusBarAndResumeSavedSessionAfterArrivalAndCompletion() throws {
+        server.setAccountMode(.ready)
+        app.terminate()
+        app.launch()
+
+        let tracking = app.buttons["home-open-tracking-button"]
+        XCTAssertTrue(tracking.waitForExistence(timeout: 10))
+        tracking.tap()
+
+        let play = app.buttons["pickup-parking-open"]
+        XCTAssertTrue(play.waitForExistence(timeout: 5))
+        play.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["parking-pickup-status-bar"].waitForExistence(timeout: 5))
+        app.buttons["parking-chapter-0"].tap()
+        app.buttons["parking-stage-1"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["parking-pickup-status-bar"].waitForExistence(timeout: 5))
+
+        let board = app.descendants(matching: .any)["parking-board"].firstMatch
+        XCTAssertTrue(board.waitForExistence(timeout: 5))
+        let start = board.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 100.0 / 120))
+        let mid = board.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 65.0 / 120))
+        start.press(forDuration: 0.1, thenDragTo: mid)
+
+        let partial = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "아직 주차 칸에 도착하지 않았어요")).firstMatch
+        XCTAssertTrue(partial.waitForExistence(timeout: 8))
+
+        app.buttons["parking-pickup-status-return"].tap()
+        XCTAssertTrue(app.buttons["pickup-readiness-ready-button"].waitForExistence(timeout: 5))
+
+        server.setVehicleDurationSeconds(120)
+        XCTAssertTrue(app.descendants(matching: .any)["pickup-approaching-card"].firstMatch.waitForExistence(timeout: 8))
+        XCTAssertTrue(app.descendants(matching: .any)["pickup-last-checked-time"].firstMatch.exists)
+
+        play.tap()
+        let resumeBtn = app.buttons["parking-resume-button"]
+        XCTAssertTrue(resumeBtn.waitForExistence(timeout: 5))
+        resumeBtn.tap()
+        XCTAssertTrue(app.staticTexts["STAGE 01"].waitForExistence(timeout: 5))
+
+        server.setMemberPickupPhase(.arrived)
+        XCTAssertTrue(app.staticTexts["parking-pickup-notice"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["parking-saved-session-note"].exists)
+        app.buttons["parking-return-to-pickup"].tap()
+
+        XCTAssertTrue(app.staticTexts["마중 차량이 도착했어요"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["pickup-last-checked-time"].firstMatch.waitForExistence(timeout: 5))
+        let boardButton = app.buttons["pickup-arrival-board-button"]
+        XCTAssertTrue(boardButton.waitForExistence(timeout: 5))
+        boardButton.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["pickup-arrival-boarded-note"].firstMatch.waitForExistence(timeout: 5))
+
+        server.completeMemberRide()
+        XCTAssertTrue(app.staticTexts["잘 만났어요!"].waitForExistence(timeout: 8))
+        XCTAssertTrue(play.isEnabled)
+        play.tap()
+        XCTAssertTrue(resumeBtn.waitForExistence(timeout: 5))
+        resumeBtn.tap()
+        XCTAssertTrue(app.staticTexts["STAGE 01"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["parking-pickup-notice"].exists)
     }
 
     private func assertCarPreview(_ title: String) {

@@ -51,12 +51,19 @@ final class PickupViewModel {
     private let transport: Transport
     private var invitation: PickupInvitation?
     private(set) var session: PickupSession?
+    private(set) var isMinimized = false
     private var inviteBusy = false
     private var inviteError: String?
 
     let tracker = PickupTracker()
 
-    var page: Page { session != nil || tracker.snapshot != nil ? .pickup : invitation == nil ? .entry : .invitation }
+    var hasActivePickupScreen: Bool { session != nil || tracker.snapshot != nil }
+    var page: Page {
+        if hasActivePickupScreen {
+            return isMinimized ? .entry : .pickup
+        }
+        return invitation == nil ? .entry : .invitation
+    }
     private(set) var placeLabel: String?
     var busy: Bool { inviteBusy || tracker.busy }
     private(set) var linkUnavailable = false
@@ -137,12 +144,14 @@ final class PickupViewModel {
         }
         if let current = session {
             if current.id == invite.id {
+                isMinimized = false
                 await refresh()
                 return
             }
             guard await canOpenAnotherInvitation(current) else { return }
         }
         reset()
+        isMinimized = false
         invitation = invite
         await preview()
     }
@@ -201,6 +210,7 @@ final class PickupViewModel {
             }
             let initialState = try? await fetchPickupState(for: joined)
             // Flip session and apply initial snapshot in the same turn so PickupView renders populated content directly.
+            isMinimized = false
             session = joined
             invitation = nil
             inviteError = persistenceWarning
@@ -239,6 +249,20 @@ final class PickupViewModel {
         streamConnected = false
     }
 
+    func minimizePickup() {
+        guard hasActivePickupScreen else { return }
+        if tracker.snapshot?.status.ended == true {
+            reset()
+            return
+        }
+        isMinimized = true
+    }
+
+    func reopenPickup() {
+        guard hasActivePickupScreen else { return }
+        isMinimized = false
+    }
+
     func reset() {
         guard session == nil, !busy else { return }
         invitation = nil
@@ -246,6 +270,7 @@ final class PickupViewModel {
         inviteError = nil
         linkUnavailable = false
         streamConnected = false
+        isMinimized = false
         tracker.resetState()
     }
 
@@ -266,6 +291,7 @@ final class PickupViewModel {
         placeLabel = nil
         linkUnavailable = false
         streamConnected = false
+        isMinimized = false
     }
 
     private func showInviteError(_ error: Error) {

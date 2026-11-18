@@ -34,6 +34,8 @@ final class PickupLiveActivityService {
         vehicle: PickupVehicle?,
         vehicleUpdatedAt: Date?,
         previousState: PickupLiveActivityAttributes.ContentState?,
+        connectionProblem: Bool = false,
+        lastCheckedAt: Date? = nil,
         now: Date = Date()
     ) -> PickupLiveActivityAttributes.ContentState? {
         let phase: PickupLiveActivityAttributes.ContentState.Phase
@@ -53,6 +55,9 @@ final class PickupLiveActivityService {
         let vehicleName = !rawVehicle.isEmpty ? rawVehicle : (previousState?.vehicleName ?? "마중 차량")
 
         let passengerReady = snapshot.participant?.ready ?? false
+        let resolvedLastChecked = connectionProblem
+            ? (lastCheckedAt ?? vehicleUpdatedAt ?? previousState?.lastCheckedAt ?? previousState?.updatedAt ?? now)
+            : (vehicleUpdatedAt ?? lastCheckedAt ?? previousState?.lastCheckedAt ?? now)
 
         if phase == .arrived {
             return PickupLiveActivityAttributes.ContentState(
@@ -63,9 +68,11 @@ final class PickupLiveActivityService {
                 durationSeconds: 0,
                 countdownStartDate: nil,
                 estimatedArrivalDate: nil,
-                vehicleFreshUntil: now.addingTimeInterval(30),
+                vehicleFreshUntil: connectionProblem ? nil : now.addingTimeInterval(30),
                 passengerReady: passengerReady,
-                updatedAt: now
+                updatedAt: now,
+                isReconnecting: connectionProblem,
+                lastCheckedAt: resolvedLastChecked
             )
         }
 
@@ -74,38 +81,41 @@ final class PickupLiveActivityService {
         var estimatedArrivalDate: Date?
         var vehicleFreshUntil: Date?
 
-        if let vehicle,
-           vehicle.freshness == "FRESH",
-           vehicle.placeVersion == snapshot.placeVersion,
-           vehicle.validForMillis > 0,
-           (vehicleUpdatedAt ?? now).addingTimeInterval(Double(vehicle.validForMillis) / 1000) > now {
-            vehicleFreshUntil = (vehicleUpdatedAt ?? now).addingTimeInterval(Double(vehicle.validForMillis) / 1000)
-        }
-
-        if let vehicle, vehicleFreshUntil != nil,
-           let seconds = vehicle.durationSeconds,
-           seconds >= 0 {
-            let start = vehicleUpdatedAt ?? now
-            let arrival = start.addingTimeInterval(TimeInterval(max(1, seconds)))
-            if arrival > now {
-                durationSeconds = seconds
-                countdownStartDate = min(start, now)
-                estimatedArrivalDate = arrival
-            } else {
-                durationSeconds = 0
+        if !connectionProblem {
+            if let vehicle,
+               vehicle.freshness == "FRESH",
+               vehicle.placeVersion == snapshot.placeVersion,
+               vehicle.validForMillis > 0,
+               (vehicleUpdatedAt ?? now).addingTimeInterval(Double(vehicle.validForMillis) / 1000) > now {
+                vehicleFreshUntil = (vehicleUpdatedAt ?? now).addingTimeInterval(Double(vehicle.validForMillis) / 1000)
             }
-        } else if vehicle == nil, let previousState,
-                  previousState.phase == .approaching,
-                  previousState.placeVersion == snapshot.placeVersion,
-                  let freshUntil = previousState.vehicleFreshUntil,
-                  freshUntil > now,
-                  let prevStart = previousState.countdownStartDate,
-                  let prevArrival = previousState.estimatedArrivalDate,
-                  prevArrival > now {
-            durationSeconds = max(1, Int(prevArrival.timeIntervalSince(now).rounded()))
-            countdownStartDate = prevStart
-            estimatedArrivalDate = prevArrival
-            vehicleFreshUntil = freshUntil
+
+            if let vehicle, vehicleFreshUntil != nil,
+               let seconds = vehicle.durationSeconds,
+               seconds >= 0 {
+                let start = vehicleUpdatedAt ?? now
+                let arrival = start.addingTimeInterval(TimeInterval(max(1, seconds)))
+                if arrival > now {
+                    durationSeconds = seconds
+                    countdownStartDate = min(start, now)
+                    estimatedArrivalDate = arrival
+                } else {
+                    durationSeconds = 0
+                }
+            } else if vehicle == nil, let previousState,
+                      previousState.phase == .approaching,
+                      !previousState.isReconnecting,
+                      previousState.placeVersion == snapshot.placeVersion,
+                      let freshUntil = previousState.vehicleFreshUntil,
+                      freshUntil > now,
+                      let prevStart = previousState.countdownStartDate,
+                      let prevArrival = previousState.estimatedArrivalDate,
+                      prevArrival > now {
+                durationSeconds = max(1, Int(prevArrival.timeIntervalSince(now).rounded()))
+                countdownStartDate = prevStart
+                estimatedArrivalDate = prevArrival
+                vehicleFreshUntil = freshUntil
+            }
         }
 
         return PickupLiveActivityAttributes.ContentState(
@@ -118,7 +128,9 @@ final class PickupLiveActivityService {
             estimatedArrivalDate: estimatedArrivalDate,
             vehicleFreshUntil: vehicleFreshUntil,
             passengerReady: passengerReady,
-            updatedAt: now
+            updatedAt: now,
+            isReconnecting: connectionProblem,
+            lastCheckedAt: resolvedLastChecked
         )
     }
 
@@ -126,6 +138,8 @@ final class PickupLiveActivityService {
         snapshot: PickupSnapshot?,
         vehicle: PickupVehicle?,
         vehicleUpdatedAt: Date?,
+        connectionProblem: Bool = false,
+        lastCheckedAt: Date? = nil,
         now: Date = Date()
     ) {
         guard let snapshot else {
@@ -139,6 +153,8 @@ final class PickupLiveActivityService {
             vehicle: vehicle,
             vehicleUpdatedAt: vehicleUpdatedAt,
             previousState: previousForSamePickup,
+            connectionProblem: connectionProblem,
+            lastCheckedAt: lastCheckedAt,
             now: now
         ) else {
             end(pickupKey: pickupKey)
@@ -199,7 +215,8 @@ final class PickupLiveActivityService {
               lhs.placeLabel == rhs.placeLabel,
               lhs.vehicleName == rhs.vehicleName,
               lhs.placeVersion == rhs.placeVersion,
-              lhs.passengerReady == rhs.passengerReady else {
+              lhs.passengerReady == rhs.passengerReady,
+              lhs.isReconnecting == rhs.isReconnecting else {
             return false
         }
         switch (lhs.vehicleFreshUntil, rhs.vehicleFreshUntil) {

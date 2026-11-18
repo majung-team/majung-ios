@@ -13,6 +13,9 @@ struct LoginEntryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header
+                if pickup.hasActivePickupScreen {
+                    ActiveGuestPickupReturnCard(pickup: pickup)
+                }
                 if let vehiclePendingMessage {
                     MajungStatusBanner(message: vehiclePendingMessage, tint: .accentColor)
                 }

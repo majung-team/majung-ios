@@ -153,7 +153,7 @@ struct ActivePickupSummaryCard: View {
                 )
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 8) {
-                        MajungStatusPill(text: arrived ? "차량 도착 완료" : "실시간 마중 진행 중", tint: .green)
+                        MajungStatusPill(text: arrived ? "차량 도착 완료" : "픽업 진행 중", tint: arrived ? .green : .accentColor)
                         if let distance = MajungFormatting.distanceText(from: vehicle, to: place), !arrived {
                             MajungStatusPill(text: distance, tint: .accentColor)
                         }
@@ -169,10 +169,10 @@ struct ActivePickupSummaryCard: View {
                         .font(.title3.bold())
                         .accessibilityAddTraits(.isHeader)
 
-                    if let freshness {
-                        Text(freshness)
+                    if !arrived {
+                        Text(freshness ?? "차량 위치 확인 중")
                             .font(.caption)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(vehicle == nil ? Color.secondary : Color.green)
                     }
                 }
             }

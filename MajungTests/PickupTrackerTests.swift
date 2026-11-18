@@ -417,6 +417,7 @@ final class PickupTrackerTests: XCTestCase {
         },
         snapshot: @escaping (PickupSession) async throws -> PickupSnapshot,
         vehicle: @escaping (PickupSession) async throws -> PickupVehicle,
+        leaveWaiting: @escaping (PickupSession) async throws -> Void = { _ in },
         saveSession: @escaping (PickupSession) throws -> Void = { _ in },
         clearSession: @escaping () -> Void = {}
     ) -> PickupViewModel.Transport {
@@ -429,12 +430,71 @@ final class PickupTrackerTests: XCTestCase {
             propose: { _, _ in self.makeSnapshot() },
             withdraw: { _ in self.makeSnapshot() },
             message: { _, _ in self.makeSnapshot() },
-            leaveWaiting: { _ in },
+            leaveWaiting: leaveWaiting,
             registerArrivalPush: { _, _ in },
             streamEvents: { _, _, _ in },
             saveSession: saveSession,
             clearSession: clearSession
         )
+    }
+
+    func testLeaveWaitingRetainsSessionOnFailureAndClearsItOnRetry() async {
+        let session = PickupSession(id: UUID(), token: "fixture")
+        let waiting = makeSnapshot(status: .waiting)
+        var attempts = 0
+        var checks = 0
+        var clears = 0
+        let model = PickupViewModel(transport: makeViewModelTransport(
+            snapshot: { _ in checks += 1; return waiting },
+            vehicle: { _ in throw StubError.networkDown },
+            leaveWaiting: { _ in
+                attempts += 1
+                if attempts == 1 { throw StubError.networkDown }
+            },
+            clearSession: { clears += 1 }
+        ), initialSession: session)
+        model.tracker.applyExternal(waiting, vehicle: nil)
+        await model.leaveWaiting()
+        XCTAssertEqual(checks, 1)
+        XCTAssertEqual(model.session?.id, session.id)
+        XCTAssertNotNil(model.tracker.error)
+        XCTAssertEqual(clears, 0)
+        await model.leaveWaiting()
+        XCTAssertNil(model.session)
+        XCTAssertNil(model.tracker.snapshot)
+        XCTAssertEqual(clears, 1)
+    }
+
+    func testLostLeaveResponseReconcilesWithRevokedParticipantSession() async {
+        let session = PickupSession(id: UUID(), token: "fixture")
+        var clears = 0
+        let model = PickupViewModel(transport: makeViewModelTransport(
+            snapshot: { _ in
+                throw PickupAPI.Failure(status: 403, code: "FORBIDDEN", message: "이 픽업에 접근할 수 없습니다.")
+            },
+            vehicle: { _ in throw StubError.networkDown },
+            leaveWaiting: { _ in throw StubError.networkDown },
+            clearSession: { clears += 1 }
+        ), initialSession: session)
+        model.tracker.applyExternal(makeSnapshot(status: .waiting), vehicle: nil)
+        await model.leaveWaiting()
+        XCTAssertNil(model.session)
+        XCTAssertEqual(model.page, .entry)
+        XCTAssertEqual(clears, 1)
+    }
+
+    func testSlowVehicleResponseHasSameRemainingLifetimeOnLockScreen() throws {
+        let activity = PickupLiveActivityService(isEnabled: { true }, upsertHandler: { _, _ in }, endAllHandler: {})
+        let tracker = PickupTracker(liveActivity: activity)
+        let start = ContinuousClock.now.advanced(by: .seconds(-8))
+        let snapshot = makeSnapshot()
+        tracker.applyExternal(snapshot, vehicle: makeVehicle(validForMillis: 10_000), startedAt: start)
+        XCTAssertEqual(tracker.vehicleExpiresAt, start.advanced(by: .seconds(10)))
+        let deadline = try XCTUnwrap(activity.currentState?.vehicleFreshUntil)
+        XCTAssertEqual(deadline.timeIntervalSinceNow, 2, accuracy: 0.5)
+        tracker.applyExternal(snapshot, vehicle: makeVehicle(validForMillis: 5_000), startedAt: start)
+        XCTAssertNil(tracker.currentVehicle())
+        XCTAssertNil(activity.currentState?.vehicleFreshUntil)
     }
 
     func testJoinFetchesInitialSnapshotBeforeSwitchingToPickupPage() async throws {

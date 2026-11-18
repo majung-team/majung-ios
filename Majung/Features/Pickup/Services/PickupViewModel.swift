@@ -208,6 +208,7 @@ final class PickupViewModel {
                 let registerPush = transport.registerArrivalPush
                 Task { try? await registerPush(joined, endpoint) }
             }
+            let startedAt = ContinuousClock.now
             let initialState = try? await fetchPickupState(for: joined)
             // Flip session and apply initial snapshot in the same turn so PickupView renders populated content directly.
             isMinimized = false
@@ -215,7 +216,7 @@ final class PickupViewModel {
             invitation = nil
             inviteError = persistenceWarning
             if let initialState {
-                tracker.applyExternal(initialState.0, vehicle: initialState.1)
+                tracker.applyExternal(initialState.0, vehicle: initialState.1, startedAt: startedAt)
             }
         } catch {
             showInviteError(error)
@@ -275,13 +276,24 @@ final class PickupViewModel {
     }
 
     func leaveWaiting() async {
-        guard let status = tracker.snapshot?.status, status == .inviting || status == .waiting else { return }
-        if let active = session {
-            try? await transport.leaveWaiting(active)
+        guard !busy, let active = session, let status = tracker.snapshot?.status,
+              status == .inviting || status == .waiting else { return }
+        inviteBusy = true
+        defer { inviteBusy = false }
+        do {
+            try await transport.leaveWaiting(active)
+            guard session?.id == active.id else { return }
+            clearGuestSession()
+            inviteError = nil
+            tracker.resetState()
+        } catch {
+            guard session?.id == active.id else { return }
+            await refresh()
+            if session?.id == active.id, let status = tracker.snapshot?.status,
+               status == .inviting || status == .waiting {
+                tracker.error = "대기 취소를 확인하지 못했어요. 연결을 확인한 뒤 다시 시도해주세요."
+            }
         }
-        clearGuestSession()
-        inviteError = nil
-        tracker.resetState()
     }
 
     private func clearGuestSession() {

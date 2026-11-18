@@ -4,6 +4,7 @@ struct PickupView: View {
     @Bindable var tracker: PickupTracker
     var resetLabel = "처음으로"
     var onReset: () -> Void
+    var isLeavingWaiting = false
     var onLeaveWaiting: (() -> Void)? = nil
 
     @State private var notifications = PickupNotificationService()
@@ -55,7 +56,7 @@ struct PickupView: View {
                     case .inviting, .waiting:
                         PickupWaitingCard(
                             snapshot: snapshot,
-                            busy: tracker.busy,
+                            busy: tracker.busy || isLeavingWaiting,
                             isRefreshing: tracker.isRefreshing,
                             connectionProblem: tracker.connectionProblem,
                             onRefresh: { Task { await tracker.refresh() } },

@@ -188,21 +188,37 @@
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-        E10000000000000000000020 /* ParkingGame */ = {
-            isa = PBXGroup;
-            children = (
-                E10000000000000000000011 /* ParkingPuzzle.swift */,
-                F10000000000000000000108 /* ParkingStages.swift */,
-                F10000000000000000000109 /* ParkingProgressStore.swift */,
-                F1000000000000000000010A /* ParkingGameModel.swift */,
-                E10000000000000000000012 /* ParkingGameView.swift */,
-                E10000000000000000000017 /* ParkingGarageView.swift */,
-                E10000000000000000000016 /* ParkingEffects.swift */,
-                E10000000000000000000015 /* ParkingBoard.swift */,
-            );
-            path = ParkingGame;
-            sourceTree = "<group>";
-        };
+		E10000000000000000000020 /* ParkingGame */ = {
+			isa = PBXGroup;
+			children = (
+				F10000000000000000000201 /* Engine */,
+				F10000000000000000000202 /* Views */,
+			);
+			path = ParkingGame;
+			sourceTree = "<group>";
+		};
+		F10000000000000000000201 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				E10000000000000000000011 /* ParkingPuzzle.swift */,
+				F10000000000000000000108 /* ParkingStages.swift */,
+				F10000000000000000000109 /* ParkingProgressStore.swift */,
+				F1000000000000000000010A /* ParkingGameModel.swift */,
+				E10000000000000000000016 /* ParkingEffects.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		F10000000000000000000202 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				E10000000000000000000015 /* ParkingBoard.swift */,
+				E10000000000000000000012 /* ParkingGameView.swift */,
+				E10000000000000000000017 /* ParkingGarageView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
 		A10000000000000000000006 = {
 			isa = PBXGroup;
 			children = (
@@ -304,50 +320,114 @@
 		A10000000000000000000050 /* Account */ = {
 			isa = PBXGroup;
 			children = (
+				F10000000000000000000203 /* Auth */,
+				F10000000000000000000204 /* People */,
+				F10000000000000000000205 /* Tabs */,
+			);
+			path = Account;
+			sourceTree = "<group>";
+		};
+		F10000000000000000000203 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
 				A10000000000000000000043 /* AccountModels.swift */,
 				A10000000000000000000044 /* AccountSessionStore.swift */,
 				A10000000000000000000045 /* NativeAuthSession.swift */,
 				A10000000000000000000046 /* AccountViewModel.swift */,
 				A10000000000000000000047 /* LoginEntryView.swift */,
 				A10000000000000000000048 /* NicknameSetupView.swift */,
-				A10000000000000000000049 /* MainTabView.swift */,
-				F10000000000000000000106 /* HomeTabView.swift */,
-				F10000000000000000000107 /* SettingsTabView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		F10000000000000000000204 /* People */ = {
+			isa = PBXGroup;
+			children = (
 				A1000000000000000000004A /* PeopleViewModel.swift */,
 				A1000000000000000000004B /* PeopleTabView.swift */,
 			);
-			path = Account;
+			path = People;
+			sourceTree = "<group>";
+		};
+		F10000000000000000000205 /* Tabs */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000049 /* MainTabView.swift */,
+				F10000000000000000000106 /* HomeTabView.swift */,
+				F10000000000000000000107 /* SettingsTabView.swift */,
+			);
+			path = Tabs;
 			sourceTree = "<group>";
 		};
 		A1000000000000000000001C /* Pickup */ = {
 			isa = PBXGroup;
 			children = (
+				F10000000000000000000206 /* Models */,
+				F10000000000000000000207 /* Services */,
+				F10000000000000000000208 /* Views */,
+			);
+			path = Pickup;
+			sourceTree = "<group>";
+		};
+		F10000000000000000000206 /* Models */ = {
+			isa = PBXGroup;
+			children = (
 				A10000000000000000000012 /* PickupModels.swift */,
 				A100000000000000000000B4 /* PickupLiveActivityAttributes.swift */,
-				A100000000000000000000B5 /* PickupLiveActivityService.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		F10000000000000000000207 /* Services */ = {
+			isa = PBXGroup;
+			children = (
 				A10000000000000000000013 /* PickupSessionStore.swift */,
 				A10000000000000000000014 /* PickupViewModel.swift */,
 				A10000000000000000000063 /* SharedPickupTracker.swift */,
+				A100000000000000000000B5 /* PickupLiveActivityService.swift */,
 				A10000000000000000000085 /* PickupNotificationService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		F10000000000000000000208 /* Views */ = {
+			isa = PBXGroup;
+			children = (
 				A10000000000000000000015 /* PickupView.swift */,
-				F1000000000000000000010B /* PickupStatusCards.swift */,
 				F10000000000000000000105 /* PickupMapView.swift */,
+				F1000000000000000000010B /* PickupStatusCards.swift */,
 				A10000000000000000000016 /* PlaceProposalView.swift */,
 			);
-			path = Pickup;
+			path = Views;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000071 /* RideRequest */ = {
 			isa = PBXGroup;
 			children = (
+				F10000000000000000000209 /* Services */,
+				F1000000000000000000020A /* Views */,
+			);
+			path = RideRequest;
+			sourceTree = "<group>";
+		};
+		F10000000000000000000209 /* Services */ = {
+			isa = PBXGroup;
+			children = (
 				A10000000000000000000064 /* RideRequestModels.swift */,
 				A10000000000000000000065 /* LocationService.swift */,
 				A10000000000000000000066 /* RideRequestViewModel.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		F1000000000000000000020A /* Views */ = {
+			isa = PBXGroup;
+			children = (
 				A10000000000000000000086 /* PlaceComposerView.swift */,
 				A10000000000000000000067 /* PlacePickerSheet.swift */,
 				A10000000000000000000068 /* RequestsTabView.swift */,
 			);
-			path = RideRequest;
+			path = Views;
 			sourceTree = "<group>";
 		};
 		A10000000000000000000072 /* VehicleLinks */ = {

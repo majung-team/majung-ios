@@ -710,4 +710,107 @@ final class PickupTrackerTests: XCTestCase {
         XCTAssertEqual(endCount, 1)
         XCTAssertNil(service.currentState)
     }
+
+    func testApproachingSoonFormattingAndArrivalBoardingNotification() async {
+        XCTAssertTrue(MajungFormatting.isApproachingSoon(makeVehicle(durationSeconds: 0)))
+        XCTAssertTrue(MajungFormatting.isApproachingSoon(makeVehicle(durationSeconds: 180)))
+        XCTAssertFalse(MajungFormatting.isApproachingSoon(makeVehicle(durationSeconds: 181)))
+        XCTAssertFalse(MajungFormatting.isApproachingSoon(makeVehicle(durationSeconds: nil)))
+        XCTAssertFalse(MajungFormatting.isApproachingSoon(nil))
+
+        let checkedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        XCTAssertNotNil(MajungFormatting.lastCheckedText(updatedAt: checkedAt, refreshedAt: nil, now: checkedAt))
+        XCTAssertNotNil(MajungFormatting.lastCheckedText(updatedAt: nil, refreshedAt: checkedAt, now: checkedAt))
+        XCTAssertNil(MajungFormatting.lastCheckedText(updatedAt: nil, refreshedAt: nil, now: checkedAt))
+
+        var sentMessages: [String] = []
+        let tracker = PickupTracker()
+        tracker.configure(PickupTracker.Backend(
+            refresh: { (self.makeSnapshot(status: .arrived), nil) },
+            setReady: { _, _ in self.makeSnapshot() },
+            propose: { _ in self.makeSnapshot() },
+            withdraw: { self.makeSnapshot() },
+            sendMessage: { text in
+                sentMessages.append(text)
+                return PickupSnapshot(
+                    pickupId: UUID(),
+                    status: .arrived,
+                    place: self.initialPlace,
+                    placeVersion: 1,
+                    participant: nil,
+                    placeProposal: nil,
+                    quickMessage: PickupSnapshot.QuickMessage(text: text),
+                    vehicleName: "흰색 아이오닉 5"
+                )
+            },
+            isSessionLost: { _ in false },
+            onSessionLost: {},
+            onTerminal: {},
+            formatError: { _ in "error" },
+            lostMessage: "lost"
+        ))
+
+        tracker.messageDraft = "입구 왼쪽이에요"
+        await tracker.notifyArrivalBoarding()
+        XCTAssertEqual(sentMessages, ["차량 확인했어요, 지금 탑승해요"])
+        XCTAssertTrue(tracker.arrivalBoardingNotified)
+        XCTAssertEqual(tracker.messageDraft, "입구 왼쪽이에요")
+    }
+
+    func testLiveActivityConnectionProblemClearsCountdownAndShowsLastCheckedText() throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let activeSnapshot = makeSnapshot(status: .active, place: initialPlace, placeVersion: 1, ready: true)
+        let previousState = try XCTUnwrap(PickupLiveActivityService.makeState(
+            snapshot: activeSnapshot,
+            vehicle: makeVehicle(durationSeconds: 180, validForMillis: 20_000),
+            vehicleUpdatedAt: now,
+            previousState: nil,
+            now: now
+        ))
+        XCTAssertFalse(previousState.isReconnecting)
+        XCTAssertEqual(previousState.reliabilityText(now: now.addingTimeInterval(5)), "마지막 확인 방금 전")
+
+        let disconnectedAt = now.addingTimeInterval(65)
+        let disconnectedState = try XCTUnwrap(PickupLiveActivityService.makeState(
+            snapshot: activeSnapshot,
+            vehicle: nil,
+            vehicleUpdatedAt: nil,
+            previousState: previousState,
+            connectionProblem: true,
+            lastCheckedAt: now,
+            now: disconnectedAt
+        ))
+        XCTAssertTrue(disconnectedState.isReconnecting)
+        XCTAssertNil(disconnectedState.estimatedArrivalDate)
+        XCTAssertNil(disconnectedState.durationSeconds)
+        XCTAssertNil(disconnectedState.vehicleFreshUntil)
+        XCTAssertNil(disconnectedState.activeTimerRange(at: disconnectedAt))
+        XCTAssertEqual(disconnectedState.reliabilityText(isStale: true, now: disconnectedAt), "연결 확인 중 · 마지막 확인 1분 전")
+    }
+
+    func testMinimizeAndReopenGuestPickupKeepsSessionActive() async {
+        let activeSnapshot = makeSnapshot(status: .active, place: initialPlace, placeVersion: 1)
+        let viewModel = PickupViewModel(
+            transport: makeViewModelTransport(
+                snapshot: { _ in activeSnapshot },
+                vehicle: { _ in self.makeVehicle() }
+            ),
+            initialSession: nil
+        )
+
+        let inviteURL = "https://majung.cloud/#join/11111111-2222-4333-8444-555555555555/ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklm0123"
+        await viewModel.openLink(inviteURL)
+        await viewModel.join()
+        XCTAssertEqual(viewModel.page, .pickup)
+        XCTAssertNotNil(viewModel.session)
+
+        viewModel.minimizePickup()
+        XCTAssertEqual(viewModel.page, .entry)
+        XCTAssertNotNil(viewModel.session)
+        XCTAssertTrue(viewModel.hasActivePickupScreen)
+
+        viewModel.reopenPickup()
+        XCTAssertEqual(viewModel.page, .pickup)
+        XCTAssertNotNil(viewModel.session)
+    }
 }

@@ -20,7 +20,7 @@ struct MajungPickupLiveActivityWidget: Widget {
                 .activityBackgroundTint(Color.black.opacity(0.84))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
-            let stale = context.isStale || context.state.vehicleFreshUntil == nil
+            let stale = context.isStale || context.state.isReconnecting || context.state.vehicleFreshUntil == nil
             let accent = stale ? Color.secondary : (context.state.phase == .arrived ? arrivedGreen : brandBlue)
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
@@ -82,7 +82,11 @@ struct MajungPickupLiveActivityWidget: Widget {
                                 .foregroundStyle(.white.opacity(0.85))
                                 .lineLimit(1)
                             Spacer(minLength: 6)
-                            Text(stale ? "앱을 열어 최신 정보를 확인해주세요" : context.state.etaSummaryText)
+                            Text(
+                                stale
+                                    ? context.state.reliabilityText(isStale: true, now: context.state.updatedAt)
+                                    : "\(context.state.etaSummaryText) · \(context.state.reliabilityText(isStale: false, now: context.state.updatedAt))"
+                            )
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -131,7 +135,7 @@ struct MajungPickupLiveActivityWidget: Widget {
 
     @ViewBuilder
     private func lockScreenView(context: ActivityViewContext<PickupLiveActivityAttributes>) -> some View {
-        let stale = context.isStale || context.state.vehicleFreshUntil == nil
+        let stale = context.isStale || context.state.isReconnecting || context.state.vehicleFreshUntil == nil
         let accent = stale ? Color.secondary : (context.state.phase == .arrived ? arrivedGreen : brandBlue)
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -178,7 +182,11 @@ struct MajungPickupLiveActivityWidget: Widget {
             }
 
             HStack(spacing: 8) {
-                Text(stale ? "앱을 열어 최신 정보를 확인해주세요" : context.state.etaSummaryText)
+                Text(
+                    stale
+                        ? context.state.reliabilityText(isStale: true, now: context.state.updatedAt)
+                        : "\(context.state.etaSummaryText) · \(context.state.reliabilityText(isStale: false, now: context.state.updatedAt))"
+                )
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.78))
                     .lineLimit(1)

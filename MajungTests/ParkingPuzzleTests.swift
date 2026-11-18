@@ -342,4 +342,43 @@ final class ParkingPuzzleTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testInterruptedGameSavesPausedPositionAndResumesUntilParked() async throws {
+        let suite = "ParkingResume.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = ParkingProgressStore(defaults: defaults)
+
+        let game = ParkingGame(store: store)
+        let midPoint = ParkingPoint(x: 50, y: 60)
+        game.draw(start: game.run.stage.start, point: midPoint)
+        game.drive()
+        try? await Task.sleep(for: .milliseconds(160))
+        game.interrupt(for: .arrived)
+
+        let saved = try XCTUnwrap(store.savedSession)
+        XCTAssertEqual(saved.stageId, 1)
+        XCTAssertTrue(saved.interruptedByPickup)
+        XCTAssertEqual(saved.strokes, 1)
+        XCTAssertLessThan(saved.pose.center.y, game.run.stage.start.y)
+
+        let reopened = ParkingGame(store: store)
+        XCTAssertEqual(reopened.savedSession, saved)
+        XCTAssertTrue(reopened.resumeSavedSession())
+        XCTAssertEqual(reopened.run.stage.id, 1)
+        XCTAssertEqual(reopened.run.pose, saved.pose)
+        XCTAssertEqual(reopened.run.strokes, saved.strokes)
+        XCTAssertEqual(reopened.run.phase, .ready)
+
+        reopened.draw(start: reopened.run.pose.center, point: reopened.run.stage.destination)
+        reopened.drive()
+        let deadline = Date().addingTimeInterval(5)
+        while reopened.run.phase == .driving && Date() < deadline {
+            try? await Task.sleep(for: .milliseconds(30))
+        }
+        XCTAssertEqual(reopened.run.phase, .parked)
+        XCTAssertNil(store.savedSession)
+        XCTAssertNil(reopened.savedSession)
+    }
+
 }

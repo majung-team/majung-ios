@@ -192,8 +192,26 @@ struct PickupView: View {
             meetingPlace(snapshot, place: place)
             MajungCard {
                 DisclosureGroup("지도에서 만날 장소와 차량 보기") {
-                    TimelineView(.periodic(from: .now, by: 1)) { _ in
-                        PickupMapView(place: place, vehicle: tracker.currentVehicle())
+                    VStack(alignment: .leading, spacing: 10) {
+                        TimelineView(.periodic(from: .now, by: 1)) { _ in
+                            PickupMapView(place: place, vehicle: tracker.currentVehicle())
+                        }
+                        HStack(spacing: 8) {
+                            ExternalMapLaunchButton(
+                                place: place,
+                                mode: .viewPlace,
+                                title: "지도 앱에서 보기",
+                                systemImage: "map",
+                                accessibilityId: "pickup-map-external-view-button"
+                            )
+                            ExternalMapLaunchButton(
+                                place: place,
+                                mode: .directions,
+                                title: "도보 길찾기",
+                                systemImage: "figure.walk",
+                                accessibilityId: "pickup-map-external-directions-button"
+                            )
+                        }
                     }
                 }
                 .font(.subheadline.weight(.medium))

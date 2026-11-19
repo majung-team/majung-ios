@@ -3,6 +3,7 @@ import SwiftUI
 /// Animated launch splash matching `UILaunchScreen` while initial session restoration runs.
 struct SplashView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @State private var strokeTrim: CGFloat = 0
     @State private var dotScale: CGFloat = 0.72
     @State private var textOpacity: Double = 0
@@ -10,7 +11,8 @@ struct SplashView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [MajungBrand.blue, MajungBrand.blue, MajungBrand.deepBlue],
+                colors: [Color("LaunchBackground"), Color("LaunchBackground"),
+                         colorScheme == .dark ? Color(red: 0.035, green: 0.070, blue: 0.145) : MajungBrand.deepBlue],
                 startPoint: .top,
                 endPoint: .bottom
             )

@@ -6,7 +6,8 @@ struct ParkingGarageView: View {
     @Bindable var game: ParkingGame
     @State private var preview: ParkingCarStyle
 
-    private let ink = Color(red: 0.12, green: 0.20, blue: 0.29)
+    @Environment(\.colorScheme) private var colorScheme
+    private var ink: Color { colorScheme == .dark ? .primary : Color(red: 0.12, green: 0.20, blue: 0.29) }
     private let blue = Color(red: 0.23, green: 0.43, blue: 0.91)
 
     init(game: ParkingGame) {
@@ -46,7 +47,7 @@ struct ParkingGarageView: View {
                     }.font(.subheadline).accessibilityIdentifier("parking-sound")
                     Text("효과음은 iPhone의 무음 설정을 따라요.")
                         .font(.caption2).foregroundStyle(.secondary)
-                }.padding(14).background(.white, in: RoundedRectangle(cornerRadius: 16))
+                }.padding(14).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             }
             .padding(16)
             .foregroundStyle(ink)
@@ -79,7 +80,7 @@ struct ParkingGarageView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     Label(isCurrent ? "타고 있어요" : isUnlocked ? "탈 수 있어요" : "별 \(preview.requiredStars)개에 열려요",
                           systemImage: isCurrent ? "checkmark.circle.fill" : isUnlocked ? "lock.open" : "lock.fill")
-                        .font(.caption.weight(.semibold)).foregroundStyle(isUnlocked ? blue : .secondary)
+                        .font(.caption.weight(.semibold)).foregroundStyle(isUnlocked ? Color.blue : .secondary)
                 }
                 Spacer(minLength: 0)
             }
@@ -94,7 +95,7 @@ struct ParkingGarageView: View {
                 .font(.caption2).foregroundStyle(.secondary)
         }
         .padding(16)
-        .background(.white, in: RoundedRectangle(cornerRadius: 22))
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 22))
     }
 
     private func carCard(_ car: ParkingCarStyle) -> some View {
@@ -110,7 +111,7 @@ struct ParkingGarageView: View {
                     .font(.system(size: 10)).foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, minHeight: 100).padding(8)
-            .background(selected ? blue.opacity(0.08) : .white, in: RoundedRectangle(cornerRadius: 16))
+            .background(selected ? Color.blue.opacity(colorScheme == .dark ? 0.22 : 0.08) : Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(selected ? blue : .clear, lineWidth: 2))
             .contentShape(RoundedRectangle(cornerRadius: 16))
         }

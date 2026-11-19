@@ -1,16 +1,22 @@
+import CoreLocation
 import MapKit
 import SwiftUI
 
 struct PickupMapView: View {
     let place: PickupPlace
     let vehicle: PickupVehicle?
+    @Environment(\.scenePhase) private var scenePhase
     @State private var camera: MapCameraPosition = .automatic
     @State private var routeCoordinates: [CLLocationCoordinate2D] = []
     @State private var resolvedRouteKey = ""
+    @State private var showsUserLocation = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             Map(position: $camera) {
+                if showsUserLocation {
+                    UserAnnotation()
+                }
                 if let vehicleCoordinate {
                     if !routeCoordinates.isEmpty && resolvedRouteKey == currentRouteKey {
                         MapPolyline(coordinates: routeCoordinates)
@@ -47,7 +53,13 @@ struct PickupMapView: View {
             .majungGlassCapsule()
             .padding(10)
         }
-        .onAppear(perform: recenter)
+        .onAppear {
+            refreshLocationAuthorization()
+            recenter()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshLocationAuthorization() }
+        }
         .onChange(of: place) { _, _ in recenter() }
         .onChange(of: vehicleCoordinate != nil) { _, hasVehicle in
             if hasVehicle { recenter() }
@@ -100,6 +112,11 @@ struct PickupMapView: View {
         } catch {
             // Dashed straight-line polyline remains visible when offline or routing is unavailable.
         }
+    }
+
+    private func refreshLocationAuthorization() {
+        let status = CLLocationManager().authorizationStatus
+        showsUserLocation = (status == .authorizedWhenInUse || status == .authorizedAlways)
     }
 
     private func recenter() {

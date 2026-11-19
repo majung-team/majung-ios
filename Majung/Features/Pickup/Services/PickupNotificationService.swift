@@ -25,6 +25,8 @@ final class PickupNotificationService {
     private(set) var enabled: Bool
     private(set) var permissionDenied = false
     private(set) var statusNote: String?
+    var isPickupScreenVisible = false
+    private(set) var pendingDeepLinkURL: URL?
     private var sentEventKeys: Set<String> = []
     private var trackedIdentifiers: Set<String> = []
     private var deliveryTasks: [String: Task<Void, Never>] = [:]
@@ -138,6 +140,7 @@ final class PickupNotificationService {
                 let etaLabel = MajungFormatting.minutesText(seconds: seconds)
                 deliver(
                     id: key,
+                    pickupKey: pickupKey,
                     title: "곧 \(vehicleLabel)이 도착해요",
                     body: "\(etaLabel) 후 '\(placeLabel)' 도착 예정이에요."
                 )
@@ -149,12 +152,41 @@ final class PickupNotificationService {
             sentEventKeys.insert(key)
             deliver(
                 id: key,
+                pickupKey: pickupKey,
                 title: "마중 차량이 도착했어요",
                 body: "\(vehicleLabel)이 '\(placeLabel)'에 정차했어요."
             )
         default:
             break
         }
+    }
+
+    func foregroundPresentationOptions(for identifier: String) -> UNNotificationPresentationOptions {
+        let isPickupAlert = identifier.hasPrefix("majung.approaching-") || identifier.hasPrefix("majung.arrived-")
+        if isPickupAlert && isPickupScreenVisible {
+            // The active pickup screen already shows status; avoid leaving a stale banner on top of it.
+            return [.sound]
+        }
+        return [.banner, .list, .sound]
+    }
+
+    func handleNotificationTap(userInfo: [AnyHashable: Any], identifier: String) {
+        if let rawURL = userInfo["pickupDeepLink"] as? String, let url = URL(string: rawURL) {
+            pendingDeepLinkURL = url
+            return
+        }
+        for prefix in ["majung.approaching-", "majung.arrived-"] where identifier.hasPrefix(prefix) {
+            let pickupKey = String(identifier.dropFirst(prefix.count))
+            if !pickupKey.isEmpty, let url = PickupLiveActivityAttributes.deepLinkURL(pickupId: pickupKey) {
+                pendingDeepLinkURL = url
+            }
+            return
+        }
+    }
+
+    func consumePendingDeepLinkURL() -> URL? {
+        defer { pendingDeepLinkURL = nil }
+        return pendingDeepLinkURL
     }
 
     private func markDenied() {
@@ -165,11 +197,14 @@ final class PickupNotificationService {
         statusNote = "알림 권한이 꺼져 있어요. 기기 설정에서 마중 알림을 허용해주세요."
     }
 
-    private func deliver(id: String, title: String, body: String) {
+    private func deliver(id: String, pickupKey: String, title: String, body: String) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
+        if let deepLink = PickupLiveActivityAttributes.deepLinkURL(pickupId: pickupKey)?.absoluteString {
+            content.userInfo["pickupDeepLink"] = deepLink
+        }
         let identifier = "majung.\(id)"
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
         deliveryTasks[identifier] = Task {

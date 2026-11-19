@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct PickupView: View {
     @Bindable var tracker: PickupTracker
@@ -7,6 +8,7 @@ struct PickupView: View {
     var isLeavingWaiting = false
     var onLeaveWaiting: (() -> Void)? = nil
 
+    @Environment(\.openURL) private var openURL
     @State private var notifications = PickupNotificationService.shared
     @State private var editingPlace = false
     @State private var showArrivalMap = false
@@ -111,13 +113,22 @@ struct PickupView: View {
         } message: {
             Text("대기 화면을 나가도 운전자가 아직 승인하지 않았다면 새 초대 링크로 다시 열 수 있어요.")
         }
+        .onAppear {
+            notifications.isPickupScreenVisible = true
+        }
+        .onDisappear {
+            notifications.isPickupScreenVisible = false
+        }
         .task {
             await notifications.refreshStatus()
             notifications.evaluate(snapshot: tracker.snapshot, vehicle: tracker.currentVehicle())
         }
-        .onChange(of: tracker.snapshot?.status) { _, status in
+        .onChange(of: tracker.snapshot?.status) { oldStatus, status in
             if status != .active { editingPlace = false }
             if status != .active && status != .arrived { messageFocused = false }
+            if oldStatus != .arrived && status == .arrived {
+                triggerNotificationHaptic(.success)
+            }
             notifications.evaluate(snapshot: tracker.snapshot, vehicle: tracker.currentVehicle())
         }
         .onChange(of: tracker.vehicle?.durationSeconds) { _, _ in
@@ -158,6 +169,7 @@ struct PickupView: View {
                         .accessibilityIdentifier("pickup-readiness-preparing-button")
 
                         Button {
+                            triggerImpactHaptic(.medium)
                             Task { await tracker.setReady(true) }
                         } label: {
                             Text("탑승 준비 완료")
@@ -395,9 +407,23 @@ struct PickupView: View {
             .accessibilityIdentifier("pickup-arrival-alert-toggle")
 
             if let statusNote = notifications.statusNote {
-                Text(statusNote)
-                    .font(.footnote)
-                    .foregroundStyle(notifications.permissionDenied ? .red : .secondary)
+                HStack(alignment: .top, spacing: 8) {
+                    Text(statusNote)
+                        .font(.footnote)
+                        .foregroundStyle(notifications.permissionDenied ? .red : .secondary)
+                    Spacer(minLength: 4)
+                    if notifications.permissionDenied {
+                        Button("설정 열기") {
+                            if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                                openURL(settingsURL)
+                            }
+                        }
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .accessibilityIdentifier("pickup-notification-open-settings-button")
+                    }
+                }
             }
 
             Label(
@@ -445,6 +471,7 @@ struct PickupView: View {
             } else {
                 Button {
                     messageFocused = false
+                    triggerNotificationHaptic(.success)
                     Task { await tracker.notifyArrivalBoarding() }
                 } label: {
                     Label("차량 확인 · 지금 탑승할게요", systemImage: "checkmark.circle.fill")
@@ -473,6 +500,13 @@ struct PickupView: View {
                         Text("차량 위치를 확인할 수 없어요. 지도에 만날 장소를 표시했어요.")
                             .font(.footnote).foregroundStyle(.secondary)
                     }
+                    ExternalMapLaunchButton(
+                        place: place,
+                        mode: .viewPlace,
+                        title: "지도 앱에서 보기",
+                        systemImage: "map",
+                        accessibilityId: "pickup-arrival-map-external-view-button"
+                    )
                 }
             }
         }
@@ -537,10 +571,21 @@ struct PickupView: View {
 
     private func sendMessage() {
         guard !tracker.busy, !tracker.connectionProblem else { return }
+        triggerImpactHaptic(.light)
         dismissMajungKeyboard {
             messageFocused = false
         }
         Task { await tracker.sendMessage() }
+    }
+
+    private func triggerImpactHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        guard UIApplication.shared.applicationState == .active else { return }
+        UIImpactFeedbackGenerator(style: style).impactOccurred()
+    }
+
+    private func triggerNotificationHaptic(_ type: UINotificationFeedbackGenerator.FeedbackType) {
+        guard UIApplication.shared.applicationState == .active else { return }
+        UINotificationFeedbackGenerator().notificationOccurred(type)
     }
 
 }

@@ -713,6 +713,10 @@ final class MajungCoreTests: XCTestCase {
         store.record(PickupPlace(label: "장소 5 별칭", latitude: 37.55005, longitude: 127.05005))
         XCTAssertEqual(store.load().map(\.label), ["장소 5 별칭", "장소 3", "장소 6", "장소 4", "장소 2"])
 
+        // Removing a single place leaves remaining entries in order
+        store.remove(PickupPlace(label: "장소 6", latitude: 37.56, longitude: 127.06))
+        XCTAssertEqual(store.load().map(\.label), ["장소 5 별칭", "장소 3", "장소 4", "장소 2"])
+
         store.clear()
         XCTAssertTrue(store.load().isEmpty)
     }

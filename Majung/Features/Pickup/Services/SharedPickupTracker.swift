@@ -19,6 +19,7 @@ final class PickupTracker {
 
     private var backend: Backend?
     private let liveActivity: PickupLiveActivityService
+    private let notifications: PickupNotificationService
     private var revision = 0
     private var refreshing = false
     private var refreshPending = false
@@ -41,8 +42,12 @@ final class PickupTracker {
     }
     var error: String?
 
-    init(liveActivity: PickupLiveActivityService? = nil) {
+    init(
+        liveActivity: PickupLiveActivityService? = nil,
+        notifications: PickupNotificationService? = nil
+    ) {
         self.liveActivity = liveActivity ?? .shared
+        self.notifications = notifications ?? .shared
     }
 
     func configure(_ backend: Backend) {
@@ -202,6 +207,7 @@ final class PickupTracker {
             connectionProblem: connectionProblem,
             lastCheckedAt: vehicleUpdatedAt ?? lastRefreshedAt
         )
+        notifications.evaluate(snapshot: current, vehicle: vehicle)
     }
 
     private func update(_ operation: () async throws -> PickupSnapshot) async -> Bool {
@@ -258,6 +264,7 @@ final class PickupTracker {
                 lastCheckedAt: vehicleUpdatedAt ?? lastRefreshedAt
             )
         }
+        notifications.evaluate(snapshot: current, vehicle: vehicle)
     }
 
     private func handleLostSession(_ error: Error) -> Bool {

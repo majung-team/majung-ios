@@ -682,6 +682,53 @@ final class MajungCoreTests: XCTestCase {
             XCTAssertEqual(snap.pickup.status, .arrived)
         }
     }
+
+    func testRecentPlaceStoreDeduplicatesOrdersAndCapsAtFive() {
+        let suiteName = "MajungTests.RecentPlaceStore.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = RecentPlaceStore(defaults: defaults)
+        XCTAssertTrue(store.load().isEmpty)
+
+        // Blank labels are ignored
+        store.record(PickupPlace(label: "   \n ", latitude: 37.50, longitude: 127.00))
+        XCTAssertTrue(store.load().isEmpty)
+
+        for idx in 1...6 {
+            store.record(PickupPlace(
+                label: "장소 \(idx)",
+                latitude: 37.50 + Double(idx) * 0.01,
+                longitude: 127.00 + Double(idx) * 0.01
+            ))
+        }
+        let capped = store.load()
+        XCTAssertEqual(capped.map(\.label), ["장소 6", "장소 5", "장소 4", "장소 3", "장소 2"])
+
+        // Re-recording an existing label (with whitespace) moves it to the top without duplicating
+        store.record(PickupPlace(label: "  장소 3  ", latitude: 37.99, longitude: 127.99))
+        XCTAssertEqual(store.load().map(\.label), ["장소 3", "장소 6", "장소 5", "장소 4", "장소 2"])
+
+        // Re-recording near-identical coordinates replaces the older label at the same spot
+        store.record(PickupPlace(label: "장소 5 별칭", latitude: 37.55005, longitude: 127.05005))
+        XCTAssertEqual(store.load().map(\.label), ["장소 5 별칭", "장소 3", "장소 6", "장소 4", "장소 2"])
+
+        store.clear()
+        XCTAssertTrue(store.load().isEmpty)
+    }
+
+    func testAppleMapsDirectionsURLIncludesDestinationLabelAndWalkingMode() throws {
+        let place = PickupPlace(label: "왕십리역 1번 출구", latitude: 37.5612, longitude: 127.037)
+        let url = try XCTUnwrap(MajungFormatting.appleMapsDirectionsURL(for: place))
+        let components = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        let items = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+
+        XCTAssertEqual(components.scheme, "https")
+        XCTAssertEqual(components.host, "maps.apple.com")
+        XCTAssertEqual(items["daddr"], "37.5612,127.037")
+        XCTAssertEqual(items["dirflg"], "w")
+        XCTAssertEqual(items["q"], "왕십리역 1번 출구")
+    }
 }
 
 private final class SSEStubURLProtocol: URLProtocol {

@@ -43,7 +43,14 @@ struct PickupLiveActivityAttributes: ActivityAttributes {
                 guard let seconds = durationSeconds else {
                     return "도착 시간을 확인 중이에요"
                 }
-                return seconds < 60 ? "1분 이내 도착 예정" : "약 \((seconds + 59) / 60)분 후 도착 예정"
+                if seconds < 60 { return "1분 이내 도착 예정" }
+                let totalMinutes = (seconds + 59) / 60
+                if totalMinutes >= 60 {
+                    let hours = totalMinutes / 60
+                    let minutes = totalMinutes % 60
+                    return minutes == 0 ? "약 \(hours)시간 후 도착 예정" : "약 \(hours)시간 \(minutes)분 후 도착 예정"
+                }
+                return "약 \(totalMinutes)분 후 도착 예정"
             }
         }
 
@@ -57,6 +64,14 @@ struct PickupLiveActivityAttributes: ActivityAttributes {
                 }
                 return seconds < 60 ? "1분 내" : "\((seconds + 59) / 60)분"
             }
+        }
+
+        func compactTimerRange(at now: Date = Date()) -> ClosedRange<Date>? {
+            guard let range = activeTimerRange(at: now),
+                  range.upperBound.timeIntervalSince(now) < 3600 else {
+                return nil
+            }
+            return range
         }
 
         func reliabilityText(isStale: Bool = false, now: Date = Date()) -> String {

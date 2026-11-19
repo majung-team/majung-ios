@@ -18,6 +18,7 @@ struct PlaceComposerView<Header: View>: View {
     @ViewBuilder let header: () -> Header
 
     @State private var locationService = LocationService()
+    @State private var recentPlaces: [PickupPlace] = RecentPlaceStore().load()
     @State private var searchQuery = ""
     @State private var searchResults: [PlaceSearchCandidate] = []
     @State private var searchedKeyword = ""
@@ -49,6 +50,7 @@ struct PlaceComposerView<Header: View>: View {
 
     private enum SelectionSource {
         case search(title: String, address: String?)
+        case recent(title: String)
         case gps
         case mapPin
     }
@@ -117,6 +119,11 @@ struct PlaceComposerView<Header: View>: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     header()
+                    if !recentPlaces.isEmpty {
+                        recentPlacesCard {
+                            withAnimation { scrollProxy.scrollTo("confirm-section", anchor: .bottom) }
+                        }
+                    }
                     searchCard {
                         withAnimation { scrollProxy.scrollTo("confirm-section", anchor: .bottom) }
                     }
@@ -131,6 +138,34 @@ struct PlaceComposerView<Header: View>: View {
             .background(Color(.systemGroupedBackground))
             .majungKeyboardDismiss(focusedField: $focusedField)
         }
+    }
+
+    private func recentPlacesCard(onSelected: @escaping () -> Void) -> some View {
+        MajungCard {
+            Label("최근 만날 장소", systemImage: "clock.arrow.circlepath")
+                .font(.subheadline.weight(.semibold))
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(Array(recentPlaces.enumerated()), id: \.offset) { idx, place in
+                        Button {
+                            focusedField = nil
+                            chooseRecentPlace(place)
+                            onSelected()
+                        } label: {
+                            Label(place.label, systemImage: "mappin.circle.fill")
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .accessibilityIdentifier("\(idPrefix)-recent-place-\(idx)")
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("\(idPrefix)-recent-places")
     }
 
     private func searchCard(onSelected: @escaping () -> Void) -> some View {
@@ -368,6 +403,9 @@ struct PlaceComposerView<Header: View>: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+            case let .recent(title):
+                Text("최근 장소 선택 · \(title)")
+                    .font(.footnote.weight(.semibold))
             case .gps:
                 let acc = Int(ceil(accuracyMeters ?? 0))
                 Text("현재 위치 선택 (정확도 약 \(acc)m)")
@@ -468,6 +506,22 @@ struct PlaceComposerView<Header: View>: View {
         onSelectionChanged()
         mapPosition = .region(MKCoordinateRegion(
             center: candidate.coordinate,
+            latitudinalMeters: 700,
+            longitudinalMeters: 700
+        ))
+    }
+
+    private func chooseRecentPlace(_ place: PickupPlace) {
+        let coordinate = CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude)
+        selectedCoordinate = coordinate
+        selectionSource = .recent(title: place.label)
+        accuracyMeters = nil
+        locationCapturedAt = nil
+        labelDraft = place.label
+        localError = nil
+        onSelectionChanged()
+        mapPosition = .region(MKCoordinateRegion(
+            center: coordinate,
             latitudinalMeters: 700,
             longitudinalMeters: 700
         ))

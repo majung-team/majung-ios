@@ -20,6 +20,7 @@ struct PlacePickerSheet: View {
                 onSelectionChanged: { idempotencyRequestId = UUID() },
                 onSubmit: { place in
                     if await rideModel.submitRequest(driverId: target.driverId, place: place, requestId: idempotencyRequestId) {
+                        RecentPlaceStore().record(place)
                         onSubmitted()
                         dismiss()
                     }

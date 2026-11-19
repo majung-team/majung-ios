@@ -873,4 +873,112 @@ final class PickupTrackerTests: XCTestCase {
         XCTAssertEqual(viewModel.page, .pickup)
         XCTAssertNotNil(viewModel.session)
     }
+
+    func testTrackerEvaluatesSharedNotificationsWithoutOpenViewAndClearsOnCompletion() async {
+        let suiteName = "MajungTests.TrackerNotifications.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(true, forKey: "majung.arrivalAlertEnabled")
+
+        var addedIdentifiers: [String] = []
+        var removedIdentifierBatches: [[String]] = []
+        let notifications = PickupNotificationService(
+            defaults: defaults,
+            addNotification: { request in
+                addedIdentifiers.append(request.identifier)
+            },
+            removeNotifications: { identifiers in
+                removedIdentifierBatches.append(identifiers)
+            }
+        )
+
+        let tracker = PickupTracker(notifications: notifications)
+        let pickupId = UUID()
+        let activeSnap = PickupSnapshot(
+            pickupId: pickupId,
+            status: .active,
+            place: initialPlace,
+            placeVersion: 1,
+            participant: PickupSnapshot.Participant(readiness: "NOT_READY", readinessSequence: 1, readinessReceivedSequence: 1),
+            placeProposal: nil,
+            quickMessage: nil,
+            vehicleName: "흰색 아이오닉 5"
+        )
+
+        // Far away (> 3 minutes) should not alert
+        tracker.applyExternal(activeSnap, vehicle: makeVehicle(durationSeconds: 360))
+        try? await Task.sleep(for: .milliseconds(30))
+        XCTAssertTrue(addedIdentifiers.isEmpty)
+
+        // Approaching (<= 3 minutes) triggers approaching alert directly from tracker
+        let pickupKey = pickupId.uuidString.lowercased()
+        let approachingId = "majung.approaching-\(pickupKey)"
+        let arrivedId = "majung.arrived-\(pickupKey)"
+
+        tracker.applyExternal(activeSnap, vehicle: makeVehicle(durationSeconds: 150))
+        try? await Task.sleep(for: .milliseconds(30))
+        XCTAssertEqual(addedIdentifiers, [approachingId])
+
+        // Arrived triggers arrival alert directly from tracker
+        let arrivedSnap = PickupSnapshot(
+            pickupId: pickupId,
+            status: .arrived,
+            place: initialPlace,
+            placeVersion: 1,
+            participant: nil,
+            placeProposal: nil,
+            quickMessage: nil,
+            vehicleName: "흰색 아이오닉 5"
+        )
+        tracker.applyExternal(arrivedSnap, vehicle: nil)
+        try? await Task.sleep(for: .milliseconds(30))
+        XCTAssertEqual(addedIdentifiers, [approachingId, arrivedId])
+
+        // Terminal status clears previously delivered pickup notifications
+        let completedSnap = PickupSnapshot(
+            pickupId: pickupId,
+            status: .completed,
+            place: initialPlace,
+            placeVersion: 1,
+            participant: nil,
+            placeProposal: nil,
+            quickMessage: nil,
+            vehicleName: "흰색 아이오닉 5"
+        )
+        tracker.applyExternal(completedSnap, vehicle: nil)
+        let removedFlat = Set(removedIdentifierBatches.flatMap { $0 })
+        XCTAssertTrue(removedFlat.contains(approachingId))
+        XCTAssertTrue(removedFlat.contains(arrivedId))
+    }
+
+    func testLiveActivityCompactTimerFallsBackToMinutesLabelAtOneHourOrMore() throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let snap = makeSnapshot(status: .active, place: initialPlace, placeVersion: 1)
+
+        // Under 1 hour: compact countdown range is active
+        let underHour = try XCTUnwrap(PickupLiveActivityService.makeState(
+            snapshot: snap,
+            vehicle: makeVehicle(durationSeconds: 3540, validForMillis: 20_000),
+            vehicleUpdatedAt: now,
+            previousState: nil,
+            now: now
+        ))
+        XCTAssertNotNil(underHour.activeTimerRange(at: now))
+        XCTAssertNotNil(underHour.compactTimerRange(at: now))
+        XCTAssertEqual(underHour.compactTrailingLabel, "59분")
+        XCTAssertEqual(underHour.etaSummaryText, "약 59분 후 도착 예정")
+
+        // 1 hour 10 minutes: expanded/lock screen still get full range, compact falls back to "70분" without ellipsis
+        let overHour = try XCTUnwrap(PickupLiveActivityService.makeState(
+            snapshot: snap,
+            vehicle: makeVehicle(durationSeconds: 4200, validForMillis: 20_000),
+            vehicleUpdatedAt: now,
+            previousState: nil,
+            now: now
+        ))
+        XCTAssertNotNil(overHour.activeTimerRange(at: now))
+        XCTAssertNil(overHour.compactTimerRange(at: now))
+        XCTAssertEqual(overHour.compactTrailingLabel, "70분")
+        XCTAssertEqual(overHour.etaSummaryText, "약 1시간 10분 후 도착 예정")
+    }
 }

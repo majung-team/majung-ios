@@ -729,6 +729,56 @@ final class MajungCoreTests: XCTestCase {
         XCTAssertEqual(items["dirflg"], "w")
         XCTAssertEqual(items["q"], "왕십리역 1번 출구")
     }
+
+    func testExternalMapAppsBuildNaverKakaoAppleURLsAndFilterInstalledSchemes() throws {
+        let place = PickupPlace(label: "광교중앙역 1번 출구", latitude: 37.2886, longitude: 127.0517)
+
+        let naverWalk = try XCTUnwrap(ExternalMapApp.naver.url(for: place, mode: .directions))
+        let naverWalkComponents = try XCTUnwrap(URLComponents(url: naverWalk, resolvingAgainstBaseURL: false))
+        let naverWalkItems = Dictionary(uniqueKeysWithValues: (naverWalkComponents.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(naverWalkComponents.scheme, "nmap")
+        XCTAssertEqual(naverWalkComponents.host, "route")
+        XCTAssertEqual(naverWalkComponents.path, "/walk")
+        XCTAssertEqual(naverWalkItems["dlat"], "37.2886")
+        XCTAssertEqual(naverWalkItems["dlng"], "127.0517")
+        XCTAssertEqual(naverWalkItems["dname"], "광교중앙역 1번 출구")
+        XCTAssertEqual(naverWalkItems["appname"], "app.majung.ios")
+
+        let naverPlace = try XCTUnwrap(ExternalMapApp.naver.url(for: place, mode: .viewPlace))
+        let naverPlaceComponents = try XCTUnwrap(URLComponents(url: naverPlace, resolvingAgainstBaseURL: false))
+        let naverPlaceItems = Dictionary(uniqueKeysWithValues: (naverPlaceComponents.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(naverPlaceComponents.scheme, "nmap")
+        XCTAssertEqual(naverPlaceComponents.host, "place")
+        XCTAssertEqual(naverPlaceItems["lat"], "37.2886")
+        XCTAssertEqual(naverPlaceItems["lng"], "127.0517")
+        XCTAssertEqual(naverPlaceItems["name"], "광교중앙역 1번 출구")
+
+        let kakaoWalk = try XCTUnwrap(ExternalMapApp.kakao.url(for: place, mode: .directions))
+        let kakaoWalkComponents = try XCTUnwrap(URLComponents(url: kakaoWalk, resolvingAgainstBaseURL: false))
+        let kakaoWalkItems = Dictionary(uniqueKeysWithValues: (kakaoWalkComponents.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(kakaoWalkComponents.scheme, "kakaomap")
+        XCTAssertEqual(kakaoWalkComponents.host, "route")
+        XCTAssertEqual(kakaoWalkItems["ep"], "37.2886,127.0517")
+        XCTAssertEqual(kakaoWalkItems["by"], "FOOT")
+
+        let kakaoLook = try XCTUnwrap(ExternalMapApp.kakao.url(for: place, mode: .viewPlace))
+        let kakaoLookComponents = try XCTUnwrap(URLComponents(url: kakaoLook, resolvingAgainstBaseURL: false))
+        let kakaoLookItems = Dictionary(uniqueKeysWithValues: (kakaoLookComponents.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(kakaoLookComponents.scheme, "kakaomap")
+        XCTAssertEqual(kakaoLookComponents.host, "look")
+        XCTAssertEqual(kakaoLookItems["p"], "37.2886,127.0517")
+
+        let appleView = try XCTUnwrap(ExternalMapApp.apple.url(for: place, mode: .viewPlace))
+        let appleViewComponents = try XCTUnwrap(URLComponents(url: appleView, resolvingAgainstBaseURL: false))
+        let appleViewItems = Dictionary(uniqueKeysWithValues: (appleViewComponents.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(appleViewComponents.host, "maps.apple.com")
+        XCTAssertEqual(appleViewItems["ll"], "37.2886,127.0517")
+        XCTAssertEqual(appleViewItems["q"], "광교중앙역 1번 출구")
+
+        XCTAssertEqual(ExternalMapApp.availableApps { _ in false }, [.apple])
+        XCTAssertEqual(ExternalMapApp.availableApps { $0.scheme == "nmap" }, [.naver, .apple])
+        XCTAssertEqual(ExternalMapApp.availableApps { _ in true }, [.naver, .kakao, .apple])
+    }
 }
 
 private final class SSEStubURLProtocol: URLProtocol {

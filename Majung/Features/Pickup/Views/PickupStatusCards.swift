@@ -131,8 +131,56 @@ struct PickupStatusHeroHeader: View {
     }
 }
 
-struct PickupPlaceSummaryBox: View {
+struct ExternalMapLaunchButton: View {
+    let place: PickupPlace
+    let mode: ExternalMapApp.Mode
+    let title: String
+    let systemImage: String
+    let accessibilityId: String
+
     @Environment(\.openURL) private var openURL
+    @State private var showingPicker = false
+    @State private var availableApps: [ExternalMapApp] = [.apple]
+
+    var body: some View {
+        Button {
+            let apps = ExternalMapApp.availableApps { UIApplication.shared.canOpenURL($0) }
+            if apps.count <= 1 {
+                let target = apps.first ?? .apple
+                if let url = target.url(for: place, mode: mode) {
+                    openURL(url)
+                }
+            } else {
+                availableApps = apps
+                showingPicker = true
+            }
+        } label: {
+            Label(title, systemImage: systemImage)
+                .font(.caption.weight(.semibold))
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .accessibilityIdentifier(accessibilityId)
+        .confirmationDialog(
+            mode == .directions ? "길찾기 지도 앱 선택" : "지도 앱에서 보기",
+            isPresented: $showingPicker,
+            titleVisibility: .visible
+        ) {
+            ForEach(availableApps) { app in
+                Button(app.title) {
+                    if let url = app.url(for: place, mode: mode) {
+                        openURL(url)
+                    }
+                }
+            }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text(place.label)
+        }
+    }
+}
+
+struct PickupPlaceSummaryBox: View {
     let caption: String
     let placeName: String?
     let vehicleName: String?
@@ -161,17 +209,13 @@ struct PickupPlaceSummaryBox: View {
             }
             if showPlaceActions, let place {
                 HStack(spacing: 8) {
-                    if let mapsURL = MajungFormatting.appleMapsDirectionsURL(for: place) {
-                        Button {
-                            openURL(mapsURL)
-                        } label: {
-                            Label("지도 앱 길찾기", systemImage: "map.fill")
-                                .font(.caption.weight(.semibold))
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .accessibilityIdentifier("pickup-open-maps-button")
-                    }
+                    ExternalMapLaunchButton(
+                        place: place,
+                        mode: .directions,
+                        title: "지도 앱 길찾기",
+                        systemImage: "map.fill",
+                        accessibilityId: "pickup-open-maps-button"
+                    )
                     Button {
                         UIPasteboard.general.string = place.label
                         copiedPlace = true

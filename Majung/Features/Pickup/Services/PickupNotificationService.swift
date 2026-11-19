@@ -6,6 +6,8 @@ import UserNotifications
 @MainActor
 @Observable
 final class PickupNotificationService {
+    static let shared = PickupNotificationService()
+
     private enum StorageKey {
         static let enabled = "majung.arrivalAlertEnabled"
     }

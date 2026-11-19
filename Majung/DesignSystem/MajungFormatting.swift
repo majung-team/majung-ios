@@ -73,4 +73,14 @@ enum MajungFormatting {
     static func shortDateTime(_ date: Date) -> String {
         dateTimeFormatter.string(from: date)
     }
+
+    static func appleMapsDirectionsURL(for place: PickupPlace) -> URL? {
+        var components = URLComponents(string: "https://maps.apple.com/")
+        components?.queryItems = [
+            URLQueryItem(name: "daddr", value: "\(place.latitude),\(place.longitude)"),
+            URLQueryItem(name: "dirflg", value: "w"),
+            URLQueryItem(name: "q", value: place.label)
+        ]
+        return components?.url
+    }
 }

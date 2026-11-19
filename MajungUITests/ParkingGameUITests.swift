@@ -297,6 +297,11 @@ final class ParkingGameUITests: XCTestCase {
         server.setVehicleDurationSeconds(120)
         XCTAssertTrue(app.descendants(matching: .any)["pickup-approaching-card"].firstMatch.waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)["pickup-last-checked-time"].firstMatch.exists)
+        XCTAssertTrue(app.buttons["pickup-open-maps-button"].waitForExistence(timeout: 5))
+        let copyPlaceButton = app.buttons["pickup-copy-place-button"]
+        XCTAssertTrue(copyPlaceButton.waitForExistence(timeout: 5))
+        copyPlaceButton.tap()
+        XCTAssertTrue(app.staticTexts["복사됨"].waitForExistence(timeout: 3))
 
         play.tap()
         let resumeBtn = app.buttons["parking-resume-button"]
@@ -311,6 +316,7 @@ final class ParkingGameUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["마중 차량이 도착했어요"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["pickup-last-checked-time"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["pickup-open-maps-button"].waitForExistence(timeout: 5))
         let boardButton = app.buttons["pickup-arrival-board-button"]
         XCTAssertTrue(boardButton.waitForExistence(timeout: 5))
         boardButton.tap()
@@ -319,7 +325,9 @@ final class ParkingGameUITests: XCTestCase {
         server.completeMemberRide()
         XCTAssertTrue(app.staticTexts["잘 만났어요!"].waitForExistence(timeout: 8))
         XCTAssertTrue(play.isEnabled)
-        play.tap()
+        let finishedResumeEntry = app.buttons["pickup-finished-resume-parking"]
+        XCTAssertTrue(finishedResumeEntry.waitForExistence(timeout: 5))
+        finishedResumeEntry.tap()
         XCTAssertTrue(resumeBtn.waitForExistence(timeout: 5))
         resumeBtn.tap()
         XCTAssertTrue(app.staticTexts["STAGE 01"].waitForExistence(timeout: 5))

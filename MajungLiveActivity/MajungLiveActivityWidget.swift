@@ -82,11 +82,7 @@ struct MajungPickupLiveActivityWidget: Widget {
                                 .foregroundStyle(.white.opacity(0.85))
                                 .lineLimit(1)
                             Spacer(minLength: 6)
-                            Text(
-                                stale
-                                    ? context.state.reliabilityText(isStale: true, now: context.state.updatedAt)
-                                    : "\(context.state.etaSummaryText) · \(context.state.reliabilityText(isStale: false, now: context.state.updatedAt))"
-                            )
+                            reliabilityLabel(state: context.state, stale: stale)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -108,21 +104,27 @@ struct MajungPickupLiveActivityWidget: Widget {
                     Text("갱신 필요")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 } else if context.state.phase == .arrived {
                     Text("도착")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(arrivedGreen)
-                } else if let range = context.state.activeTimerRange() {
+                        .lineLimit(1)
+                } else if let range = context.state.compactTimerRange() {
                     Text(timerInterval: range, countsDown: true)
                         .monospacedDigit()
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(brandBlue)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                         .frame(maxWidth: 46)
                         .multilineTextAlignment(.trailing)
                 } else {
                     Text(context.state.compactTrailingLabel)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(context.state.durationSeconds != nil ? brandBlue : .secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
             } minimal: {
                 Image(systemName: stale ? "arrow.clockwise" : (context.state.phase == .arrived ? "checkmark.circle.fill" : "car.fill"))
@@ -182,11 +184,7 @@ struct MajungPickupLiveActivityWidget: Widget {
             }
 
             HStack(spacing: 8) {
-                Text(
-                    stale
-                        ? context.state.reliabilityText(isStale: true, now: context.state.updatedAt)
-                        : "\(context.state.etaSummaryText) · \(context.state.reliabilityText(isStale: false, now: context.state.updatedAt))"
-                )
+                reliabilityLabel(state: context.state, stale: stale)
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.78))
                     .lineLimit(1)
@@ -199,5 +197,15 @@ struct MajungPickupLiveActivityWidget: Widget {
             }
         }
         .padding(16)
+    }
+
+    @ViewBuilder
+    private func reliabilityLabel(state: PickupLiveActivityAttributes.ContentState, stale: Bool) -> some View {
+        let referenceDate = state.lastCheckedAt ?? state.updatedAt
+        if stale {
+            Text("연결 확인 중 · ") + Text(referenceDate, style: .relative) + Text(" 전")
+        } else {
+            Text("\(state.etaSummaryText) · ") + Text(referenceDate, style: .relative) + Text(" 전")
+        }
     }
 }

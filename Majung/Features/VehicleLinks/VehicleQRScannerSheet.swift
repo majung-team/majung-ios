@@ -4,6 +4,7 @@ import UIKit
 
 struct VehicleQRScannerSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @Bindable var vehicleLinks: VehicleLinkViewModel
 
     @State private var linkDraft = ""
@@ -79,6 +80,16 @@ struct VehicleQRScannerSheet: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
+                if cameraPermissionDenied {
+                    Button("설정 열기") {
+                        if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(settingsURL)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityIdentifier("vehicle-qr-open-settings-button")
+                }
             }
         }
     }

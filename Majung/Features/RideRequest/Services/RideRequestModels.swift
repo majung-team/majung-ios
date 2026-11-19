@@ -114,3 +114,41 @@ struct RideTargetPerson: Identifiable, Equatable {
 
     var id: UUID { driverId }
 }
+
+struct RecentPlaceStore {
+    private let defaults: UserDefaults
+    private let key = "majung.recentPlaces.v1"
+    private let maxCount = 5
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    func load() -> [PickupPlace] {
+        guard let data = defaults.data(forKey: key),
+              let places = try? JSONDecoder().decode([PickupPlace].self, from: data) else {
+            return []
+        }
+        return Array(places.prefix(maxCount))
+    }
+
+    func record(_ place: PickupPlace) {
+        let trimmed = place.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let normalized = PickupPlace(label: trimmed, latitude: place.latitude, longitude: place.longitude)
+        var current = load().filter { existing in
+            let sameLabel = existing.label.caseInsensitiveCompare(trimmed) == .orderedSame
+            let sameCoord = abs(existing.latitude - normalized.latitude) < 0.0001
+                && abs(existing.longitude - normalized.longitude) < 0.0001
+            return !sameLabel && !sameCoord
+        }
+        current.insert(normalized, at: 0)
+        if let data = try? JSONEncoder().encode(Array(current.prefix(maxCount))) {
+            defaults.set(data, forKey: key)
+        }
+    }
+
+    func clear() {
+        defaults.removeObject(forKey: key)
+    }
+}

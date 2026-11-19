@@ -7,7 +7,7 @@ struct PickupView: View {
     var isLeavingWaiting = false
     var onLeaveWaiting: (() -> Void)? = nil
 
-    @State private var notifications = PickupNotificationService()
+    @State private var notifications = PickupNotificationService.shared
     @State private var editingPlace = false
     @State private var showArrivalMap = false
     @State private var confirmingLeaveWaiting = false
@@ -287,7 +287,9 @@ struct PickupView: View {
                             placeName: place.label,
                             vehicleName: resolvedVehicleName ?? "연결된 마중 차량",
                             prominent: true,
-                            lastCheckedText: checkedText
+                            lastCheckedText: checkedText,
+                            place: place,
+                            showPlaceActions: true
                         )
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("pickup-approaching-card")
@@ -409,7 +411,9 @@ struct PickupView: View {
                 lastCheckedText: MajungFormatting.lastCheckedText(
                     updatedAt: tracker.vehicleUpdatedAt,
                     refreshedAt: tracker.lastRefreshedAt
-                )
+                ),
+                place: place,
+                showPlaceActions: true
             )
 
             if tracker.arrivalBoardingNotified || snapshot.quickMessage?.text == "차량 확인했어요, 지금 탑승해요" {

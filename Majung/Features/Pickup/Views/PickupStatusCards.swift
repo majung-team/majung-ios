@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct PickupWaitingCard: View {
     let snapshot: PickupSnapshot
@@ -83,6 +84,16 @@ struct PickupFinishedCard: View {
                 )
             }
 
+            if ParkingProgressStore().savedSession != nil {
+                ParkingGameEntry(
+                    tracker: nil,
+                    compact: false,
+                    title: "중단했던 주차 이어하기",
+                    subtitle: "픽업 전 멈춘 위치에서 바로 이어서 플레이해요.",
+                    accessibilityId: "pickup-finished-resume-parking"
+                )
+            }
+
             Button(action: onReset) {
                 Text(resetLabel)
                     .frame(maxWidth: .infinity, minHeight: 38)
@@ -121,11 +132,15 @@ struct PickupStatusHeroHeader: View {
 }
 
 struct PickupPlaceSummaryBox: View {
+    @Environment(\.openURL) private var openURL
     let caption: String
     let placeName: String?
     let vehicleName: String?
     var prominent: Bool = false
     var lastCheckedText: String? = nil
+    var place: PickupPlace? = nil
+    var showPlaceActions: Bool = false
+    @State private var copiedPlace = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: prominent ? 10 : 8) {
@@ -143,6 +158,35 @@ struct PickupPlaceSummaryBox: View {
                     .padding(.horizontal, prominent ? 12 : 10)
                     .padding(.vertical, prominent ? 8 : 6)
                     .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: prominent ? 10 : 8))
+            }
+            if showPlaceActions, let place {
+                HStack(spacing: 8) {
+                    if let mapsURL = MajungFormatting.appleMapsDirectionsURL(for: place) {
+                        Button {
+                            openURL(mapsURL)
+                        } label: {
+                            Label("지도 앱 길찾기", systemImage: "map.fill")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .accessibilityIdentifier("pickup-open-maps-button")
+                    }
+                    Button {
+                        UIPasteboard.general.string = place.label
+                        copiedPlace = true
+                        Task {
+                            try? await Task.sleep(for: .seconds(2))
+                            copiedPlace = false
+                        }
+                    } label: {
+                        Label(copiedPlace ? "복사됨" : "장소 복사", systemImage: copiedPlace ? "checkmark" : "doc.on.doc")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityIdentifier("pickup-copy-place-button")
+                }
             }
             if let lastCheckedText, !lastCheckedText.isEmpty {
                 Label(lastCheckedText, systemImage: "clock.arrow.trianglehead.counterclockwise.rotate.90")
@@ -172,34 +216,59 @@ struct PickupLoadingCard: View {
 struct ActiveGuestPickupReturnCard: View {
     @Bindable var pickup: PickupViewModel
 
-    private var badge: (text: String, tint: Color) {
+    private func badge(connectionProblem: Bool) -> (text: String, tint: Color) {
+        if connectionProblem {
+            return ("연결 확인 중", .orange)
+        }
         switch pickup.tracker.snapshot?.status {
-        case .arrived: ("차량 도착 완료", .green)
-        case .waiting, .inviting: ("운전자 확인 대기", .orange)
-        default: ("초대 픽업 진행 중", .accentColor)
+        case .arrived: return ("차량 도착 완료", .green)
+        case .waiting, .inviting: return ("운전자 확인 대기", .orange)
+        default: return ("초대 픽업 진행 중", .accentColor)
         }
     }
 
-    private var statusDetail: String {
+    private func statusDetail(vehicle: PickupVehicle?, connectionProblem: Bool) -> String {
+        if connectionProblem {
+            return "네트워크 연결을 다시 확인하고 있어요."
+        }
         switch pickup.tracker.snapshot?.status {
         case .arrived:
             return "차량이 도착했어요. 차량 번호를 확인해주세요."
         case .waiting, .inviting:
             return "운전자가 확인하면 실시간 위치를 볼 수 있어요."
         default:
-            return MajungFormatting.etaText(pickup.tracker.currentVehicle())
+            return MajungFormatting.etaText(vehicle)
         }
     }
 
     var body: some View {
         MajungCard {
-            let currentBadge = badge
-            MajungStatusPill(text: currentBadge.text, tint: currentBadge.tint)
-            Text(pickup.tracker.snapshot?.place?.label ?? pickup.tracker.lastPlace?.label ?? "만날 장소 확인 중")
-                .font(.headline)
-            Text(statusDetail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let vehicle = pickup.tracker.currentVehicle()
+                let connectionProblem = pickup.tracker.connectionProblem
+                let currentBadge = badge(connectionProblem: connectionProblem)
+                VStack(alignment: .leading, spacing: 6) {
+                    MajungStatusPill(text: currentBadge.text, tint: currentBadge.tint)
+                    Text(pickup.tracker.snapshot?.place?.label ?? pickup.tracker.lastPlace?.label ?? "만날 장소 확인 중")
+                        .font(.headline)
+                    Text(statusDetail(vehicle: vehicle, connectionProblem: connectionProblem))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    if let checked = MajungFormatting.freshnessText(
+                        for: vehicle,
+                        updatedAt: pickup.tracker.vehicleUpdatedAt,
+                        now: context.date
+                    ) ?? MajungFormatting.lastCheckedText(
+                        updatedAt: pickup.tracker.vehicleUpdatedAt,
+                        refreshedAt: pickup.tracker.lastRefreshedAt,
+                        now: context.date
+                    ) {
+                        Text(checked)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
             Button {
                 pickup.reopenPickup()
             } label: {

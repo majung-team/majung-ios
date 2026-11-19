@@ -7,7 +7,7 @@ struct SettingsTabView: View {
     @Bindable var people: PeopleViewModel
     @Bindable var rideRequests: RideRequestViewModel
     @Bindable var vehicleLinks: VehicleLinkViewModel
-    @State private var notifications = PickupNotificationService()
+    @State private var notifications = PickupNotificationService.shared
     @State private var nicknameDraft = ""
     @State private var copiedId = false
     @State private var showingVehicleScanner = false

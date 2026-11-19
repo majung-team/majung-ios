@@ -13,6 +13,7 @@ struct MajungApp: App {
         if args.contains("-UITestResetSessions") {
             AccountSessionStore.clear()
             PickupSessionStore.clear()
+            RecentPlaceStore().clear()
         }
         if args.contains("-UITestResetParking") {
             for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix("majung.parking.") {

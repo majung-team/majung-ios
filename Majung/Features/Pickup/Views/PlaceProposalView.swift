@@ -21,6 +21,7 @@ struct PlaceProposalView: View {
                 externalError: tracker.error,
                 onSubmit: { place in
                     if await tracker.suggest(place) {
+                        RecentPlaceStore().record(place)
                         dismiss()
                     }
                 }

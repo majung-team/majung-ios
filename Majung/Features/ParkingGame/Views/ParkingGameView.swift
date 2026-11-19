@@ -3,6 +3,9 @@ import SwiftUI
 struct ParkingGameEntry: View {
     var tracker: PickupTracker? = nil
     var compact = false
+    var title: String = "잠깐 주차"
+    var subtitle: String = "선을 그려 빈자리에 쏙. 언제든 한 판!"
+    var accessibilityId: String? = nil
     @State private var isPresented = false
 
     var body: some View {
@@ -11,7 +14,7 @@ struct ParkingGameEntry: View {
             isPresented = true
         } label: {
             if compact {
-                Label("잠깐 주차", systemImage: "steeringwheel").font(.subheadline)
+                Label(title, systemImage: "steeringwheel").font(.subheadline)
             } else {
                 HStack(spacing: 14) {
                     Image(systemName: "steeringwheel")
@@ -20,8 +23,8 @@ struct ParkingGameEntry: View {
                         .frame(width: 48, height: 48)
                         .background(Color(red: 0.23, green: 0.43, blue: 0.91), in: RoundedRectangle(cornerRadius: 15))
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("잠깐 주차").font(.headline).foregroundStyle(.primary)
-                        Text("선을 그려 빈자리에 쏙. 언제든 한 판!")
+                        Text(title).font(.headline).foregroundStyle(.primary)
+                        Text(subtitle)
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)
@@ -36,7 +39,7 @@ struct ParkingGameEntry: View {
             let status = $0.snapshot?.status
             return status == nil || status == .arrived || $0.connectionProblem
         } == true)
-        .accessibilityIdentifier(compact ? "pickup-parking-open" : "parking-game-open")
+        .accessibilityIdentifier(accessibilityId ?? (compact ? "pickup-parking-open" : "parking-game-open"))
         .sheet(isPresented: $isPresented) {
             ParkingGamePresentation(tracker: tracker)
                 .presentationDragIndicator(.visible)

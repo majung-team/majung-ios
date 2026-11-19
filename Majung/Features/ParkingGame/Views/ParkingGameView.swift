@@ -39,7 +39,6 @@ struct ParkingGameEntry: View {
         .accessibilityIdentifier(compact ? "pickup-parking-open" : "parking-game-open")
         .sheet(isPresented: $isPresented) {
             ParkingGamePresentation(tracker: tracker)
-                .preferredColorScheme(.light)
                 .presentationDragIndicator(.visible)
         }
     }
@@ -76,7 +75,8 @@ struct ParkingGameView: View {
     @State private var showingGarage = false
     @State private var showingHelp = false
 
-    private let ink = Color(red: 0.12, green: 0.20, blue: 0.29)
+    @Environment(\.colorScheme) private var colorScheme
+    private var ink: Color { colorScheme == .dark ? .primary : Color(red: 0.12, green: 0.20, blue: 0.29) }
     private let blue = Color(red: 0.23, green: 0.43, blue: 0.91)
 
     private var message: String {
@@ -111,7 +111,7 @@ struct ParkingGameView: View {
         NavigationStack {
             VStack(spacing: 22) {
                 Spacer()
-                Image(systemName: notice.symbol).font(.system(size: 52)).foregroundStyle(blue)
+                Image(systemName: notice.symbol).font(.system(size: 52)).foregroundStyle(Color.blue)
                 Text(notice.title).font(.title2.bold()).multilineTextAlignment(.center)
                     .accessibilityIdentifier("parking-pickup-notice")
                 Text(notice.message).font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -171,7 +171,7 @@ struct ParkingGameView: View {
                 .padding(20).frame(maxWidth: 560).frame(maxWidth: .infinity)
             }
             .scrollBounceBehavior(.basedOnSize)
-            .background(Color(red: 0.96, green: 0.96, blue: 0.93))
+            .background(colorScheme == .dark ? Color(.systemGroupedBackground) : Color(red: 0.96, green: 0.96, blue: 0.93))
         }
         .foregroundStyle(ink)
         .navigationTitle("잠깐 주차")
@@ -216,7 +216,7 @@ struct ParkingGameView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(game.run.stage.dailyKey.map { "DAILY · \($0)" } ?? String(format: "STAGE %02d", game.run.stage.id))
-                    .font(.caption.monospaced().weight(.bold)).tracking(1).foregroundStyle(blue)
+                    .font(.caption.monospaced().weight(.bold)).tracking(1).foregroundStyle(Color.blue)
                 Spacer()
                 Label("\(game.totalStars) / \(ParkingStage.all.count * 3)", systemImage: "star.fill")
                     .font(.caption.bold()).foregroundStyle(ink)
@@ -241,9 +241,9 @@ struct ParkingGameView: View {
 
     private func award(_ title: String, _ flag: ParkingAwards, _ awards: ParkingAwards) -> some View {
         Label(title, systemImage: awards.contains(flag) ? "star.fill" : "star")
-            .font(.caption.weight(.semibold)).foregroundStyle(awards.contains(flag) ? Color.brown : ink.opacity(0.6))
+            .font(.caption.weight(.semibold)).foregroundStyle(awards.contains(flag) ? (colorScheme == .dark ? Color.yellow : .brown) : .secondary)
             .frame(maxWidth: .infinity).padding(.vertical, 9)
-            .background(awards.contains(flag) ? Color.yellow.opacity(0.22) : .white.opacity(0.7), in: Capsule())
+            .background(awards.contains(flag) ? Color.yellow.opacity(0.22) : Color(.secondarySystemGroupedBackground).opacity(0.7), in: Capsule())
     }
 
     private var feedback: some View {
@@ -255,7 +255,7 @@ struct ParkingGameView: View {
                 .accessibilityIdentifier("parking-game-message")
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(14)
-        .background(.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color(.secondarySystemGroupedBackground).opacity(0.85), in: RoundedRectangle(cornerRadius: 16))
         .accessibilityElement(children: .combine)
     }
 
@@ -349,7 +349,7 @@ struct ParkingGameView: View {
                                 }
                                 Spacer(minLength: 0)
                                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
-                            }.padding(16).background(.white, in: RoundedRectangle(cornerRadius: 20))
+                            }.padding(16).background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
                         }.buttonStyle(.plain).accessibilityIdentifier("parking-chapter-\(chapter.id)")
                     }
                 }.padding(20)
@@ -380,7 +380,7 @@ struct ParkingGameView: View {
                         }
                         .frame(maxWidth: .infinity).padding(.vertical, 18)
                         .foregroundStyle(selected ? .white : ink)
-                        .background(selected ? blue : .white, in: RoundedRectangle(cornerRadius: 18))
+                        .background(selected ? blue : Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18))
                     }.buttonStyle(.plain).accessibilityIdentifier("parking-stage-\(stage.id)")
                 }
             }.padding(20)
@@ -404,7 +404,7 @@ struct ParkingGameView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "car.fill")
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(blue)
+                        .foregroundStyle(Color.blue)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(MajungFormatting.etaText(tracker.currentVehicle()))
                             .font(.caption.weight(.bold))
@@ -430,7 +430,7 @@ struct ParkingGameView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 14))
+                .background(Color(.secondarySystemGroupedBackground).opacity(0.92), in: RoundedRectangle(cornerRadius: 14))
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("parking-pickup-status-bar")
             }

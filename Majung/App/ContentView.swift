@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var rideRequestModel: RideRequestViewModel
     @State private var vehicleLinkModel: VehicleLinkViewModel
     @State private var pickupModel = PickupViewModel()
+    @State private var notificationService = PickupNotificationService.shared
     @State private var link = ""
     @State private var showingSplash = true
     @State private var pickupNavigationEventCount = 0
@@ -143,6 +144,14 @@ struct ContentView: View {
         }
         .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
             guard let url = activity.webpageURL else { return }
+            handleIncomingURL(url)
+        }
+        .onChange(of: notificationService.pendingDeepLinkURL) { _, _ in
+            guard !showingSplash, let url = notificationService.consumePendingDeepLinkURL() else { return }
+            handleIncomingURL(url)
+        }
+        .onChange(of: showingSplash) { _, isSplash in
+            guard !isSplash, let url = notificationService.consumePendingDeepLinkURL() else { return }
             handleIncomingURL(url)
         }
         .task(id: activeSession) {

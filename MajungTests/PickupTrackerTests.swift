@@ -981,4 +981,45 @@ final class PickupTrackerTests: XCTestCase {
         XCTAssertEqual(overHour.compactTrailingLabel, "70분")
         XCTAssertEqual(overHour.etaSummaryText, "약 1시간 10분 후 도착 예정")
     }
+
+    func testNotificationForegroundBannerVisibilityAndTapDeepLinkRouting() {
+        let suiteName = "MajungTests.NotificationRouting.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let service = PickupNotificationService(defaults: defaults)
+        let approachingId = "majung.approaching-11111111-2222-4333-8444-555555555555"
+
+        // Away from pickup screen: show banner + list + sound
+        service.isPickupScreenVisible = false
+        let awayOptions = service.foregroundPresentationOptions(for: approachingId)
+        XCTAssertTrue(awayOptions.contains(.banner))
+        XCTAssertTrue(awayOptions.contains(.list))
+        XCTAssertTrue(awayOptions.contains(.sound))
+
+        // On pickup screen: sound only (no stale banner covering pickup UI)
+        service.isPickupScreenVisible = true
+        let visibleOptions = service.foregroundPresentationOptions(for: approachingId)
+        XCTAssertFalse(visibleOptions.contains(.banner))
+        XCTAssertTrue(visibleOptions.contains(.sound))
+
+        // Debug/other notification still presents banner
+        let debugOptions = service.foregroundPresentationOptions(for: "majung.debug.sample.123")
+        XCTAssertTrue(debugOptions.contains(.banner))
+
+        // Notification tap with explicit userInfo deep link
+        service.handleNotificationTap(
+            userInfo: ["pickupDeepLink": "majung://pickup/abc-123"],
+            identifier: "custom"
+        )
+        XCTAssertEqual(service.consumePendingDeepLinkURL()?.absoluteString, "majung://pickup/abc-123")
+        XCTAssertNil(service.consumePendingDeepLinkURL())
+
+        // Notification tap fallback from identifier
+        service.handleNotificationTap(userInfo: [:], identifier: approachingId)
+        XCTAssertEqual(
+            service.consumePendingDeepLinkURL()?.absoluteString,
+            "majung://pickup/11111111-2222-4333-8444-555555555555"
+        )
+    }
 }

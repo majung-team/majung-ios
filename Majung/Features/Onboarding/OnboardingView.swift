@@ -39,7 +39,7 @@ struct MajungGuideView: View {
             case .liveEta:
                 return "차량이 출발하면 내비게이션 이동 경로와 남은 거리, 도착 예정 시각을 한 화면에서 실시간으로 확인해요."
             case .readinessAndPlace:
-                return "지도로 원하는 출구를 제안하거나, ‘탈 준비 됐어요’와 짧은 한마디로 운전자와 어긋남 없이 만나요."
+                return "지도로 원하는 출구를 제안하거나, ‘탑승 준비 완료’와 짧은 한마디로 운전자와 어긋남 없이 만나요."
             case .flexibleEntry:
                 return "운전자는 로그인 후 차량 QR을 연결해요. 탑승자는 받은 초대 링크로 가입 없이 참여하거나, 로그인해 운전자에게 마중을 요청할 수 있어요."
             }
@@ -293,7 +293,7 @@ private struct OnboardingCommsCard: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
-                Text("탈 준비 됐어요 · 차량에 전달됨")
+                Text("탑승 준비 완료 · 차량에 전달됨")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.green)
             }

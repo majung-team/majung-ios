@@ -17,8 +17,10 @@ struct PlaceComposerView<Header: View>: View {
     let onSubmit: (_ place: PickupPlace) async -> Void
     @ViewBuilder let header: () -> Header
 
+    @Environment(\.openURL) private var openURL
     @State private var locationService = LocationService()
     @State private var recentPlaces: [PickupPlace] = RecentPlaceStore().load()
+    @State private var locationPermissionDenied = false
     @State private var searchQuery = ""
     @State private var searchResults: [PlaceSearchCandidate] = []
     @State private var searchedKeyword = ""
@@ -142,8 +144,18 @@ struct PlaceComposerView<Header: View>: View {
 
     private func recentPlacesCard(onSelected: @escaping () -> Void) -> some View {
         MajungCard {
-            Label("최근 만날 장소", systemImage: "clock.arrow.circlepath")
-                .font(.subheadline.weight(.semibold))
+            HStack {
+                Label("최근 만날 장소", systemImage: "clock.arrow.circlepath")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button("지우기") {
+                    RecentPlaceStore().clear()
+                    recentPlaces = []
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("\(idPrefix)-recent-places-clear")
+            }
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
                     ForEach(Array(recentPlaces.enumerated()), id: \.offset) { idx, place in
@@ -158,6 +170,13 @@ struct PlaceComposerView<Header: View>: View {
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .contextMenu {
+                            Button("이 장소 삭제", role: .destructive) {
+                                let store = RecentPlaceStore()
+                                store.remove(place)
+                                recentPlaces = store.load()
+                            }
+                        }
                         .accessibilityIdentifier("\(idPrefix)-recent-place-\(idx)")
                     }
                 }
@@ -198,16 +217,31 @@ struct PlaceComposerView<Header: View>: View {
                 .accessibilityIdentifier("\(idPrefix)-place-search-button")
             }
 
-            Button {
-                focusedField = nil
-                Task { await useCurrentLocation(onSelected: onSelected) }
-            } label: {
-                Label(locationService.locating ? "현재 위치 확인 중…" : "현재 위치 선택", systemImage: "location.fill")
+            HStack(spacing: 8) {
+                Button {
+                    focusedField = nil
+                    Task { await useCurrentLocation(onSelected: onSelected) }
+                } label: {
+                    Label(locationService.locating ? "현재 위치 확인 중…" : "현재 위치 선택", systemImage: "location.fill")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(locationService.locating || busy)
+                .accessibilityIdentifier("\(idPrefix)-location-button")
+
+                if locationPermissionDenied {
+                    Button {
+                        if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(settingsURL)
+                        }
+                    } label: {
+                        Label("설정 열기", systemImage: "gearshape")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityIdentifier("\(idPrefix)-location-open-settings-button")
+                }
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .disabled(locationService.locating || busy)
-            .accessibilityIdentifier("\(idPrefix)-location-button")
 
             if let searchNote {
                 Text(searchNote)
@@ -475,6 +509,7 @@ struct PlaceComposerView<Header: View>: View {
 
     private func useCurrentLocation(onSelected: () -> Void) async {
         localError = nil
+        locationPermissionDenied = false
         do {
             let location = try await locationService.requestCurrentLocation()
             selectedCoordinate = location.coordinate
@@ -492,6 +527,7 @@ struct PlaceComposerView<Header: View>: View {
             }
             onSelected()
         } catch {
+            locationPermissionDenied = (error as? LocationFailure) == .denied
             localError = (error as? LocationFailure)?.errorDescription ?? "현재 위치를 확인하지 못했어요."
         }
     }

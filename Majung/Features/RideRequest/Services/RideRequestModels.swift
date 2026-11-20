@@ -148,6 +148,21 @@ struct RecentPlaceStore {
         }
     }
 
+    func remove(_ place: PickupPlace) {
+        let trimmed = place.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        let filtered = load().filter { existing in
+            let sameLabel = existing.label.caseInsensitiveCompare(trimmed) == .orderedSame
+            let sameCoord = abs(existing.latitude - place.latitude) < 0.0001
+                && abs(existing.longitude - place.longitude) < 0.0001
+            return !sameLabel && !sameCoord
+        }
+        if filtered.isEmpty {
+            defaults.removeObject(forKey: key)
+        } else if let data = try? JSONEncoder().encode(filtered) {
+            defaults.set(data, forKey: key)
+        }
+    }
+
     func clear() {
         defaults.removeObject(forKey: key)
     }

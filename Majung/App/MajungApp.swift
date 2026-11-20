@@ -36,8 +36,21 @@ private final class MajungNotificationDelegate: NSObject, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        // The foreground pickup screen already shows status; a system banner can outlive it.
-        [.sound]
+        let identifier = notification.request.identifier
+        return await MainActor.run {
+            PickupNotificationService.shared.foregroundPresentationOptions(for: identifier)
+        }
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let userInfo = response.notification.request.content.userInfo
+        let identifier = response.notification.request.identifier
+        await MainActor.run {
+            PickupNotificationService.shared.handleNotificationTap(userInfo: userInfo, identifier: identifier)
+        }
     }
 }
 
